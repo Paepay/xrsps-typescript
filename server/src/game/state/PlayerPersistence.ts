@@ -145,6 +145,78 @@ function sanitizeLocationSnapshot(
     return normalized;
 }
 
+function sanitizeMiningOreLocations(
+    locations: PlayerPersistentVars["miningOreLocations"] | undefined,
+): PlayerPersistentVars["miningOreLocations"] | undefined {
+    if (!locations || typeof locations !== "object") return undefined;
+    const result: Record<string, PlayerLocationSnapshot> = {};
+    for (const [rockId, loc] of Object.entries(locations)) {
+        if (typeof rockId !== "string" || rockId.length === 0) continue;
+        const sanitized = sanitizeLocationSnapshot(loc);
+        if (!sanitized) continue;
+        result[rockId] = {
+            x: sanitized.x,
+            y: sanitized.y,
+            level: sanitized.level,
+        };
+    }
+    return Object.keys(result).length > 0 ? result : undefined;
+}
+
+function sanitizeWoodcuttingTreeLocations(
+    locations: PlayerPersistentVars["woodcuttingTreeLocations"] | undefined,
+): PlayerPersistentVars["woodcuttingTreeLocations"] | undefined {
+    if (!locations || typeof locations !== "object") return undefined;
+    const result: Record<string, PlayerLocationSnapshot> = {};
+    for (const [treeId, loc] of Object.entries(locations)) {
+        if (typeof treeId !== "string" || treeId.length === 0) continue;
+        const sanitized = sanitizeLocationSnapshot(loc);
+        if (!sanitized) continue;
+        result[treeId] = {
+            x: sanitized.x,
+            y: sanitized.y,
+            level: sanitized.level,
+        };
+    }
+    return Object.keys(result).length > 0 ? result : undefined;
+}
+
+function sanitizeFishingCatchLocations(
+    locations: PlayerPersistentVars["fishingCatchLocations"] | undefined,
+): PlayerPersistentVars["fishingCatchLocations"] | undefined {
+    if (!locations || typeof locations !== "object") return undefined;
+    const result: Record<string, PlayerLocationSnapshot> = {};
+    for (const [catchId, loc] of Object.entries(locations)) {
+        if (typeof catchId !== "string" || catchId.length === 0) continue;
+        const sanitized = sanitizeLocationSnapshot(loc);
+        if (!sanitized) continue;
+        result[catchId] = {
+            x: sanitized.x,
+            y: sanitized.y,
+            level: sanitized.level,
+        };
+    }
+    return Object.keys(result).length > 0 ? result : undefined;
+}
+
+function sanitizeHunterCatchLocations(
+    locations: PlayerPersistentVars["hunterCatchLocations"] | undefined,
+): PlayerPersistentVars["hunterCatchLocations"] | undefined {
+    if (!locations || typeof locations !== "object") return undefined;
+    const result: Record<string, PlayerLocationSnapshot> = {};
+    for (const [catchId, loc] of Object.entries(locations)) {
+        if (typeof catchId !== "string" || catchId.length === 0) continue;
+        const sanitized = sanitizeLocationSnapshot(loc);
+        if (!sanitized) continue;
+        result[catchId] = {
+            x: sanitized.x,
+            y: sanitized.y,
+            level: sanitized.level,
+        };
+    }
+    return Object.keys(result).length > 0 ? result : undefined;
+}
+
 function clampCoord(value: number): number {
     return Math.max(0, Math.min(MAX_TILE_COORD, Math.floor(value)));
 }
@@ -379,6 +451,28 @@ function mergeStates(
     const location = sanitizeLocationSnapshot(pick("location"));
     if (location) {
         result.location = location;
+    }
+
+    const miningOreLocations = sanitizeMiningOreLocations(pick("miningOreLocations"));
+    if (miningOreLocations) {
+        result.miningOreLocations = miningOreLocations;
+    }
+
+    const woodcuttingTreeLocations = sanitizeWoodcuttingTreeLocations(
+        pick("woodcuttingTreeLocations"),
+    );
+    if (woodcuttingTreeLocations) {
+        result.woodcuttingTreeLocations = woodcuttingTreeLocations;
+    }
+
+    const fishingCatchLocations = sanitizeFishingCatchLocations(pick("fishingCatchLocations"));
+    if (fishingCatchLocations) {
+        result.fishingCatchLocations = fishingCatchLocations;
+    }
+
+    const hunterCatchLocations = sanitizeHunterCatchLocations(pick("hunterCatchLocations"));
+    if (hunterCatchLocations) {
+        result.hunterCatchLocations = hunterCatchLocations;
     }
 
     const runEnergy = pick("runEnergy");

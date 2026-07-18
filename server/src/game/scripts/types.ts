@@ -557,6 +557,11 @@ export interface ScriptServices {
         },
     ) => { ok: boolean; reason?: string };
     /**
+     * Developer/admin gate (world-map teleports, mining skill-guide ore teleports, etc.).
+     * Temporary until feature-specific unlocks exist.
+     */
+    canUseAdminTeleport?: (player: PlayerState) => boolean;
+    /**
      * Send a varp (variable player) update to the client
      * @param player The player to send the update to
      * @param varpId The varp ID

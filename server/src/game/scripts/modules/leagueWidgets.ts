@@ -2264,6 +2264,11 @@ export const leagueWidgetModule: ScriptModule = {
             if (tutorial === 9) {
                 services.queueWidgetEvent?.(player.id, {
                     action: "run_script",
+                    scriptId: SCRIPT_UI_HIGHLIGHT_CLEAR,
+                    args: [UI_HIGHLIGHT_KIND_LEAGUE_TUTORIAL, UI_HIGHLIGHT_ID_UNLOCK_BUTTON],
+                });
+                services.queueWidgetEvent?.(player.id, {
+                    action: "run_script",
                     scriptId: SCRIPT_UI_HIGHLIGHT,
                     args: [
                         UI_HIGHLIGHT_KIND_LEAGUE_TUTORIAL,
@@ -2429,12 +2434,69 @@ export const leagueWidgetModule: ScriptModule = {
         });
 
         registry.onButton(LEAGUE_RELICS_GROUP_ID, L5_RELIC_CANCEL_BUTTON_CHILD, (event) => {
-            clearPendingRelicSelection(event.player);
+            const player = event.player;
+            clearPendingRelicSelection(player);
+            const tutorial = player.getVarbitValue?.(VARBIT_LEAGUE_TUTORIAL_COMPLETED) ?? 0;
+            if (tutorial === 9) {
+                services.queueWidgetEvent?.(player.id, {
+                    action: "run_script",
+                    scriptId: SCRIPT_UI_HIGHLIGHT_CLEAR,
+                    args: [UI_HIGHLIGHT_KIND_LEAGUE_TUTORIAL, UI_HIGHLIGHT_ID_UNLOCK_BUTTON],
+                });
+            }
         });
 
-        // Select applies server-side (OSRS confirm overlay is client-only; confirm often does not transmit).
+        // OSRS parity: Select only opens the confirm overlay (CS2 onOp).
+        // The irreversible unlock is applied on Confirm, same as area unlock.
+        const onRelicSelectClick = (player: any): void => {
+            const pending = getPendingRelicSelection(player);
+            if (!pending) {
+                console.log(`[league] Relic Select ignored: no pending selection`);
+                return;
+            }
+
+            // Ensure Confirm/Cancel can transmit once the overlay is visible.
+            queueWidgetFlagsRange(
+                player,
+                services,
+                uidForRelics(L5_RELIC_CONFIRM_BUTTON_CHILD),
+                -1,
+                -1,
+                IF_SETEVENTS_TRANSMIT_OP1,
+            );
+            queueWidgetFlagsRange(
+                player,
+                services,
+                uidForRelics(L5_RELIC_CANCEL_BUTTON_CHILD),
+                -1,
+                -1,
+                IF_SETEVENTS_TRANSMIT_OP1,
+            );
+
+            // Tutorial: after Select, guide the player to Confirm.
+            const tutorial = player.getVarbitValue?.(VARBIT_LEAGUE_TUTORIAL_COMPLETED) ?? 0;
+            if (tutorial === 9) {
+                services.queueWidgetEvent?.(player.id, {
+                    action: "run_script",
+                    scriptId: SCRIPT_UI_HIGHLIGHT,
+                    args: [
+                        UI_HIGHLIGHT_KIND_LEAGUE_TUTORIAL,
+                        UI_HIGHLIGHT_ID_UNLOCK_BUTTON,
+                        uidForRelics(L5_RELIC_CONFIRM_BUTTON_CHILD),
+                        -1,
+                        UI_HIGHLIGHT_STYLE_DEFAULT,
+                        0,
+                    ],
+                });
+            }
+
+            console.log(
+                `[league] Awaiting relic confirm: tier=${pending.tierIndex} key=${pending.relicKey}`,
+            );
+        };
+
         registry.onButton(LEAGUE_RELICS_GROUP_ID, L5_RELIC_SELECT_BUTTON_CHILD, (event) => {
-            commitPendingRelicSelection(event.player);
+            onRelicSelectClick(event.player);
         });
 
         registry.onButton(LEAGUE_RELICS_GROUP_ID, L5_RELIC_CONFIRM_BUTTON_CHILD, (event) => {
@@ -2445,7 +2507,7 @@ export const leagueWidgetModule: ScriptModule = {
             widgetId: uidForRelics(L5_RELIC_SELECT_BUTTON_CHILD),
             opId: 1,
             handler: (event) => {
-                commitPendingRelicSelection(event.player);
+                onRelicSelectClick(event.player);
             },
         });
 

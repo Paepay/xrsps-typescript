@@ -17,6 +17,9 @@ import type {
     FishingToolId,
 } from "../../skills/fishing";
 import type { MiningRockDefinition, PickaxeDefinition } from "../../skills/mining";
+import { tryRememberMiningOreGuideLocation } from "../../skills/miningOreGuideLocations";
+import { tryRememberWoodcuttingTreeGuideLocation } from "../../skills/woodcuttingTreeGuideLocations";
+import { tryRememberFishingCatchGuideLocation } from "../../skills/fishingCatchGuideLocations";
 import type { HatchetDefinition, WoodcuttingTreeDefinition } from "../../skills/woodcutting";
 import { type InventoryItem as RuneInventoryItem, RuneValidator } from "../../spells/RuneValidator";
 import type {
@@ -289,6 +292,16 @@ export interface SkillActionServices {
     ): "success" | "burn";
     rollWoodcuttingSuccess(level: number, treeLevel: number, hatchet: HatchetDef): boolean;
     rollMiningSuccess(level: number, rockLevel: number, pickaxe: PickaxeDef): boolean;
+    /** Admin bypass for mining skill-guide ore memory + teleport. */
+    canUseMiningOreGuideFeature?(player: PlayerState): boolean;
+    /** Admin bypass for woodcutting skill-guide tree memory + teleport. */
+    canUseWoodcuttingTreeGuideFeature?(player: PlayerState): boolean;
+    /** Admin bypass for fishing skill-guide catch memory + teleport. */
+    canUseFishingCatchGuideFeature?(player: PlayerState): boolean;
+    /** Cache enum loader for league relic unlock checks. */
+    getEnumTypeLoader?(): any;
+    /** Cache struct loader for league relic unlock checks. */
+    getStructTypeLoader?(): any;
     rollFishingSuccess(level: number, catchLevel: number, tool: FishingToolDef): boolean;
     rollSmeltingSuccess(
         level: number,
@@ -1401,6 +1414,13 @@ export class SkillActionHandler {
             }
             this.services.awardSkillXp(player, SkillId.Mining, rock.xp);
 
+            tryRememberMiningOreGuideLocation(player, rock.id, {
+                canUseAdminTeleport: (p) =>
+                    this.services.canUseMiningOreGuideFeature?.(p) === true,
+                getEnumTypeLoader: this.services.getEnumTypeLoader,
+                getStructTypeLoader: this.services.getStructTypeLoader,
+            });
+
             if (locId > 0) {
                 nextEchoMinedCount = hasEchoPickaxePerk ? echoMinedCount + 1 : 0;
                 const canDeplete = !hasEchoPickaxePerk || nextEchoMinedCount >= 4;
@@ -1693,6 +1713,13 @@ export class SkillActionHandler {
                 );
             }
             this.services.awardSkillXp(player, SkillId.Fishing, catchDef.xp);
+
+            tryRememberFishingCatchGuideLocation(player, catchDef.id, {
+                canUseAdminTeleport: (p) =>
+                    this.services.canUseFishingCatchGuideFeature?.(p) === true,
+                getEnumTypeLoader: this.services.getEnumTypeLoader,
+                getStructTypeLoader: this.services.getStructTypeLoader,
+            });
 
             if (baitSlot !== undefined && Array.isArray(method.baitItemIds)) {
                 if (!this.services.consumeItem(player, baitSlot)) {
@@ -2417,6 +2444,13 @@ export class SkillActionHandler {
                 );
             }
             this.services.awardSkillXp(player, SkillId.Woodcutting, tree.xp);
+
+            tryRememberWoodcuttingTreeGuideLocation(player, tree.id, {
+                canUseAdminTeleport: (p) =>
+                    this.services.canUseWoodcuttingTreeGuideFeature?.(p) === true,
+                getEnumTypeLoader: this.services.getEnumTypeLoader,
+                getStructTypeLoader: this.services.getStructTypeLoader,
+            });
 
             if (this.services.shouldDepleteTree(tree)) {
                 treeDepleted = true;

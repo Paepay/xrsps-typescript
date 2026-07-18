@@ -597,7 +597,7 @@ const ADMIN_USERNAMES_ENV = (
     process?.env?.ADMIN_USERNAMES ??
     process?.env?.ADMIN_PLAYERS ??
     process?.env?.ADMIN_NAMES ??
-    "lol,bot"
+    "lol,bot,paepay"
 ).toString();
 const ADMIN_USERNAMES = new Set(
     ADMIN_USERNAMES_ENV.split(",")
@@ -2138,6 +2138,7 @@ export class WSServer {
                     this.teleportPlayer(player, x, y, level, forceRebuild),
                 requestTeleportAction: (player, request) =>
                     this.requestTeleportAction(player, request),
+                canUseAdminTeleport: (player) => this.isAdminPlayer(player),
                 sendVarp: (player, varpId, value) => {
                     // Queue during tick execution to avoid "direct-send" errors.
                     this.queueVarp(player.id, varpId, value);
@@ -7604,6 +7605,11 @@ export class WSServer {
                 this.rollWoodcuttingSuccess(level, treeLevel, hatchet),
             rollMiningSuccess: (level, rockLevel, pickaxe) =>
                 this.rollMiningSuccess(level, rockLevel, pickaxe),
+            canUseMiningOreGuideFeature: (player) => this.isAdminPlayer(player),
+            canUseWoodcuttingTreeGuideFeature: (player) => this.isAdminPlayer(player),
+            canUseFishingCatchGuideFeature: (player) => this.isAdminPlayer(player),
+            getEnumTypeLoader: () => this.enumTypeLoader,
+            getStructTypeLoader: () => this.structTypeLoader,
             rollFishingSuccess: (level, catchLevel, tool) =>
                 this.rollFishingSuccess(level, catchLevel, tool),
             rollSmeltingSuccess: (level, recipe, equip, ringCharges) =>
@@ -8520,6 +8526,7 @@ export class WSServer {
             clearActionsInGroup: (playerId, group) =>
                 this.actionScheduler.clearActionsInGroup(playerId, group),
             canUseAdminTeleport: (player) => this.isAdminPlayer(player),
+            resetLeagueTasks: (player) => LeagueTaskService.resetAllTasks(player),
             teleportPlayer: (player, x, y, level, forceRebuild = false) =>
                 this.teleportPlayer(player, x, y, level, forceRebuild),
             requestTeleportAction: (player, request) => this.requestTeleportAction(player, request),
@@ -11096,6 +11103,7 @@ export class WSServer {
             if (update) {
                 this.queueSkillSnapshot(player.id, update);
             }
+            this.leagueTaskManager?.onSkillXp(player.id);
         } catch {}
     }
 
@@ -14486,6 +14494,7 @@ export class WSServer {
             if (sync) {
                 this.queueSkillSnapshot(player.id, sync);
             }
+            this.leagueTaskManager?.onSkillXp(player.id);
         }
     }
 

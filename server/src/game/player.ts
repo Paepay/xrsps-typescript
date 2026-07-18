@@ -435,6 +435,26 @@ export interface PlayerPersistentVars {
     };
     follower?: PlayerFollowerPersistentEntry;
     playTimeSeconds?: number;
+    /**
+     * Last non-instanced standing tile per Mining skill-guide ore type (rock id).
+     * Used by the mining skill-guide teleport feature.
+     */
+    miningOreLocations?: Record<string, PlayerLocationSnapshot>;
+    /**
+     * Last non-instanced standing tile per Woodcutting skill-guide tree type (tree id).
+     * Used by the woodcutting skill-guide teleport feature.
+     */
+    woodcuttingTreeLocations?: Record<string, PlayerLocationSnapshot>;
+    /**
+     * Last non-instanced standing tile per Fishing skill-guide catch type (catch id).
+     * Used by the fishing skill-guide teleport feature.
+     */
+    fishingCatchLocations?: Record<string, PlayerLocationSnapshot>;
+    /**
+     * Last non-instanced standing tile per Hunter skill-guide catch type (catch id).
+     * Used by the hunter skill-guide teleport feature.
+     */
+    hunterCatchLocations?: Record<string, PlayerLocationSnapshot>;
 }
 
 export class PlayerState extends Actor {
@@ -452,6 +472,14 @@ export class PlayerState extends Actor {
     lastNpcHealthBarScaled: Map<number, Map<number, number>> = new Map();
     private followerState?: PlayerFollowerPersistentEntry;
     private activeFollowerNpcId?: number;
+    /** Last standing tile per Mining skill-guide ore rock id. */
+    private miningOreLocations: Map<string, PlayerLocationSnapshot> = new Map();
+    /** Last standing tile per Woodcutting skill-guide tree id. */
+    private woodcuttingTreeLocations: Map<string, PlayerLocationSnapshot> = new Map();
+    /** Last standing tile per Fishing skill-guide catch id. */
+    private fishingCatchLocations: Map<string, PlayerLocationSnapshot> = new Map();
+    /** Last standing tile per Hunter skill-guide catch id. */
+    private hunterCatchLocations: Map<string, PlayerLocationSnapshot> = new Map();
     readonly skills: PlayerSkillState[];
     skillTotal: number;
     combatLevel: number;
@@ -1698,6 +1726,10 @@ export class PlayerState extends Actor {
         this.leagueTaskProgress.delete(taskId | 0);
     }
 
+    clearAllLeagueTaskProgress(): void {
+        this.leagueTaskProgress.clear();
+    }
+
     hasLeagueTaskCompleted(taskId: number): boolean {
         return this.leagueTasksCompletedIds.has(taskId | 0);
     }
@@ -2150,6 +2182,134 @@ export class PlayerState extends Actor {
             return;
         }
         this.ringOfForgingCharges = Math.max(0, Math.min(RING_OF_FORGING_MAX_CHARGES, amount));
+    }
+
+    rememberMiningOreLocation(rockId: string, location: PlayerLocationSnapshot): void {
+        const id = typeof rockId === "string" ? rockId.trim() : "";
+        if (!id) return;
+        this.miningOreLocations.set(id, {
+            x: Math.floor(location.x),
+            y: Math.floor(location.y),
+            level: Math.max(0, Math.min(3, Math.floor(location.level))),
+        });
+    }
+
+    getMiningOreLocation(rockId: string): PlayerLocationSnapshot | undefined {
+        const id = typeof rockId === "string" ? rockId.trim() : "";
+        if (!id) return undefined;
+        const loc = this.miningOreLocations.get(id);
+        if (!loc) return undefined;
+        return { x: loc.x, y: loc.y, level: loc.level };
+    }
+
+    rememberWoodcuttingTreeLocation(treeId: string, location: PlayerLocationSnapshot): void {
+        const id = typeof treeId === "string" ? treeId.trim() : "";
+        if (!id) return;
+        this.woodcuttingTreeLocations.set(id, {
+            x: Math.floor(location.x),
+            y: Math.floor(location.y),
+            level: Math.max(0, Math.min(3, Math.floor(location.level))),
+        });
+    }
+
+    getWoodcuttingTreeLocation(treeId: string): PlayerLocationSnapshot | undefined {
+        const id = typeof treeId === "string" ? treeId.trim() : "";
+        if (!id) return undefined;
+        const loc = this.woodcuttingTreeLocations.get(id);
+        if (!loc) return undefined;
+        return { x: loc.x, y: loc.y, level: loc.level };
+    }
+
+    rememberFishingCatchLocation(catchId: string, location: PlayerLocationSnapshot): void {
+        const id = typeof catchId === "string" ? catchId.trim() : "";
+        if (!id) return;
+        this.fishingCatchLocations.set(id, {
+            x: Math.floor(location.x),
+            y: Math.floor(location.y),
+            level: Math.max(0, Math.min(3, Math.floor(location.level))),
+        });
+    }
+
+    getFishingCatchLocation(catchId: string): PlayerLocationSnapshot | undefined {
+        const id = typeof catchId === "string" ? catchId.trim() : "";
+        if (!id) return undefined;
+        const loc = this.fishingCatchLocations.get(id);
+        if (!loc) return undefined;
+        return { x: loc.x, y: loc.y, level: loc.level };
+    }
+
+    rememberHunterCatchLocation(catchId: string, location: PlayerLocationSnapshot): void {
+        const id = typeof catchId === "string" ? catchId.trim() : "";
+        if (!id) return;
+        this.hunterCatchLocations.set(id, {
+            x: Math.floor(location.x),
+            y: Math.floor(location.y),
+            level: Math.max(0, Math.min(3, Math.floor(location.level))),
+        });
+    }
+
+    getHunterCatchLocation(catchId: string): PlayerLocationSnapshot | undefined {
+        const id = typeof catchId === "string" ? catchId.trim() : "";
+        if (!id) return undefined;
+        const loc = this.hunterCatchLocations.get(id);
+        if (!loc) return undefined;
+        return { x: loc.x, y: loc.y, level: loc.level };
+    }
+
+    private loadMiningOreLocations(
+        locations: Record<string, PlayerLocationSnapshot> | undefined,
+    ): void {
+        this.miningOreLocations.clear();
+        if (!locations || typeof locations !== "object") return;
+        for (const [rockId, loc] of Object.entries(locations)) {
+            if (!rockId || !loc) continue;
+            if (!Number.isFinite(loc.x) || !Number.isFinite(loc.y) || !Number.isFinite(loc.level)) {
+                continue;
+            }
+            this.rememberMiningOreLocation(rockId, loc);
+        }
+    }
+
+    private loadWoodcuttingTreeLocations(
+        locations: Record<string, PlayerLocationSnapshot> | undefined,
+    ): void {
+        this.woodcuttingTreeLocations.clear();
+        if (!locations || typeof locations !== "object") return;
+        for (const [treeId, loc] of Object.entries(locations)) {
+            if (!treeId || !loc) continue;
+            if (!Number.isFinite(loc.x) || !Number.isFinite(loc.y) || !Number.isFinite(loc.level)) {
+                continue;
+            }
+            this.rememberWoodcuttingTreeLocation(treeId, loc);
+        }
+    }
+
+    private loadFishingCatchLocations(
+        locations: Record<string, PlayerLocationSnapshot> | undefined,
+    ): void {
+        this.fishingCatchLocations.clear();
+        if (!locations || typeof locations !== "object") return;
+        for (const [catchId, loc] of Object.entries(locations)) {
+            if (!catchId || !loc) continue;
+            if (!Number.isFinite(loc.x) || !Number.isFinite(loc.y) || !Number.isFinite(loc.level)) {
+                continue;
+            }
+            this.rememberFishingCatchLocation(catchId, loc);
+        }
+    }
+
+    private loadHunterCatchLocations(
+        locations: Record<string, PlayerLocationSnapshot> | undefined,
+    ): void {
+        this.hunterCatchLocations.clear();
+        if (!locations || typeof locations !== "object") return;
+        for (const [catchId, loc] of Object.entries(locations)) {
+            if (!catchId || !loc) continue;
+            if (!Number.isFinite(loc.x) || !Number.isFinite(loc.y) || !Number.isFinite(loc.level)) {
+                continue;
+            }
+            this.rememberHunterCatchLocation(catchId, loc);
+        }
     }
 
     hasRingOfForgingEquipped(): boolean {
@@ -2806,6 +2966,50 @@ export class PlayerState extends Actor {
                 npcTypeId: this.followerState.npcTypeId,
             };
         }
+        if (this.miningOreLocations.size > 0) {
+            const miningOreLocations: Record<string, PlayerLocationSnapshot> = {};
+            for (const [rockId, loc] of this.miningOreLocations.entries()) {
+                miningOreLocations[rockId] = {
+                    x: loc.x,
+                    y: loc.y,
+                    level: loc.level,
+                };
+            }
+            snapshot.miningOreLocations = miningOreLocations;
+        }
+        if (this.woodcuttingTreeLocations.size > 0) {
+            const woodcuttingTreeLocations: Record<string, PlayerLocationSnapshot> = {};
+            for (const [treeId, loc] of this.woodcuttingTreeLocations.entries()) {
+                woodcuttingTreeLocations[treeId] = {
+                    x: loc.x,
+                    y: loc.y,
+                    level: loc.level,
+                };
+            }
+            snapshot.woodcuttingTreeLocations = woodcuttingTreeLocations;
+        }
+        if (this.fishingCatchLocations.size > 0) {
+            const fishingCatchLocations: Record<string, PlayerLocationSnapshot> = {};
+            for (const [catchId, loc] of this.fishingCatchLocations.entries()) {
+                fishingCatchLocations[catchId] = {
+                    x: loc.x,
+                    y: loc.y,
+                    level: loc.level,
+                };
+            }
+            snapshot.fishingCatchLocations = fishingCatchLocations;
+        }
+        if (this.hunterCatchLocations.size > 0) {
+            const hunterCatchLocations: Record<string, PlayerLocationSnapshot> = {};
+            for (const [catchId, loc] of this.hunterCatchLocations.entries()) {
+                hunterCatchLocations[catchId] = {
+                    x: loc.x,
+                    y: loc.y,
+                    level: loc.level,
+                };
+            }
+            snapshot.hunterCatchLocations = hunterCatchLocations;
+        }
         snapshot.accountCreationTimeMs = Math.max(
             0,
             Number.isFinite(this.accountCreationTimeMs)
@@ -3001,6 +3205,10 @@ export class PlayerState extends Actor {
         this.loadCollectionLogSnapshot(state.collectionLog);
         this.setFollowerState(state.follower);
         this.setActiveFollowerNpcId(undefined);
+        this.loadMiningOreLocations(state.miningOreLocations);
+        this.loadWoodcuttingTreeLocations(state.woodcuttingTreeLocations);
+        this.loadFishingCatchLocations(state.fishingCatchLocations);
+        this.loadHunterCatchLocations(state.hunterCatchLocations);
     }
 
     getFollowerState(): PlayerFollowerPersistentEntry | undefined {

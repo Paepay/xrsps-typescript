@@ -11,10 +11,20 @@ import {
     VARBIT_LEAGUE_MASTERY_POINTS_EARNED,
     VARBIT_LEAGUE_MASTERY_POINTS_TO_SPEND,
 } from "../../../../src/shared/vars";
+import { SkillId, SKILL_IDS } from "../../../../src/rs/skill/skills";
 import { logger } from "../../utils/logger";
 import { LeagueTaskIndex, type ParsedChallenge, type ParsedTask } from "./LeagueTaskIndex";
 import { type LeagueTaskPlayer, LeagueTaskService } from "./LeagueTaskService";
 import { syncLeaguePackedVarps } from "./leaguePackedVarps";
+import type { LevelReachTrigger } from "./triggers/TriggerTypes";
+
+/** Leagues skill tasks predate Sailing; exclude it from "every skill" / total checks. */
+const LEAGUE_SKILL_IDS: readonly SkillId[] = SKILL_IDS.filter((id) => id !== SkillId.Sailing);
+
+export type LeagueTaskSkillPlayer = LeagueTaskPlayer & {
+    getSkill: (id: SkillId | number) => { baseLevel: number; xp: number };
+    skillTotal: number;
+};
 
 export interface TaskManagerServices {
     getPlayer: (playerId: number) => LeagueTaskPlayer | undefined;
@@ -68,7 +78,7 @@ export class LeagueTaskManager {
             `[LeagueTaskManager] Index built: ${stats.parsed}/${stats.total} tasks parsed (${stats.coverage}), ${stats.challenges} challenges`,
         );
         logger.info(
-            `[LeagueTaskManager] Task index sizes: npcKill=${stats.indexSizes.npcKill}, itemEquip=${stats.indexSizes.itemEquip}, itemObtain=${stats.indexSizes.itemObtain}, itemCraft=${stats.indexSizes.itemCraft}`,
+            `[LeagueTaskManager] Task index sizes: npcKill=${stats.indexSizes.npcKill}, itemEquip=${stats.indexSizes.itemEquip}, itemObtain=${stats.indexSizes.itemObtain}, itemCraft=${stats.indexSizes.itemCraft}, levelReach=${stats.indexSizes.levelReach}`,
         );
         if (stats.challenges > 0) {
             logger.info(
@@ -208,6 +218,81 @@ export class LeagueTaskManager {
         const challenges = this.index.getChallengesForItemCraft(itemId);
         for (const challenge of challenges) {
             this.tryCompleteChallenge(player, playerId, challenge);
+        }
+    }
+
+    /**
+     * Called after a player gains skill XP.
+     * Completes any unfinished level-threshold tasks the player's current stats already satisfy
+     * (including after ::resettasks on a maxed account).
+     */
+    onSkillXp(playerId: number): void {
+        if (!this.initialized) return;
+
+        const player = this.services.getPlayer(playerId);
+        if (!player || !this.isSkillPlayer(player)) return;
+
+        const tasks = this.index.getLevelReachTasks();
+        for (const task of tasks) {
+            if (task.trigger.type !== "level_reach") continue;
+            if (!this.isLevelReachSatisfied(player, task.trigger)) continue;
+            this.tryCompleteTask(player, playerId, task);
+        }
+    }
+
+    private isSkillPlayer(player: LeagueTaskPlayer): player is LeagueTaskSkillPlayer {
+        return (
+            typeof (player as LeagueTaskSkillPlayer).getSkill === "function" &&
+            typeof (player as LeagueTaskSkillPlayer).skillTotal === "number"
+        );
+    }
+
+    private getSkillStartLevel(skillId: SkillId): number {
+        return skillId === SkillId.Hitpoints ? 10 : 1;
+    }
+
+    private isLevelReachSatisfied(player: LeagueTaskSkillPlayer, trigger: LevelReachTrigger): boolean {
+        switch (trigger.mode) {
+            case "skill": {
+                const skillId = trigger.skillId;
+                if (skillId === undefined) return false;
+                return player.getSkill(skillId).baseLevel >= trigger.level;
+            }
+            case "any": {
+                const excluded = new Set(trigger.excludeSkillIds ?? []);
+                for (const skillId of LEAGUE_SKILL_IDS) {
+                    if (excluded.has(skillId)) continue;
+                    if (player.getSkill(skillId).baseLevel >= trigger.level) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+            case "total": {
+                let total = 0;
+                for (const skillId of LEAGUE_SKILL_IDS) {
+                    total += player.getSkill(skillId).baseLevel;
+                }
+                return total >= trigger.level;
+            }
+            case "base": {
+                for (const skillId of LEAGUE_SKILL_IDS) {
+                    if (player.getSkill(skillId).baseLevel < trigger.level) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+            case "first_level_up": {
+                for (const skillId of LEAGUE_SKILL_IDS) {
+                    if (player.getSkill(skillId).baseLevel > this.getSkillStartLevel(skillId)) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+            default:
+                return false;
         }
     }
 

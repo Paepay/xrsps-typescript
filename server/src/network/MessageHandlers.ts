@@ -129,6 +129,11 @@ export interface MessageHandlerServices {
     clearPendingWalkCommand: (ws: WebSocket) => void;
     clearActionsInGroup: (playerId: number, group: string) => number;
     canUseAdminTeleport: (player: PlayerState) => boolean;
+    resetLeagueTasks: (player: PlayerState) => {
+        changed: boolean;
+        varpUpdates: Array<{ id: number; value: number }>;
+        varbitUpdates: Array<{ id: number; value: number }>;
+    };
     teleportPlayer: (
         player: PlayerState,
         x: number,
@@ -1245,6 +1250,32 @@ function createChatHandler(services: MessageHandlerServices): MessageHandler<"ch
                         targetPlayerIds: [sender.id],
                     });
                     logger.info(`[cmd] ::clear - Cleared inventory for player ${sender.id}`);
+                    return;
+                }
+
+                if (root === "resettasks") {
+                    if (!services.canUseAdminTeleport(sender)) {
+                        services.queueChatMessage({
+                            messageType: "game",
+                            text: "Only admins can reset league tasks.",
+                            targetPlayerIds: [sender.id],
+                        });
+                        return;
+                    }
+
+                    const result = services.resetLeagueTasks(sender);
+                    for (const update of result.varpUpdates) {
+                        services.queueVarp(sender.id, update.id, update.value);
+                    }
+                    for (const update of result.varbitUpdates) {
+                        services.queueVarbit(sender.id, update.id, update.value);
+                    }
+                    services.queueChatMessage({
+                        messageType: "game",
+                        text: "League tasks, points, relics, regions, and mastery unlocks reset. Skill-level tasks re-complete on your next XP gain.",
+                        targetPlayerIds: [sender.id],
+                    });
+                    logger.info(`[cmd] ::resettasks - Reset league tasks for player ${sender.id}`);
                     return;
                 }
 

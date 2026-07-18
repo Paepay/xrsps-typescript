@@ -5,18 +5,44 @@ import {
 } from "../../../../src/shared/leagues/leagueTaskVarps";
 import { getLeagueTaskByTaskId } from "../../../../src/shared/leagues/leagueTasks";
 import { LEAGUE_TASKS } from "../../../../src/shared/leagues/leagueTasks.data";
+import { VARBIT_MASTERY_POINT_UNLOCK_BASE } from "../../../../src/shared/leagues/leagueTypes";
 import {
     migrateLeagueTasksCompletedFromLegacy,
     syncLeagueTaskCompletionVarpsFromSet,
     type LeagueTaskCompletionSetPlayer,
 } from "./leagueTaskCompletionSet";
+import { syncLeaguePackedVarps } from "./leaguePackedVarps";
 import {
+    VARBIT_LEAGUE_AREA_LAST_VIEWED,
+    VARBIT_LEAGUE_AREA_SELECTION_0,
+    VARBIT_LEAGUE_AREA_SELECTION_1,
+    VARBIT_LEAGUE_AREA_SELECTION_2,
+    VARBIT_LEAGUE_AREA_SELECTION_3,
+    VARBIT_LEAGUE_AREA_SELECTION_4,
+    VARBIT_LEAGUE_AREA_SELECTION_5,
+    VARBIT_LEAGUE_MAGIC_MASTERY,
+    VARBIT_LEAGUE_MASTERY_POINTS_EARNED,
+    VARBIT_LEAGUE_MASTERY_POINTS_TO_SPEND,
+    VARBIT_LEAGUE_MELEE_MASTERY,
+    VARBIT_LEAGUE_RANGED_MASTERY,
+    VARBIT_LEAGUE_RELIC_1,
+    VARBIT_LEAGUE_RELIC_2,
+    VARBIT_LEAGUE_RELIC_3,
+    VARBIT_LEAGUE_RELIC_4,
+    VARBIT_LEAGUE_RELIC_5,
+    VARBIT_LEAGUE_RELIC_6,
+    VARBIT_LEAGUE_RELIC_7,
+    VARBIT_LEAGUE_RELIC_8,
     VARBIT_LEAGUE_TOTAL_TASKS_COMPLETED,
+    VARP_LEAGUE_5_POINTS,
     VARP_LEAGUE_GENERAL_TASKS_4,
     VARP_LEAGUE_GENERAL_TASKS_4_COUNT_MASK,
     VARP_LEAGUE_POINTS_CLAIMED,
     VARP_LEAGUE_POINTS_COMPLETED,
     VARP_LEAGUE_POINTS_CURRENCY,
+    VARP_LEAGUE_TRAILBLAZER_POINTS,
+    VARP_LEAGUE_TRAILBLAZER_RELOADED_POINTS,
+    VARP_LEAGUE_TWISTED_POINTS,
 } from "../../../../src/shared/vars";
 import { EquipmentSlot } from "../../../../src/rs/config/player/Equipment";
 
@@ -24,6 +50,52 @@ const OBSIDIAN_CAPE_ITEM_ID = 6568;
 const OBSIDIAN_HELMET_ITEM_ID = 21298;
 const OBSIDIAN_PLATEBODY_ITEM_ID = 21301;
 const OBSIDIAN_PLATELEGS_ITEM_ID = 21304;
+
+/** OSRS parity: Misthalin is always the starting unlocked region (region id 1). */
+const LEAGUE_STARTING_AREA_REGION_ID = 1;
+
+const LEAGUE_RELIC_SELECTION_VARBITS = [
+    VARBIT_LEAGUE_RELIC_1,
+    VARBIT_LEAGUE_RELIC_2,
+    VARBIT_LEAGUE_RELIC_3,
+    VARBIT_LEAGUE_RELIC_4,
+    VARBIT_LEAGUE_RELIC_5,
+    VARBIT_LEAGUE_RELIC_6,
+    VARBIT_LEAGUE_RELIC_7,
+    VARBIT_LEAGUE_RELIC_8,
+] as const;
+
+const LEAGUE_AREA_SELECTION_VARBITS = [
+    VARBIT_LEAGUE_AREA_SELECTION_0,
+    VARBIT_LEAGUE_AREA_SELECTION_1,
+    VARBIT_LEAGUE_AREA_SELECTION_2,
+    VARBIT_LEAGUE_AREA_SELECTION_3,
+    VARBIT_LEAGUE_AREA_SELECTION_4,
+    VARBIT_LEAGUE_AREA_SELECTION_5,
+] as const;
+
+const LEAGUE_COMBAT_MASTERY_PROGRESS_VARBITS = [
+    VARBIT_LEAGUE_MELEE_MASTERY,
+    VARBIT_LEAGUE_RANGED_MASTERY,
+    VARBIT_LEAGUE_MAGIC_MASTERY,
+] as const;
+
+const LEAGUE_COMBAT_MASTERY_POINT_VARBITS = [
+    VARBIT_LEAGUE_MASTERY_POINTS_TO_SPEND,
+    VARBIT_LEAGUE_MASTERY_POINTS_EARNED,
+] as const;
+
+const LEAGUE_POINT_VARPS = [
+    VARP_LEAGUE_POINTS_CLAIMED,
+    VARP_LEAGUE_POINTS_COMPLETED,
+    VARP_LEAGUE_POINTS_CURRENCY,
+    VARP_LEAGUE_TWISTED_POINTS,
+    VARP_LEAGUE_TRAILBLAZER_POINTS,
+    VARP_LEAGUE_TRAILBLAZER_RELOADED_POINTS,
+    VARP_LEAGUE_5_POINTS,
+] as const;
+
+const MASTERY_POINT_UNLOCK_COUNT = 10;
 
 export type LeagueTaskNotification = {
     kind: "league_task";
@@ -47,13 +119,41 @@ export type LeagueTaskPlayer = {
     getLeagueTaskProgress: (taskId: number) => number;
     setLeagueTaskProgress: (taskId: number, value: number) => void;
     clearLeagueTaskProgress: (taskId: number) => void;
+    clearAllLeagueTaskProgress?: () => void;
     hasLeagueTaskCompleted?: (taskId: number) => boolean;
     addLeagueTaskCompleted?: (taskId: number) => void;
     getLeagueTasksCompletedCount?: () => number;
     getLeagueTasksCompletedIds?: () => readonly number[];
     setLeagueTasksCompleted?: (taskIds: readonly number[]) => void;
     syncLeagueTaskCompletionVarpsFromSet?: () => Array<{ id: number; value: number }>;
+    /** Ephemeral UI selection state from leagueWidgets (cleared on full reset). */
+    __leagueRelicPendingSelection?: unknown;
+    __leagueMasteryPendingSelection?: unknown;
 };
+
+function setTrackedVarbit(
+    player: LeagueTaskPlayer,
+    varbitId: number,
+    value: number,
+    varbitUpdates: Array<{ id: number; value: number }>,
+): void {
+    const next = value | 0;
+    if ((player.getVarbitValue(varbitId) | 0) === next) return;
+    player.setVarbitValue(varbitId, next);
+    varbitUpdates.push({ id: varbitId, value: next });
+}
+
+function setTrackedVarp(
+    player: LeagueTaskPlayer,
+    varpId: number,
+    value: number,
+    varpUpdates: Array<{ id: number; value: number }>,
+): void {
+    const next = value | 0;
+    if ((player.getVarpValue(varpId) | 0) === next) return;
+    player.setVarpValue(varpId, next);
+    varpUpdates.push({ id: varpId, value: next });
+}
 
 function asCompletionSetPlayer(player: LeagueTaskPlayer): LeagueTaskCompletionSetPlayer | null {
     if (
@@ -159,6 +259,88 @@ export class LeagueTaskService {
         }
         player.setVarpValue(varpId, next | 0);
         return { changed: true, varpUpdates: [{ id: varpId, value: next | 0 }] };
+    }
+
+    /**
+     * Dev/admin: clear all league task completions, points, and unlocks funded by those points
+     * (relics, regions, combat mastery). Skill-threshold tasks re-award on the next XP gain.
+     */
+    static resetAllTasks(player: LeagueTaskPlayer): LeagueTaskAwardResult {
+        const varpUpdates: Array<{ id: number; value: number }> = [];
+        const varbitUpdates: Array<{ id: number; value: number }> = [];
+
+        player.clearAllLeagueTaskProgress?.();
+        if (typeof player.setLeagueTasksCompleted === "function") {
+            player.setLeagueTasksCompleted([]);
+            const synced = player.syncLeagueTaskCompletionVarpsFromSet?.() ?? [];
+            varpUpdates.push(...synced);
+        } else {
+            for (const row of LEAGUE_TASKS) {
+                const cleared = LeagueTaskService.clearTaskCompletion(player, row.taskId);
+                if (cleared.changed) {
+                    varpUpdates.push(...cleared.varpUpdates);
+                }
+            }
+        }
+
+        for (const varpId of LEAGUE_POINT_VARPS) {
+            setTrackedVarp(player, varpId, 0, varpUpdates);
+        }
+
+        const prevTasks4Varp = player.getVarpValue(VARP_LEAGUE_GENERAL_TASKS_4);
+        const nextTasks4Varp = packTotalTasksIntoGeneralTasks4Varp(prevTasks4Varp, 0);
+        if (nextTasks4Varp !== prevTasks4Varp) {
+            player.setVarpValue(VARP_LEAGUE_GENERAL_TASKS_4, nextTasks4Varp);
+            varpUpdates.push({ id: VARP_LEAGUE_GENERAL_TASKS_4, value: nextTasks4Varp });
+        }
+        varbitUpdates.push({
+            id: VARBIT_LEAGUE_TOTAL_TASKS_COMPLETED,
+            value: 0,
+        });
+
+        // Relic selections unlocked via claimed points.
+        for (const varbitId of LEAGUE_RELIC_SELECTION_VARBITS) {
+            setTrackedVarbit(player, varbitId, 0, varbitUpdates);
+        }
+
+        // Regions: Misthalin only (new-account default). Extra areas unlock via task counts.
+        setTrackedVarbit(
+            player,
+            VARBIT_LEAGUE_AREA_SELECTION_0,
+            LEAGUE_STARTING_AREA_REGION_ID,
+            varbitUpdates,
+        );
+        for (let i = 1; i < LEAGUE_AREA_SELECTION_VARBITS.length; i++) {
+            setTrackedVarbit(player, LEAGUE_AREA_SELECTION_VARBITS[i], 0, varbitUpdates);
+        }
+        setTrackedVarbit(
+            player,
+            VARBIT_LEAGUE_AREA_LAST_VIEWED,
+            LEAGUE_STARTING_AREA_REGION_ID,
+            varbitUpdates,
+        );
+
+        // Combat mastery progress / spendable points / challenge unlocks.
+        for (const varbitId of LEAGUE_COMBAT_MASTERY_PROGRESS_VARBITS) {
+            setTrackedVarbit(player, varbitId, 0, varbitUpdates);
+        }
+        for (const varbitId of LEAGUE_COMBAT_MASTERY_POINT_VARBITS) {
+            setTrackedVarbit(player, varbitId, 0, varbitUpdates);
+        }
+        for (let i = 0; i < MASTERY_POINT_UNLOCK_COUNT; i++) {
+            setTrackedVarbit(player, VARBIT_MASTERY_POINT_UNLOCK_BASE + i, 0, varbitUpdates);
+        }
+
+        varpUpdates.push(...syncLeaguePackedVarps(player));
+
+        try {
+            delete player.__leagueRelicPendingSelection;
+        } catch {}
+        try {
+            delete player.__leagueMasteryPendingSelection;
+        } catch {}
+
+        return { changed: true, varpUpdates, varbitUpdates };
     }
 
     /**

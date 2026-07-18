@@ -2,13 +2,99 @@
  * Parses task names to extract trigger criteria.
  * Uses pattern matching to identify trigger type and target.
  */
-import type { TaskTrigger } from "./TriggerTypes";
+import { SkillId, SKILL_NAME } from "../../../../../src/rs/skill/skills";
+import type { LevelReachTrigger, TaskTrigger } from "./TriggerTypes";
 
 export type NameToIdsLookup = (name: string) => number[];
 
 export interface TriggerParserLoaders {
     getNpcIdsByName: NameToIdsLookup;
     getItemIdsByName: NameToIdsLookup;
+}
+
+const SKILL_NAME_TO_ID: Record<string, SkillId> = (() => {
+    const map: Record<string, SkillId> = {};
+    for (const [idText, name] of Object.entries(SKILL_NAME)) {
+        const id = Number(idText) as SkillId;
+        map[name.toLowerCase()] = id;
+    }
+    map.runecrafting = SkillId.Runecraft;
+    map.rc = SkillId.Runecraft;
+    map.hp = SkillId.Hitpoints;
+    map.hitpoint = SkillId.Hitpoints;
+    map.range = SkillId.Ranged;
+    map.ranging = SkillId.Ranged;
+    map.mage = SkillId.Magic;
+    map.def = SkillId.Defence;
+    map.str = SkillId.Strength;
+    map.att = SkillId.Attack;
+    map.atk = SkillId.Attack;
+    return map;
+})();
+
+function resolveSkillIdByName(name: string): SkillId | undefined {
+    const key = name.trim().toLowerCase();
+    if (!key) return undefined;
+    return SKILL_NAME_TO_ID[key];
+}
+
+function parseExcludedSkillIds(description: string): number[] | undefined {
+    const match = description.match(/not including\s+(.+?)\)/i);
+    if (!match) return undefined;
+    const parts = match[1]
+        .split(/,| and /i)
+        .map((part) => part.trim())
+        .filter((part) => part.length > 0);
+    const ids: number[] = [];
+    for (const part of parts) {
+        const skillId = resolveSkillIdByName(part);
+        if (skillId !== undefined) {
+            ids.push(skillId);
+        }
+    }
+    return ids.length > 0 ? ids : undefined;
+}
+
+function parseLevelReachTrigger(name: string, description: string): LevelReachTrigger | undefined {
+    if (/^achieve your first level up$/i.test(name)) {
+        return { type: "level_reach", mode: "first_level_up", level: 0 };
+    }
+
+    const firstLevelMatch = name.match(/^achieve your first level\s+(\d+)$/i);
+    if (firstLevelMatch) {
+        const level = Number.parseInt(firstLevelMatch[1], 10);
+        if (!Number.isFinite(level) || level <= 0) return undefined;
+        return {
+            type: "level_reach",
+            mode: "any",
+            level,
+            excludeSkillIds: parseExcludedSkillIds(description),
+        };
+    }
+
+    const totalMatch = name.match(/^reach total level\s+(\d+)$/i);
+    if (totalMatch) {
+        const level = Number.parseInt(totalMatch[1], 10);
+        if (!Number.isFinite(level) || level <= 0) return undefined;
+        return { type: "level_reach", mode: "total", level };
+    }
+
+    const baseMatch = name.match(/^reach base level\s+(\d+)$/i);
+    if (baseMatch) {
+        const level = Number.parseInt(baseMatch[1], 10);
+        if (!Number.isFinite(level) || level <= 0) return undefined;
+        return { type: "level_reach", mode: "base", level };
+    }
+
+    const skillMatch = name.match(/^reach level\s+(\d+)\s+(.+)$/i);
+    if (skillMatch) {
+        const level = Number.parseInt(skillMatch[1], 10);
+        const skillId = resolveSkillIdByName(skillMatch[2]);
+        if (!Number.isFinite(level) || level <= 0 || skillId === undefined) return undefined;
+        return { type: "level_reach", mode: "skill", skillId, level };
+    }
+
+    return undefined;
 }
 
 /**
@@ -141,6 +227,13 @@ export function parseTaskTrigger(
                 count: count > 1 ? count : undefined,
             };
         }
+    }
+
+    // === Skill / level threshold patterns ===
+    // "Reach Level 99 Attack", "Achieve Your First Level 5", "Reach Total Level 100", "Reach Base Level 10"
+    const levelReach = parseLevelReachTrigger(name, description);
+    if (levelReach) {
+        return levelReach;
     }
 
     // No pattern matched - needs manual trigger

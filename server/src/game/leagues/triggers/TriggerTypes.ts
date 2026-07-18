@@ -32,11 +32,17 @@ export type QuestCompleteTrigger = {
     questId: number;
 };
 
-// Tier 2 - Stateful triggers (future)
+// Tier 2 - Skill / level threshold triggers (checked on XP gain)
 export type LevelReachTrigger = {
     type: "level_reach";
-    skillId?: number; // undefined = any skill
+    /** skill = one skill; any = first skill at level; total = total level; base = every skill; first_level_up = any skill above start */
+    mode: "skill" | "any" | "total" | "base" | "first_level_up";
+    /** Required for mode "skill". */
+    skillId?: number;
+    /** Threshold level (unused for first_level_up). */
     level: number;
+    /** Skills ignored for mode "any" (from task description exclusions). */
+    excludeSkillIds?: number[];
 };
 
 export type XpGainTrigger = {
