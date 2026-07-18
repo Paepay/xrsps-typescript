@@ -181,6 +181,9 @@ export interface Cs2Context {
     dbRepository?: DbRepository;
     openMobileTab?: (tab: number) => void;
 
+    /** True while interface 657 (league_tasks) is mounted — enables completion varp read aliasing. */
+    isLeagueTasksInterfaceOpen?: () => boolean;
+
     // Inventory system - supports multiple inventory types
     inventories?: Map<number, Inventory>;
 
@@ -817,6 +820,7 @@ export class Cs2Vm {
             locTypeLoader: vm.context.locTypeLoader,
             dbRepository: vm.context.dbRepository,
             openMobileTab: vm.context.openMobileTab,
+            isLeagueTasksInterfaceOpen: vm.context.isLeagueTasksInterfaceOpen,
 
             // Inventory system - supports multiple inventory types
             get inventories() {

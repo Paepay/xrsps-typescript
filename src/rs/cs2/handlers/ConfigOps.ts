@@ -13,6 +13,10 @@ import {
 } from "../../../shared/leagues/custom";
 import { getRelicOrMasteryStructParam } from "../../../shared/leagues/leagueMasteries";
 import { getLeagueTaskStructParam } from "../../../shared/leagues/leagueTasks";
+import {
+    getLeagueTasksEnumCountOverride,
+    getLeagueTasksEnumValueOverride,
+} from "../../../shared/leagues/leagueTasksEnumOverride";
 import { Opcodes } from "../Opcodes";
 import type { HandlerMap } from "./HandlerTypes";
 
@@ -305,6 +309,12 @@ export function registerConfigOps(handlers: HandlerMap): void {
             return;
         }
 
+        const leagueTasksEnumValue = getLeagueTasksEnumValueOverride(enumId, key);
+        if (leagueTasksEnumValue !== undefined) {
+            ctx.pushInt(leagueTasksEnumValue | 0);
+            return;
+        }
+
         const enumType = ctx.enumTypeLoader?.load(enumId);
         const baseCount = enumType?.outputCount ?? 0;
 
@@ -369,6 +379,12 @@ export function registerConfigOps(handlers: HandlerMap): void {
         const collectionLogCount = getCollectionLogEnumCountOverride(enumId);
         if (collectionLogCount !== undefined) {
             ctx.pushInt(collectionLogCount);
+            return;
+        }
+
+        const leagueTasksEnumCount = getLeagueTasksEnumCountOverride(enumId);
+        if (leagueTasksEnumCount !== undefined) {
+            ctx.pushInt(leagueTasksEnumCount);
             return;
         }
 

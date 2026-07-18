@@ -13,7 +13,7 @@ import type { HandlerMap } from "./HandlerTypes";
 export function registerVarOps(handlers: HandlerMap): void {
     // === Player variables (VARP) ===
     handlers.set(Opcodes.GET_VARP, (ctx, intOp) => {
-        ctx.pushInt(ctx.varManager.getVarp(intOp));
+        ctx.pushInt(ctx.varManager.getVarp(intOp | 0));
     });
 
     handlers.set(Opcodes.SET_VARP, (ctx, intOp) => {

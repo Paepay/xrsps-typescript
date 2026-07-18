@@ -233,6 +233,15 @@ export const VARBIT_LEAGUE_AREA_LAST_VIEWED = 11693;
 /** Total league tasks completed - used for area unlock calculation */
 export const VARBIT_LEAGUE_TOTAL_TASKS_COMPLETED = 10046;
 
+/**
+ * Backing varp for varbit 10046 (%league_total_tasks_completed).
+ * Cache parity: bits 0-10 of %league_general_tasks_4 (varp 2610).
+ */
+export const VARP_LEAGUE_GENERAL_TASKS_4 = 2610;
+
+/** Bit mask for packed task count in VARP_LEAGUE_GENERAL_TASKS_4 (11 bits). */
+export const VARP_LEAGUE_GENERAL_TASKS_4_COUNT_MASK = 0x7ff;
+
 /** League relic selection slots (8 total) */
 export const VARBIT_LEAGUE_RELIC_1 = 10049;
 export const VARBIT_LEAGUE_RELIC_2 = 10050;

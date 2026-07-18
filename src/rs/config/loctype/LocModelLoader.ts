@@ -302,6 +302,12 @@ export class LocModelLoader {
 
         const isDiagonal = type === LocModelType.NORMAL && rotation > 3;
         if (isDiagonal) {
+            // rotate() mutates vertices in place. Never apply it to the cached base
+            // model — interact highlight / raycast call this every frame, and map load
+            // can hit the same cache key for multiple locs.
+            if (model === this.modelCache.get(key)) {
+                model = Model.copyAnimated(model, true, true);
+            }
             model.rotate(256);
         }
 

@@ -1,9 +1,13 @@
 // League type definitions shared between client and server
 
+import type { LeagueTaskRegion } from "./leagueTaskRegion";
+
 export type LeagueTaskRow = {
     taskId: number;
     name: string;
     description?: string;
+    /** From tasks.csv Area column. */
+    region?: LeagueTaskRegion;
     tier: number;
     points: number;
     category?: number;
@@ -11,6 +15,8 @@ export type LeagueTaskRow = {
     skill?: number;
     structId?: number;
     leagueStructId?: number;
+    /** tasks.csv Combat Mastery column. */
+    combatMastery?: string;
 };
 
 // Relic data (param_879=name, param_880=description)

@@ -45,7 +45,12 @@ import {
     MODIFIER_FLAG_CTRL,
     MODIFIER_FLAG_CTRL_SHIFT,
 } from "../../../src/shared/input/modifierFlags";
-import { LEAGUE_TASK_COMPLETION_VARPS } from "../../../src/shared/leagues/leagueTaskVarps";
+import {
+    isLeagueTaskCompletionVarpClientWriteBlocked,
+    LEAGUE_TASK_COMPLETION_VARPS,
+    resolveLeagueTaskCompletionVarpWrite,
+    scrubAliasedLeagueTaskCompletionVarps,
+} from "../../../src/shared/leagues/leagueTaskVarps";
 import type { ProjectileLaunch } from "../../../src/shared/projectiles/ProjectileLaunch";
 import { adjustProjectileLaunchesForElapsedCycles } from "../../../src/shared/projectiles/projectileDelivery";
 import { PLAYER_CHEST_OFFSET_UNITS } from "../../../src/shared/projectiles/projectileHeights";
@@ -1481,8 +1486,6 @@ export class WSServer {
             this.performScheduledAction(player, action, tick),
         );
         this.actionScheduler.setPriorityProvider((p) => p.getPidPriority());
-        // OSRS parity: Pause skill actions while modal (level-up dialog) is open
-        this.actionScheduler.setModalChecker((playerId) => this.hasModalOpen(playerId));
         this.wss = new WebSocketServer({
             host: opts.host,
             port: opts.port,
@@ -10938,6 +10941,10 @@ export class WSServer {
 
         const result = this.equipmentHandler.equipItem(p, slotIndex, itemId, equipSlot, opts);
 
+        if (result.ok) {
+            this.leagueTaskManager?.onItemEquip(p.id, itemId);
+        }
+
         // Handle ring of forging initialization (wsServer-specific logic)
         if (result.ok && equipSlot === EquipmentSlot.RING && itemId === RING_OF_FORGING_ITEM_ID) {
             if (p.getRingOfForgingCharges() <= 0) {
@@ -11429,15 +11436,6 @@ export class WSServer {
         // 4. Close all open dialogs (NPC dialog, options, etc.)
         this.widgetDialogHandler.closeAllPlayerDialogs(player);
         this.cs2ModalManager.clearPlayerState(player);
-    }
-
-    /**
-     * OSRS parity: Check if player has a modal dialog open (level-up, etc.)
-     * that should pause skill action execution.
-     */
-    hasModalOpen(playerId: number): boolean {
-        const queue = this.levelUpPopupQueue.get(playerId);
-        return queue !== undefined && queue.length > 0;
     }
 
     /**
@@ -12462,6 +12460,9 @@ export class WSServer {
                             } catch (err) {
                                 logger.warn("[player] failed to apply persistent vars", err);
                             }
+                            try {
+                                scrubAliasedLeagueTaskCompletionVarps(p);
+                            } catch {}
                             // New accounts (no persistence key yet) must complete the player design flow.
                             // Existing saves default to post-design stage unless persisted otherwise.
                             try {
@@ -12920,25 +12921,17 @@ export class WSServer {
                             );
                         }
 
-                        // Send varp 2612 which backs varbit 10046 (league_total_tasks_completed)
-                        // This is needed because varbit 10046 may not be in the client cache
-                        const VARP_LEAGUE_TASK_COUNT = 2612;
-                        const taskCountVarpValue = p.getVarpValue(VARP_LEAGUE_TASK_COUNT);
-                        if (taskCountVarpValue !== 0) {
-                            this.withDirectSendBypass("varp", () =>
-                                this.sendWithGuard(
-                                    ws,
-                                    encodeMessage({
-                                        type: "varp",
-                                        payload: {
-                                            varpId: VARP_LEAGUE_TASK_COUNT,
-                                            value: taskCountVarpValue,
-                                        },
-                                    }),
-                                    "varp",
-                                ),
-                            );
-                        }
+                        // Varbit 10046 reads %league_general_tasks_4 (varp 2610 bits 0-10).
+                        try {
+                            scrubAliasedLeagueTaskCompletionVarps(p);
+                            const reconcile = LeagueTaskService.reconcileLeagueTaskState(p);
+                            for (const v of reconcile.varpUpdates) {
+                                this.queueVarp(p.id, v.id, v.value);
+                            }
+                            for (const v of reconcile.varbitUpdates) {
+                                this.queueVarbit(p.id, v.id, v.value);
+                            }
+                        } catch {}
 
                         // Send league task completion bitfield varps.
                         // OSRS parity: these are NOT contiguous (see shared/leagues/leagueTaskVarps.ts).
@@ -13456,6 +13449,15 @@ export class WSServer {
                         const varpId = payload?.varpId as number;
                         const value = payload?.value as number;
                         const previousVarpValue = p.getVarpValue(varpId);
+
+                        // League task completion bitfields are server-authoritative (OSRS parity).
+                        if (isLeagueTaskCompletionVarpClientWriteBlocked(varpId)) {
+                            if (value !== previousVarpValue) {
+                                const canonicalVarpId = resolveLeagueTaskCompletionVarpWrite(varpId);
+                                this.queueVarp(p.id, canonicalVarpId, previousVarpValue);
+                            }
+                            return;
+                        }
 
                         // Store varp value on player (persisted)
                         p.setVarpValue(varpId, value);

@@ -11,6 +11,7 @@ import {
     VARP_SIDE_JOURNAL_STATE,
 } from "../../../../../src/shared/vars";
 import { getViewportTrackerFrontUid } from "../../../widgets/viewport";
+import { getLeagueTaskCompletionVarpsForPlayer } from "../../../../../src/shared/leagues/leagueTaskVarps";
 import { LeagueTaskService } from "../../leagues/LeagueTaskService";
 import { syncLeagueGeneralVarp } from "../../leagues/leagueGeneral";
 import { type ScriptModule } from "../types";
@@ -114,6 +115,13 @@ export const leagueTutorialWidgetModule: ScriptModule = {
                         if (res.notification) {
                             services.queueNotification?.(player.id, res.notification);
                         }
+                    }
+                    // Sync canonical completion varps so the tasks UI does not read stale/wrong varps.
+                    const completionVarps = getLeagueTaskCompletionVarpsForPlayer(player, {
+                        includeZero: true,
+                    });
+                    for (const [varpIdRaw, value] of Object.entries(completionVarps)) {
+                        services.queueVarp?.(player.id, Number(varpIdRaw), value | 0);
                     }
                 } catch {}
             }

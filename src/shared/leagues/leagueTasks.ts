@@ -5,6 +5,7 @@
  * This file only handles cache-defined task lookups.
  */
 import { LEAGUE_TASKS } from "./leagueTasks.data";
+import { LEAGUE_TASKS_USE_SNAPSHOT_ENUM } from "./leagueTasks.meta";
 import type { LeagueTaskRow } from "./leagueTypes";
 
 const tasksByTaskId = new Map<number, LeagueTaskRow>();
@@ -31,13 +32,15 @@ export function getLeagueTaskByStructId(structId: number): LeagueTaskRow | undef
 
 /**
  * Override hook: CS2 scripts access league tasks via StructType params.
- * When structId corresponds to a league task struct, return the value from the
- * shared snapshot instead of the cache-decoded struct.
+ * Only active when LEAGUE_TASKS_USE_SNAPSHOT_ENUM (tasks.csv import path).
+ * Otherwise cache struct definitions are the source of truth.
  */
 export function getLeagueTaskStructParam(
     structId: number,
     paramId: number,
 ): number | string | undefined {
+    if (!LEAGUE_TASKS_USE_SNAPSHOT_ENUM) return undefined;
+
     const row = getLeagueTaskByStructId(structId);
     if (!row) return undefined;
 

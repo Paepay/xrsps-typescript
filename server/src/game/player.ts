@@ -1,3 +1,8 @@
+import {
+    resolveLeagueTaskCompletionVarpWrite,
+    scrubAliasedLeagueTaskCompletionVarps,
+} from "../../../src/shared/leagues/leagueTaskVarps";
+import { syncLeagueTaskCompletionVarpsFromSet } from "./leagues/leagueTaskCompletionSet";
 import { EquipmentSlot } from "../../../src/rs/config/player/Equipment";
 import {
     PRAYER_HEAD_ICON_IDS,
@@ -31,6 +36,8 @@ import {
     VARP_AREA_SOUNDS_VOLUME,
     VARP_COMBAT_TARGET_PLAYER_INDEX,
     VARP_LEAGUE_GENERAL,
+    VARP_LEAGUE_GENERAL_TASKS_4,
+    VARP_LEAGUE_GENERAL_TASKS_4_COUNT_MASK,
     VARP_MASTER_VOLUME,
     VARP_MUSIC_VOLUME,
     VARP_SOUND_EFFECTS_VOLUME,
@@ -71,6 +78,7 @@ import {
     PlayerInteractionState,
 } from "./interactions/types";
 import { syncLeagueGeneralVarp } from "./leagues/leagueGeneral";
+import { LeagueTaskService } from "./leagues/LeagueTaskService";
 import { LockState, LockStateChecks } from "./model/LockState";
 import { QueueTaskSet, TaskGenerator } from "./model/queue";
 import {
@@ -223,10 +231,9 @@ function createEmptyInventory(): InventoryEntry[] {
     return Array.from({ length: INVENTORY_SLOT_COUNT }, () => ({ itemId: -1, quantity: 0 }));
 }
 
+// OSRS parity: new accounts start at level 1 in every skill except Hitpoints (level 10).
 const DEFAULT_SKILL_XP: Partial<Record<SkillId, number>> = {
-    [SkillId.Hitpoints]: getXpForLevel(99),
-    [SkillId.Magic]: getXpForLevel(99),
-    [SkillId.Prayer]: getXpForLevel(99),
+    [SkillId.Hitpoints]: getXpForLevel(10),
 };
 
 const SKILL_XP_PRECISION = 10;
@@ -375,6 +382,8 @@ export interface PlayerPersistentVars {
     varps?: Record<number, number>;
     varbits?: Record<number, number>;
     leagueTaskProgress?: Record<number, number>;
+    /** Server-authoritative completed league task ids (varp bitfields are derived from this). */
+    leagueTasksCompleted?: number[];
     /** Server-only onboarding progression (project-specific). */
     accountStage?: number;
     accountCreationTimeMs?: number;
@@ -559,6 +568,7 @@ export class PlayerState extends Actor {
     private varpValues: Map<number, number> = new Map();
     private varbitValues: Map<number, number> = new Map();
     private leagueTaskProgress: Map<number, number> = new Map();
+    private leagueTasksCompletedIds: Set<number> = new Set();
 
     // Music region tracking for area-based music
     private lastMusicRegionId: number = -1;
@@ -1623,27 +1633,50 @@ export class PlayerState extends Actor {
     }
 
     getVarbitValue(id: number): number {
+        if (id === VARBIT_LEAGUE_TOTAL_TASKS_COMPLETED) {
+            return this.getVarpValue(VARP_LEAGUE_GENERAL_TASKS_4) & VARP_LEAGUE_GENERAL_TASKS_4_COUNT_MASK;
+        }
         return this.varbitValues.get(id) ?? 0;
     }
 
     setVarbitValue(id: number, value: number): void {
         if (!Number.isFinite(id)) return;
         const normalized = Math.max(0, Math.floor(Number.isFinite(value) ? value : 0));
+        if (id === VARBIT_LEAGUE_TOTAL_TASKS_COMPLETED) {
+            const prevVarp = this.getVarpValue(VARP_LEAGUE_GENERAL_TASKS_4);
+            this.setVarpValue(
+                VARP_LEAGUE_GENERAL_TASKS_4,
+                (prevVarp & ~VARP_LEAGUE_GENERAL_TASKS_4_COUNT_MASK) |
+                    (normalized & VARP_LEAGUE_GENERAL_TASKS_4_COUNT_MASK),
+            );
+            this.varbitValues.delete(VARBIT_LEAGUE_TOTAL_TASKS_COMPLETED);
+            return;
+        }
         this.varbitValues.set(id, normalized);
     }
 
     getVarpValue(id: number): number {
-        return this.varpValues.get(id) ?? 0;
+        const resolved = resolveLeagueTaskCompletionVarpWrite(id | 0);
+        return this.varpValues.get(resolved) ?? 0;
     }
 
     hasVarpValue(id: number): boolean {
-        return this.varpValues.has(id);
+        return this.varpValues.has(resolveLeagueTaskCompletionVarpWrite(id | 0));
+    }
+
+    deleteVarpValue(id: number): void {
+        if (!Number.isFinite(id)) return;
+        this.varpValues.delete(id | 0);
     }
 
     setVarpValue(id: number, value: number): void {
         if (!Number.isFinite(id)) return;
+        const resolved = resolveLeagueTaskCompletionVarpWrite(id | 0);
         const normalized = Math.floor(Number.isFinite(value) ? value : 0);
-        this.varpValues.set(id, normalized);
+        if (resolved !== (id | 0)) {
+            this.varpValues.delete(id | 0);
+        }
+        this.varpValues.set(resolved, normalized);
     }
 
     getLeagueTaskProgress(taskId: number): number {
@@ -1663,6 +1696,39 @@ export class PlayerState extends Actor {
 
     clearLeagueTaskProgress(taskId: number): void {
         this.leagueTaskProgress.delete(taskId | 0);
+    }
+
+    hasLeagueTaskCompleted(taskId: number): boolean {
+        return this.leagueTasksCompletedIds.has(taskId | 0);
+    }
+
+    addLeagueTaskCompleted(taskId: number): void {
+        const tid = taskId | 0;
+        if (tid >= 0) {
+            this.leagueTasksCompletedIds.add(tid);
+        }
+    }
+
+    getLeagueTasksCompletedCount(): number {
+        return this.leagueTasksCompletedIds.size;
+    }
+
+    getLeagueTasksCompletedIds(): readonly number[] {
+        return [...this.leagueTasksCompletedIds].sort((a, b) => a - b);
+    }
+
+    setLeagueTasksCompleted(taskIds: readonly number[]): void {
+        this.leagueTasksCompletedIds.clear();
+        for (const rawTaskId of taskIds) {
+            const tid = rawTaskId | 0;
+            if (tid >= 0) {
+                this.leagueTasksCompletedIds.add(tid);
+            }
+        }
+    }
+
+    syncLeagueTaskCompletionVarpsFromSet(): Array<{ id: number; value: number }> {
+        return syncLeagueTaskCompletionVarpsFromSet(this);
     }
 
     // Music region tracking
@@ -2626,6 +2692,7 @@ export class PlayerState extends Actor {
         const varps: Record<number, number> = {};
         const varbits: Record<number, number> = {};
         const leagueTaskProgress: Record<number, number> = {};
+        const leagueTasksCompleted: number[] = [];
         for (const [id, value] of this.varpValues.entries()) {
             if (NON_PERSISTENT_VARPS.has(id)) {
                 continue;
@@ -2647,10 +2714,17 @@ export class PlayerState extends Actor {
                 leagueTaskProgress[taskId] = value;
             }
         }
+        for (const taskId of this.leagueTasksCompletedIds) {
+            leagueTasksCompleted.push(taskId);
+        }
         if (Object.keys(varps).length > 0) snapshot.varps = varps;
         if (Object.keys(varbits).length > 0) snapshot.varbits = varbits;
         if (Object.keys(leagueTaskProgress).length > 0) {
             snapshot.leagueTaskProgress = leagueTaskProgress;
+        }
+        if (leagueTasksCompleted.length > 0) {
+            leagueTasksCompleted.sort((a, b) => a - b);
+            snapshot.leagueTasksCompleted = leagueTasksCompleted;
         }
         // Persist character design (gender/body kits/colors). Equipment is stored separately.
         snapshot.accountStage = Number.isFinite(this.accountStage) ? this.accountStage : 1;
@@ -2746,6 +2820,7 @@ export class PlayerState extends Actor {
         this.varpValues.clear();
         this.varbitValues.clear();
         this.leagueTaskProgress.clear();
+        this.leagueTasksCompletedIds.clear();
         if (!state) {
             this.setVarbitValue(VARBIT_XPDROPS_ENABLED, DEFAULT_XPDROPS_ENABLED);
             this.ensureBankInitialized();
@@ -2787,10 +2862,23 @@ export class PlayerState extends Actor {
             for (const [key, value] of Object.entries(state.varbits)) {
                 const id = parseInt(key, 10);
                 if (!Number.isNaN(id) && !NON_PERSISTENT_VARBITS.has(id)) {
+                    if (id === VARBIT_LEAGUE_TOTAL_TASKS_COMPLETED) {
+                        continue;
+                    }
                     this.setVarbitValue(id, value);
                 }
             }
         }
+        scrubAliasedLeagueTaskCompletionVarps(this);
+        if (state.leagueTasksCompleted && state.leagueTasksCompleted.length > 0) {
+            this.setLeagueTasksCompleted(state.leagueTasksCompleted);
+            this.syncLeagueTaskCompletionVarpsFromSet();
+        } else {
+            LeagueTaskService.migrateCompletedTasksFromLegacy(this);
+        }
+        try {
+            LeagueTaskService.reconcileLeagueTaskState(this);
+        } catch {}
         if (state.leagueTaskProgress) {
             for (const [key, value] of Object.entries(state.leagueTaskProgress)) {
                 const taskId = parseInt(key, 10);

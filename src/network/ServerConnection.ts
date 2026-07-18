@@ -2094,9 +2094,11 @@ function processServerMessage(msg: any): void {
                 const value = payload.value | 0;
                 // Use _serverVarpSync flag to prevent sending back to server
                 mv._serverVarpSync = true;
+                mv.varManager.allowLeagueTaskCompletionVarpWrite = true;
                 try {
                     mv.varManager.setVarp?.(varpId, value);
                 } finally {
+                    mv.varManager.allowLeagueTaskCompletionVarpWrite = false;
                     mv._serverVarpSync = false;
                 }
 

@@ -45,9 +45,11 @@ import {
     VARP_LEAGUE_POINTS_CLAIMED,
     VARP_LEAGUE_POINTS_COMPLETED,
     VARP_LEAGUE_POINTS_CURRENCY,
+    VARP_LEAGUE_GENERAL_TASKS_4,
     VARP_MAP_FLAGS_CACHED,
     VARP_SIDE_JOURNAL_STATE,
 } from "../../../../../src/shared/vars";
+import { LeagueTaskService } from "../../leagues/LeagueTaskService";
 import type { WidgetAction } from "../../../widgets/WidgetManager";
 import { getMainmodalUid, getViewportTrackerFrontUid } from "../../../widgets/viewport";
 import { syncLeagueGeneralVarp } from "../../leagues/leagueGeneral";
@@ -55,6 +57,7 @@ import {
     getLeaguePackedVarpsForPlayer,
     syncLeaguePackedVarps,
 } from "../../leagues/leaguePackedVarps";
+import { getLeagueTaskCompletionVarpsForPlayer } from "../../../../../src/shared/leagues/leagueTaskVarps";
 import { type ScriptModule, type WidgetActionEvent } from "../types";
 
 export type LeagueWsUiPlayer = {
@@ -287,7 +290,6 @@ const PARAM_LEAGUE_RELICS_ENUM = 878; // param_878
 const PARAM_LEAGUE_RELIC_TIER_POINTS_REQUIRED = 877; // param_877
 const PARAM_LEAGUE_RELIC_REWARD_OBJ = 2049; // param_2049 (namedobj)
 const PARAM_LEAGUE_RELIC_TIER_PASSIVE_STRUCT = 2045; // param_2045 (struct with param_1020)
-const VARP_LEAGUE_TASK_COUNT = 2612;
 
 type LeagueRelicIndexEntry = {
     leagueType: number;
@@ -620,9 +622,13 @@ export function getLeagueSideJournalBootstrapState(player: LeagueWsUiPlayer): {
     varbits: Record<number, number>;
 } {
     const { tab, stateVarp } = normalizeSideJournalLeagueState(player);
+    LeagueTaskService.reconcileLeagueTaskState(player);
     return {
         varps: {
-            ...getLeagueVarpsForPlayer(player),
+            ...getLeagueVarpsForPlayer(player, {
+                syncAllTaskCompletionVarps: true,
+                reconcile: false,
+            }),
             [VARP_SIDE_JOURNAL_STATE]: stateVarp,
         },
         varbits: {
@@ -646,11 +652,25 @@ export function queueSideJournalLeagueOnlyUi(
     const sideJournalOpen = bridge.isWidgetGroupOpenInLedger(playerId, SIDE_JOURNAL_GROUP_ID);
 
     if (contentGroup > 0) {
+        const leaguePanelGroup =
+            getSideJournalLeaguesContentGroupId(leagueType) === contentGroup;
+        if (leaguePanelGroup) {
+            queueLeagueTaskReconcileUpdates(player, bridge);
+        }
         bridge.queueWidgetEvent(playerId, {
             action: "open_sub",
             targetUid: SIDE_JOURNAL_TAB_CONTAINER_UID,
             groupId: contentGroup,
             type: 1,
+            ...(leaguePanelGroup
+                ? {
+                      varps: getLeagueVarpsForPlayer(player, {
+                          syncAllTaskCompletionVarps: true,
+                          reconcile: false,
+                      }),
+                      varbits: getLeagueVarbits(player),
+                  }
+                : {}),
         });
 
         // Ensure "Collection Log" (op1) and "Collection Overview" (op2) from
@@ -1047,15 +1067,39 @@ export function getLeagueVarbits(player: {
     return varbits;
 }
 
-function getLeagueVarpsForPlayer(player: any): Record<number, number> {
+function queueLeagueTaskReconcileUpdates(player: any, services: LeagueWsUiBridge): void {
+    try {
+        const res = LeagueTaskService.reconcileLeagueTaskState(player);
+        if (!res.changed) {
+            return;
+        }
+        for (const v of res.varpUpdates) {
+            services.queueVarp?.(player.id, v.id, v.value);
+        }
+        for (const v of res.varbitUpdates) {
+            services.queueVarbit?.(player.id, v.id, v.value);
+        }
+    } catch {}
+}
+
+function getLeagueVarpsForPlayer(
+    player: any,
+    opts?: { syncAllTaskCompletionVarps?: boolean; reconcile?: boolean },
+): Record<number, number> {
+    if (opts?.reconcile !== false) {
+        LeagueTaskService.reconcileLeagueTaskState(player);
+    }
     return {
         [VARP_MAP_FLAGS_CACHED]: MAP_FLAGS_LEAGUE_WORLD,
         [VARP_LEAGUE_GENERAL]: player?.getVarpValue?.(VARP_LEAGUE_GENERAL) ?? 0,
         [VARP_LEAGUE_POINTS_CLAIMED]: player?.getVarpValue?.(VARP_LEAGUE_POINTS_CLAIMED) ?? 0,
         [VARP_LEAGUE_POINTS_COMPLETED]: player?.getVarpValue?.(VARP_LEAGUE_POINTS_COMPLETED) ?? 0,
         [VARP_LEAGUE_POINTS_CURRENCY]: player?.getVarpValue?.(VARP_LEAGUE_POINTS_CURRENCY) ?? 0,
-        [VARP_LEAGUE_TASK_COUNT]: player?.getVarpValue?.(VARP_LEAGUE_TASK_COUNT) ?? 0,
+        [VARP_LEAGUE_GENERAL_TASKS_4]: player?.getVarpValue?.(VARP_LEAGUE_GENERAL_TASKS_4) ?? 0,
         ...getLeaguePackedVarpsForPlayer(player),
+        ...getLeagueTaskCompletionVarpsForPlayer(player, {
+            includeZero: opts?.syncAllTaskCompletionVarps === true,
+        }),
     };
 }
 
@@ -1297,7 +1341,7 @@ export const leagueWidgetModule: ScriptModule = {
 
             // Open the tasks interface
             services.openSubInterface?.(player, mainmodalUid, LEAGUE_TASKS_GROUP_ID, 0, {
-                varps: getLeagueVarpsForPlayer(player),
+                varps: getLeagueVarpsForPlayer(player, { syncAllTaskCompletionVarps: true }),
                 varbits: getLeagueVarbits(player),
             });
 
@@ -1506,38 +1550,7 @@ export const leagueWidgetModule: ScriptModule = {
             // internally calls closeSubInterface which clears all flags for the group.
             {
                 const leagueType = event.player.getVarbitValue?.(VARBIT_LEAGUE_TYPE) ?? 0;
-                const indexMap =
-                    leagueType === 3 ? null : getLeagueRelicIndexMap(services, leagueType);
-                const maxIndex = indexMap ? indexMap.length : 256;
-                const toSlot = Math.max(0, maxIndex - 1);
-                queueWidgetFlagsRange(
-                    event.player,
-                    services,
-                    (LEAGUE_RELICS_GROUP_ID << 16) | L5_RELIC_CLICKZONES_CHILD,
-                    0,
-                    toSlot,
-                    IF_SETEVENTS_TRANSMIT_OP1,
-                );
-                // Confirm must transmit to the server (selection is server-authoritative).
-                // Use set_flags_range with [-1,-1] so it works even if the interface isn't loaded yet.
-                // Static widgets have childIndex=-1 in the client (Widget constructor).
-                queueWidgetFlagsRange(
-                    event.player,
-                    services,
-                    (LEAGUE_RELICS_GROUP_ID << 16) | L5_RELIC_CONFIRM_BUTTON_CHILD,
-                    -1,
-                    -1,
-                    IF_SETEVENTS_TRANSMIT_OP1,
-                );
-                // Cancel button should also be clickable
-                queueWidgetFlagsRange(
-                    event.player,
-                    services,
-                    (LEAGUE_RELICS_GROUP_ID << 16) | L5_RELIC_CANCEL_BUTTON_CHILD,
-                    -1,
-                    -1,
-                    IF_SETEVENTS_TRANSMIT_OP1,
-                );
+                enableRelicSelectionTransmitFlags(event.player, leagueType);
             }
 
             // Tutorial: Highlight all tier 0 relics (first column) to guide the player
@@ -2098,6 +2111,181 @@ export const leagueWidgetModule: ScriptModule = {
             } catch {}
         };
 
+        const uidForRelics = (childId: number): number =>
+            ((LEAGUE_RELICS_GROUP_ID & 0xffff) << 16) | (childId & 0xffff);
+
+        const enableRelicSelectionTransmitFlags = (player: any, leagueType: number): void => {
+            const indexMap = leagueType === 3 ? null : getLeagueRelicIndexMap(services, leagueType);
+            const maxIndex = indexMap ? indexMap.length : 256;
+            const toSlot = Math.max(0, maxIndex - 1);
+            queueWidgetFlagsRange(
+                player,
+                services,
+                uidForRelics(L5_RELIC_CLICKZONES_CHILD),
+                0,
+                toSlot,
+                IF_SETEVENTS_TRANSMIT_OP1,
+            );
+            queueWidgetFlagsRange(
+                player,
+                services,
+                uidForRelics(L5_RELIC_SELECT_BUTTON_CHILD),
+                -1,
+                -1,
+                IF_SETEVENTS_TRANSMIT_OP1,
+            );
+            queueWidgetFlagsRange(
+                player,
+                services,
+                uidForRelics(L5_RELIC_CONFIRM_BUTTON_CHILD),
+                -1,
+                -1,
+                IF_SETEVENTS_TRANSMIT_OP1,
+            );
+            queueWidgetFlagsRange(
+                player,
+                services,
+                uidForRelics(L5_RELIC_CANCEL_BUTTON_CHILD),
+                -1,
+                -1,
+                IF_SETEVENTS_TRANSMIT_OP1,
+            );
+        };
+
+        const commitPendingRelicSelection = (player: any): boolean => {
+            const pending = getPendingRelicSelection(player);
+            if (!pending) {
+                console.log(`[league] Relic selection rejected: no pending selection`);
+                return false;
+            }
+
+            const leagueType = player.getVarbitValue?.(VARBIT_LEAGUE_TYPE) ?? 0;
+            if (leagueType !== pending.leagueType || leagueType === 3) {
+                console.log(
+                    `[league] Relic selection rejected: leagueType mismatch (${leagueType} vs ${pending.leagueType})`,
+                );
+                return false;
+            }
+
+            const tierVarbitId = getRelicSelectionVarbitIdForTier(pending.tierIndex);
+            if (!tierVarbitId) {
+                console.log(`[league] Relic selection rejected: invalid tier varbit`);
+                return false;
+            }
+
+            if (pending.tierIndex > 0) {
+                const prevVarbitId = getRelicSelectionVarbitIdForTier(pending.tierIndex - 1);
+                if (!prevVarbitId) {
+                    console.log(`[league] Relic selection rejected: invalid prev tier varbit`);
+                    return false;
+                }
+                const prev = player.getVarbitValue?.(prevVarbitId) ?? 0;
+                if (prev === 0) {
+                    console.log(`[league] Relic selection rejected: previous tier not selected`);
+                    return false;
+                }
+            }
+
+            const existing = player.getVarbitValue?.(tierVarbitId) ?? 0;
+            if (existing !== 0) {
+                console.log(`[league] Relic selection rejected: tier already selected (${existing})`);
+                return false;
+            }
+
+            const points = player.getVarpValue?.(VARP_LEAGUE_POINTS_CLAIMED) ?? 0;
+            if (points < pending.tierPointsRequired) {
+                console.log(
+                    `[league] Relic selection rejected: not enough points (${points} < ${pending.tierPointsRequired})`,
+                );
+                return false;
+            }
+
+            try {
+                const structLoader =
+                    services?.getStructTypeLoader?.() ?? services?.structTypeLoader;
+                const relicStruct = structLoader?.load?.(pending.relicStructId);
+                const rewardObjId = relicStruct?.params?.get?.(PARAM_LEAGUE_RELIC_REWARD_OBJ) as
+                    | number
+                    | undefined;
+                if (rewardObjId !== undefined && rewardObjId > 0) {
+                    const res = services.addItemToInventory(player, rewardObjId, 1);
+                    if (res.added >= 1) {
+                        services.snapshotInventory(player);
+                    }
+                }
+
+                player.setVarbitValue(tierVarbitId, pending.relicKey);
+                const packedVarpUpdates = syncLeaguePackedVarps(player);
+                queueLeaguePackedVarpUpdates(services, player.id, packedVarpUpdates);
+                services.sendVarbit?.(player, tierVarbitId, pending.relicKey);
+
+                console.log(
+                    `[league] Relic unlocked! tier=${pending.tierIndex} key=${pending.relicKey} varbit=${tierVarbitId}`,
+                );
+            } catch (err) {
+                console.error(`[league] Relic selection ERROR:`, err);
+                return false;
+            }
+
+            services.sendSound?.(player, SYNTH_RELIC_UNLOCK_PULSING);
+
+            const updatedVarps = getLeagueVarpsForPlayer(player);
+            const updatedVarbits = getLeagueVarbits(player);
+
+            services.queueWidgetEvent?.(player.id, {
+                action: "set_hidden",
+                uid: uidForRelics(12),
+                hidden: true,
+            });
+
+            services.queueWidgetEvent?.(player.id, {
+                action: "run_script",
+                scriptId: 3196,
+                args: [
+                    uidForRelics(14),
+                    uidForRelics(23),
+                    uidForRelics(27),
+                    uidForRelics(24),
+                    uidForRelics(4),
+                ],
+                varps: updatedVarps,
+                varbits: updatedVarbits,
+            });
+
+            services.queueWidgetEvent?.(player.id, {
+                action: "run_script",
+                scriptId: 6110,
+                args: [uidForRelics(0), -1],
+                varps: updatedVarps,
+                varbits: updatedVarbits,
+            });
+
+            const tutorial = player.getVarbitValue?.(VARBIT_LEAGUE_TUTORIAL_COMPLETED) ?? 0;
+            if (tutorial === 9) {
+                services.queueWidgetEvent?.(player.id, {
+                    action: "run_script",
+                    scriptId: SCRIPT_UI_HIGHLIGHT,
+                    args: [
+                        UI_HIGHLIGHT_KIND_LEAGUE_TUTORIAL,
+                        UI_HIGHLIGHT_ID_RELICS_CLOSE_BUTTON,
+                        uidForRelics(L5_RELIC_CLOSE_BUTTON_CHILD),
+                        -1,
+                        UI_HIGHLIGHT_STYLE_DEFAULT,
+                        0,
+                    ],
+                });
+            }
+
+            refreshLeagueSidePanelProgress(player, services, {
+                leagueType,
+                varps: updatedVarps,
+                varbits: updatedVarbits,
+            });
+
+            clearPendingRelicSelection(player);
+            return true;
+        };
+
         const RELIC_CLICKZONES_WIDGET_UID =
             ((LEAGUE_RELICS_GROUP_ID & 0xffff) << 16) | (L5_RELIC_CLICKZONES_CHILD & 0xffff);
 
@@ -2244,159 +2432,29 @@ export const leagueWidgetModule: ScriptModule = {
             clearPendingRelicSelection(event.player);
         });
 
+        // Select applies server-side (OSRS confirm overlay is client-only; confirm often does not transmit).
+        registry.onButton(LEAGUE_RELICS_GROUP_ID, L5_RELIC_SELECT_BUTTON_CHILD, (event) => {
+            commitPendingRelicSelection(event.player);
+        });
+
         registry.onButton(LEAGUE_RELICS_GROUP_ID, L5_RELIC_CONFIRM_BUTTON_CHILD, (event) => {
-            const player = event.player;
-            const pending = getPendingRelicSelection(player);
-            if (!pending) {
-                console.log(`[league] Relic confirm rejected: no pending selection`);
-                return;
-            }
+            commitPendingRelicSelection(event.player);
+        });
 
-            const leagueType = player.getVarbitValue?.(VARBIT_LEAGUE_TYPE) ?? 0;
-            if (leagueType !== pending.leagueType || leagueType === 3) {
-                console.log(
-                    `[league] Relic confirm rejected: leagueType mismatch (${leagueType} vs ${pending.leagueType})`,
-                );
-                return;
-            }
+        registry.registerWidgetAction({
+            widgetId: uidForRelics(L5_RELIC_SELECT_BUTTON_CHILD),
+            opId: 1,
+            handler: (event) => {
+                commitPendingRelicSelection(event.player);
+            },
+        });
 
-            const tierVarbitId = getRelicSelectionVarbitIdForTier(pending.tierIndex);
-            if (!tierVarbitId) {
-                console.log(`[league] Relic confirm rejected: invalid tier varbit`);
-                return;
-            }
-
-            // Tiers must be selected in order.
-            if (pending.tierIndex > 0) {
-                const prevVarbitId = getRelicSelectionVarbitIdForTier(pending.tierIndex - 1);
-                if (!prevVarbitId) {
-                    console.log(`[league] Relic confirm rejected: invalid prev tier varbit`);
-                    return;
-                }
-                const prev = player.getVarbitValue?.(prevVarbitId) ?? 0;
-                if (prev === 0) {
-                    console.log(`[league] Relic confirm rejected: previous tier not selected`);
-                    return;
-                }
-            }
-
-            // Tier must not already be selected.
-            const existing = player.getVarbitValue?.(tierVarbitId) ?? 0;
-            if (existing !== 0) {
-                console.log(`[league] Relic confirm rejected: tier already selected (${existing})`);
-                return;
-            }
-
-            // Points gate.
-            const points = player.getVarpValue?.(VARP_LEAGUE_POINTS_CLAIMED) ?? 0;
-            if (points < pending.tierPointsRequired) {
-                console.log(
-                    `[league] Relic confirm rejected: not enough points (${points} < ${pending.tierPointsRequired})`,
-                );
-                return;
-            }
-
-            try {
-                // Award any relic reward object (param_2049) before committing the selection.
-                const structLoader =
-                    services?.getStructTypeLoader?.() ?? services?.structTypeLoader;
-                const relicStruct = structLoader?.load?.(pending.relicStructId);
-                const rewardObjId = relicStruct?.params?.get?.(PARAM_LEAGUE_RELIC_REWARD_OBJ) as
-                    | number
-                    | undefined;
-                if (rewardObjId !== undefined && rewardObjId > 0) {
-                    const res = services.addItemToInventory(player, rewardObjId, 1);
-                    // Don't block relic selection if inventory is full - player can reclaim from Sage
-                    if (res.added >= 1) {
-                        services.snapshotInventory(player);
-                    }
-                }
-
-                player.setVarbitValue(tierVarbitId, pending.relicKey);
-                const packedVarpUpdates = syncLeaguePackedVarps(player);
-                queueLeaguePackedVarpUpdates(services, player.id, packedVarpUpdates);
-
-                // Send varbit immediately so client has the new state before running scripts
-                services.sendVarbit?.(player, tierVarbitId, pending.relicKey);
-
-                console.log(
-                    `[league] Relic unlocked! tier=${pending.tierIndex} key=${pending.relicKey} varbit=${tierVarbitId}`,
-                );
-            } catch (err) {
-                console.error(`[league] Relic confirm ERROR:`, err);
-                return;
-            }
-
-            // Play relic unlock sound
-            services.sendSound?.(player, SYNTH_RELIC_UNLOCK_PULSING);
-
-            const updatedVarps = getLeagueVarpsForPlayer(player);
-            const updatedVarbits = getLeagueVarbits(player);
-
-            const uidForRelics = (childId: number): number =>
-                ((LEAGUE_RELICS_GROUP_ID & 0xffff) << 16) | (childId & 0xffff);
-
-            // Hide the confirm overlay immediately (Confirm button only plays sound client-side).
-            services.queueWidgetEvent?.(player.id, {
-                action: "set_hidden",
-                uid: uidForRelics(12), // confirm overlay container
-                hidden: true,
-            });
-
-            // Script 3196 = league_relic_back - closes expanded view and returns to list
-            services.queueWidgetEvent?.(player.id, {
-                action: "run_script",
-                scriptId: 3196, // league_relic_back
-                args: [
-                    uidForRelics(14), // view_all
-                    uidForRelics(23), // view_all_scrollbar
-                    uidForRelics(27), // view_one
-                    uidForRelics(24), // loading
-                    uidForRelics(4), // close button
-                ],
-                varps: updatedVarps,
-                varbits: updatedVarbits,
-            });
-
-            // Redraw the relic list immediately so unlocked state is visible without reopening.
-            // OSRS parity: league_relics_init sets an onResize handler on league_relics:infinity that calls
-            // league_relics_draw_selections with captured args. Calling script6110(infinity, -1) forces
-            // proc2459 to call if_callonresize (since -1 != computed size bucket), which triggers that redraw.
-            services.queueWidgetEvent?.(player.id, {
-                action: "run_script",
-                scriptId: 6110, // script6110(component, int) -> proc2459 -> if_callonresize
-                args: [
-                    uidForRelics(0), // league_relics:infinity
-                    -1,
-                ],
-                varps: updatedVarps,
-                varbits: updatedVarbits,
-            });
-
-            // Tutorial: show close button highlight after unlocking a relic
-            const tutorial = player.getVarbitValue?.(VARBIT_LEAGUE_TUTORIAL_COMPLETED) ?? 0;
-            if (tutorial === 9) {
-                services.queueWidgetEvent?.(player.id, {
-                    action: "run_script",
-                    scriptId: SCRIPT_UI_HIGHLIGHT,
-                    args: [
-                        UI_HIGHLIGHT_KIND_LEAGUE_TUTORIAL,
-                        UI_HIGHLIGHT_ID_RELICS_CLOSE_BUTTON,
-                        uidForRelics(L5_RELIC_CLOSE_BUTTON_CHILD),
-                        -1,
-                        UI_HIGHLIGHT_STYLE_DEFAULT,
-                        0,
-                    ],
-                });
-            }
-
-            refreshLeagueSidePanelProgress(player, services, {
-                leagueType,
-                varps: updatedVarps,
-                varbits: updatedVarbits,
-            });
-
-            clearPendingRelicSelection(player);
+        registry.registerWidgetAction({
+            widgetId: uidForRelics(L5_RELIC_CONFIRM_BUTTON_CHILD),
+            opId: 1,
+            handler: (event) => {
+                commitPendingRelicSelection(event.player);
+            },
         });
 
         // ========== League Combat Mastery (311) ==========
@@ -2846,7 +2904,7 @@ export const leagueWidgetModule: ScriptModule = {
 
             // Open the tasks interface
             services.openSubInterface?.(player, mainmodalUid, LEAGUE_TASKS_GROUP_ID, 0, {
-                varps: getLeagueVarpsForPlayer(player),
+                varps: getLeagueVarpsForPlayer(player, { syncAllTaskCompletionVarps: true }),
                 varbits: getLeagueVarbits(player),
             });
 
@@ -2994,33 +3052,7 @@ export const leagueWidgetModule: ScriptModule = {
             // IMPORTANT: Flags must be sent AFTER openSubInterface because openSubInterface
             // internally calls closeSubInterface which clears all flags for the group.
             if (groupId === LEAGUE_RELICS_GROUP_ID) {
-                const indexMap = getLeagueRelicIndexMap(services, leagueType);
-                const maxIndex = indexMap ? indexMap.length : 256;
-                const toSlot = Math.max(0, maxIndex - 1);
-                queueWidgetFlagsRange(
-                    player,
-                    services,
-                    (LEAGUE_RELICS_GROUP_ID << 16) | L5_RELIC_CLICKZONES_CHILD,
-                    0,
-                    toSlot,
-                    IF_SETEVENTS_TRANSMIT_OP1,
-                );
-                queueWidgetFlagsRange(
-                    player,
-                    services,
-                    (LEAGUE_RELICS_GROUP_ID << 16) | L5_RELIC_CONFIRM_BUTTON_CHILD,
-                    -1,
-                    -1,
-                    IF_SETEVENTS_TRANSMIT_OP1,
-                );
-                queueWidgetFlagsRange(
-                    player,
-                    services,
-                    (LEAGUE_RELICS_GROUP_ID << 16) | L5_RELIC_CANCEL_BUTTON_CHILD,
-                    -1,
-                    -1,
-                    IF_SETEVENTS_TRANSMIT_OP1,
-                );
+                enableRelicSelectionTransmitFlags(player, leagueType);
             }
         });
     },

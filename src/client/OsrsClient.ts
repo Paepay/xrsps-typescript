@@ -310,6 +310,7 @@ interface SelectedSpellInfo {
 const CHATBOX_MODAL_TARGET_UID = (162 << 16) | 567;
 const CHATBOX_DIALOG_GROUP_IDS = new Set([231, 217, 193, 11]);
 const SETTINGS_MODAL_GROUP_ID = 134;
+const LEAGUE_TASKS_INTERFACE_GROUP_ID = 657;
 const SETTINGS_MODAL_SEARCH_BAR_CHILD_ID = 32;
 
 // OSRS draw distance is constrained in Scene.setDrawDistanceRaw(25..90).
@@ -750,6 +751,7 @@ export class OsrsClient {
 
     // Track settings modal state for reliable close detection
     private _settingsModalOpen: boolean = false;
+    private _leagueTasksInterfaceOpen: boolean = false;
     private _settingsModalContainerUid: number = -1;
 
     // Script event queues (like OSRS's 3-tier priority system)
@@ -1347,6 +1349,7 @@ export class OsrsClient {
             loadScript: (id: number) => {
                 return self.loadClientScript(id);
             },
+            isLeagueTasksInterfaceOpen: () => self._leagueTasksInterfaceOpen,
             clientRevision: 235,
             // Canvas dimensions as defined by the renderer's current UI layout space.
             get canvasWidth() {
@@ -2195,9 +2198,13 @@ export class OsrsClient {
                     this._settingsModalContainerUid = payload.targetUid | 0;
                     console.log(`[OsrsClient] Settings modal opened, container UID: ${this._settingsModalContainerUid}`);
                 }
+                if ((payload.groupId | 0) === LEAGUE_TASKS_INTERFACE_GROUP_ID) {
+                    this._leagueTasksInterfaceOpen = true;
+                }
                 // Apply varps/varbits BEFORE opening the interface so scripts can read them.
                 if (this.varManager) {
                     this._serverVarpSync = true;
+                    this.varManager.allowLeagueTaskCompletionVarpWrite = true;
                     try {
                         if (payload.varps) {
                             for (const [id, value] of Object.entries(payload.varps)) {
@@ -2212,6 +2219,7 @@ export class OsrsClient {
                             }
                         }
                     } finally {
+                        this.varManager.allowLeagueTaskCompletionVarpWrite = false;
                         this._serverVarpSync = false;
                     }
                 }
@@ -2280,6 +2288,10 @@ export class OsrsClient {
                 }
                 
                 console.log(`[OsrsClient] Closing group ID: ${closingGroupId}`);
+
+                if (closingGroupId === LEAGUE_TASKS_INTERFACE_GROUP_ID) {
+                    this._leagueTasksInterfaceOpen = false;
+                }
                 
                 if (this.widgetManager) {
                     // OSRS parity: When closing an interface, any active text input should be cleared
@@ -2555,6 +2567,7 @@ export class OsrsClient {
                     // Apply varps/varbits BEFORE running the script so it can read them
                     if (this.varManager) {
                         this._serverVarpSync = true;
+                        this.varManager.allowLeagueTaskCompletionVarpWrite = true;
                         try {
                             if (payload.varps) {
                                 for (const [id, value] of Object.entries(payload.varps)) {
@@ -2573,6 +2586,7 @@ export class OsrsClient {
                                 }
                             }
                         } finally {
+                            this.varManager.allowLeagueTaskCompletionVarpWrite = false;
                             this._serverVarpSync = false;
                         }
                     }

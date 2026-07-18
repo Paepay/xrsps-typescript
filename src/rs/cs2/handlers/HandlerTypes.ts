@@ -212,6 +212,9 @@ export interface HandlerContext {
     dbRepository?: DbRepository;
     openMobileTab?: (tab: number) => void;
 
+    /** True while interface 657 (league_tasks) is mounted — enables completion varp read aliasing. */
+    isLeagueTasksInterfaceOpen?: () => boolean;
+
     // Inventory system - supports multiple inventory types
     inventories: Map<number, Inventory>;
     getInventory(invId: number): Inventory | null;

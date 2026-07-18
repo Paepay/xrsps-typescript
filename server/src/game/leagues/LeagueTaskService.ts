@@ -1,19 +1,29 @@
-import { LEAGUE_TASK_COMPLETION_VARPS } from "../../../../src/shared/leagues/leagueTaskVarps";
+import {
+    clearLeagueTaskCompletionVarpBit,
+    getLeagueTaskBitfield,
+    mergeLeagueTaskCompletionVarp,
+} from "../../../../src/shared/leagues/leagueTaskVarps";
 import { getLeagueTaskByTaskId } from "../../../../src/shared/leagues/leagueTasks";
+import { LEAGUE_TASKS } from "../../../../src/shared/leagues/leagueTasks.data";
+import {
+    migrateLeagueTasksCompletedFromLegacy,
+    syncLeagueTaskCompletionVarpsFromSet,
+    type LeagueTaskCompletionSetPlayer,
+} from "./leagueTaskCompletionSet";
 import {
     VARBIT_LEAGUE_TOTAL_TASKS_COMPLETED,
+    VARP_LEAGUE_GENERAL_TASKS_4,
+    VARP_LEAGUE_GENERAL_TASKS_4_COUNT_MASK,
     VARP_LEAGUE_POINTS_CLAIMED,
     VARP_LEAGUE_POINTS_COMPLETED,
     VARP_LEAGUE_POINTS_CURRENCY,
 } from "../../../../src/shared/vars";
+import { EquipmentSlot } from "../../../../src/rs/config/player/Equipment";
 
-/**
- * Varp 2612 backs varbit 10046 (league_total_tasks_completed).
- * The varbit uses bits 0-15 of this varp to store task count (0-65535).
- * We need to update both the varbit (for server-side tracking) and the varp
- * (for client synchronization) since the client expects varbit data packed in varps.
- */
-const VARP_LEAGUE_TASK_COUNT = 2612;
+const OBSIDIAN_CAPE_ITEM_ID = 6568;
+const OBSIDIAN_HELMET_ITEM_ID = 21298;
+const OBSIDIAN_PLATEBODY_ITEM_ID = 21301;
+const OBSIDIAN_PLATELEGS_ITEM_ID = 21304;
 
 export type LeagueTaskNotification = {
     kind: "league_task";
@@ -37,30 +47,170 @@ export type LeagueTaskPlayer = {
     getLeagueTaskProgress: (taskId: number) => number;
     setLeagueTaskProgress: (taskId: number, value: number) => void;
     clearLeagueTaskProgress: (taskId: number) => void;
+    hasLeagueTaskCompleted?: (taskId: number) => boolean;
+    addLeagueTaskCompleted?: (taskId: number) => void;
+    getLeagueTasksCompletedCount?: () => number;
+    getLeagueTasksCompletedIds?: () => readonly number[];
+    setLeagueTasksCompleted?: (taskIds: readonly number[]) => void;
+    syncLeagueTaskCompletionVarpsFromSet?: () => Array<{ id: number; value: number }>;
 };
 
-function getLeagueTaskBitfield(taskId: number): { varpId: number; mask: number } {
-    const tid = taskId;
-    const bit = tid & 31;
-    const group = tid >> 5;
-    const mappedVarpId = LEAGUE_TASK_COMPLETION_VARPS[group];
-    // OSRS parity: cache tasks use a non-contiguous varp table (groups 0-61).
-    // Project extension: allow custom task IDs outside the cache range to map to a dedicated
-    // contiguous varp space via the standard formula (2616 + group).
-    const varpId = mappedVarpId ?? 2616 + group;
-    if (varpId < 0) return { varpId: -1, mask: 0 };
-    const mask = 1 << bit;
-    return { varpId, mask };
+function asCompletionSetPlayer(player: LeagueTaskPlayer): LeagueTaskCompletionSetPlayer | null {
+    if (
+        typeof player.hasLeagueTaskCompleted !== "function" ||
+        typeof player.setLeagueTasksCompleted !== "function" ||
+        typeof player.getLeagueTasksCompletedIds !== "function"
+    ) {
+        return null;
+    }
+    return player as LeagueTaskCompletionSetPlayer;
+}
+
+function countCompletedTasksForPlayer(player: LeagueTaskPlayer): number {
+    if (typeof player.getLeagueTasksCompletedCount === "function") {
+        return player.getLeagueTasksCompletedCount();
+    }
+    let count = 0;
+    for (const row of LEAGUE_TASKS) {
+        if (LeagueTaskService.isTaskComplete(player, row.taskId)) {
+            count++;
+        }
+    }
+    return count;
+}
+
+export type LeagueTaskEquipCheckPlayer = LeagueTaskPlayer & {
+    appearance?: { equip?: number[] };
+};
+
+function packTotalTasksIntoGeneralTasks4Varp(prevVarpValue: number, totalTasks: number): number {
+    return (
+        (prevVarpValue & ~VARP_LEAGUE_GENERAL_TASKS_4_COUNT_MASK) |
+        (totalTasks & VARP_LEAGUE_GENERAL_TASKS_4_COUNT_MASK)
+    );
+}
+
+function getEquippedItemId(player: LeagueTaskEquipCheckPlayer, slot: EquipmentSlot): number {
+    const equip = player.appearance?.equip;
+    if (!Array.isArray(equip) || slot < 0 || slot >= equip.length) {
+        return -1;
+    }
+    return equip[slot] | 0;
+}
+
+function playerHasObsidianCapeEquipped(player: LeagueTaskEquipCheckPlayer): boolean {
+    return getEquippedItemId(player, EquipmentSlot.CAPE) === OBSIDIAN_CAPE_ITEM_ID;
+}
+
+function playerHasFullObsidianArmourEquipped(player: LeagueTaskEquipCheckPlayer): boolean {
+    return (
+        getEquippedItemId(player, EquipmentSlot.HEAD) === OBSIDIAN_HELMET_ITEM_ID &&
+        getEquippedItemId(player, EquipmentSlot.BODY) === OBSIDIAN_PLATEBODY_ITEM_ID &&
+        getEquippedItemId(player, EquipmentSlot.LEGS) === OBSIDIAN_PLATELEGS_ITEM_ID
+    );
 }
 
 export class LeagueTaskService {
+    static migrateCompletedTasksFromLegacy(player: LeagueTaskPlayer): void {
+        const setPlayer = asCompletionSetPlayer(player);
+        if (!setPlayer) {
+            return;
+        }
+        migrateLeagueTasksCompletedFromLegacy(setPlayer);
+        syncLeagueTaskCompletionVarpsFromSet(setPlayer);
+    }
+
     static isTaskComplete(player: LeagueTaskPlayer, taskId: number): boolean {
-        const tid = taskId;
-        const { varpId, mask } = getLeagueTaskBitfield(tid);
+        if (typeof player.hasLeagueTaskCompleted === "function") {
+            return player.hasLeagueTaskCompleted(taskId);
+        }
+        const { varpId, mask } = getLeagueTaskBitfield(taskId);
         if (varpId < 0 || mask === 0) {
             return false;
         }
         return (player.getVarpValue(varpId) & mask) !== 0;
+    }
+
+    static countCompletedTasks(player: LeagueTaskPlayer): number {
+        return countCompletedTasksForPlayer(player);
+    }
+
+    static clearTaskCompletion(
+        player: LeagueTaskPlayer,
+        taskId: number,
+    ): { changed: boolean; varpUpdates: Array<{ id: number; value: number }> } {
+        const { varpId, mask } = getLeagueTaskBitfield(taskId);
+        if (varpId < 0 || mask === 0) {
+            return { changed: false, varpUpdates: [] };
+        }
+        const prev = player.getVarpValue(varpId);
+        const next = clearLeagueTaskCompletionVarpBit(prev, mask);
+        if (next === ((prev | 0) >>> 0)) {
+            return { changed: false, varpUpdates: [] };
+        }
+        if (typeof player.setLeagueTasksCompleted === "function") {
+            const remaining = player
+                .getLeagueTasksCompletedIds?.()
+                .filter((id) => (id | 0) !== (taskId | 0)) ?? [];
+            player.setLeagueTasksCompleted(remaining);
+            const updates =
+                player.syncLeagueTaskCompletionVarpsFromSet?.() ?? [{ id: varpId, value: next | 0 }];
+            return { changed: true, varpUpdates: updates };
+        }
+        player.setVarpValue(varpId, next | 0);
+        return { changed: true, varpUpdates: [{ id: varpId, value: next | 0 }] };
+    }
+
+    /**
+     * OSRS parity: repair stale completion bits and sync varbit 10046 / varp 2610.
+     * Clears equip-task bits when the required gear is not worn (fixes polluted saves).
+     */
+    static reconcileLeagueTaskState(player: LeagueTaskEquipCheckPlayer): LeagueTaskAwardResult {
+        const varpUpdates: Array<{ id: number; value: number }> = [];
+        const varbitUpdates: Array<{ id: number; value: number }> = [];
+        let changed = false;
+
+        const equipChecks: Array<{ taskId: number; satisfied: () => boolean }> = [
+            { taskId: 651, satisfied: () => playerHasObsidianCapeEquipped(player) },
+            { taskId: 652, satisfied: () => playerHasFullObsidianArmourEquipped(player) },
+        ];
+        for (const { taskId, satisfied } of equipChecks) {
+            if (LeagueTaskService.isTaskComplete(player, taskId) && !satisfied()) {
+                const cleared = LeagueTaskService.clearTaskCompletion(player, taskId);
+                if (cleared.changed) {
+                    changed = true;
+                    varpUpdates.push(...cleared.varpUpdates);
+                }
+            }
+        }
+
+        const setPlayer = asCompletionSetPlayer(player);
+        if (setPlayer) {
+            const synced = syncLeagueTaskCompletionVarpsFromSet(setPlayer);
+            if (synced.length > 0) {
+                changed = true;
+                varpUpdates.push(...synced);
+            }
+        }
+
+        const totalCompleted = countCompletedTasksForPlayer(player);
+        const prevTasks4Varp = player.getVarpValue(VARP_LEAGUE_GENERAL_TASKS_4);
+        const prevTotalCount = prevTasks4Varp & VARP_LEAGUE_GENERAL_TASKS_4_COUNT_MASK;
+        const nextTasks4Varp = packTotalTasksIntoGeneralTasks4Varp(prevTasks4Varp, totalCompleted);
+        if (nextTasks4Varp !== prevTasks4Varp) {
+            player.setVarpValue(VARP_LEAGUE_GENERAL_TASKS_4, nextTasks4Varp);
+            varpUpdates.push({ id: VARP_LEAGUE_GENERAL_TASKS_4, value: nextTasks4Varp });
+            changed = true;
+        }
+        if (prevTotalCount !== totalCompleted) {
+            varbitUpdates.push({
+                id: VARBIT_LEAGUE_TOTAL_TASKS_COMPLETED,
+                value: totalCompleted,
+            });
+            changed = true;
+        }
+
+        return { changed, varpUpdates, varbitUpdates };
     }
 
     /**
@@ -74,10 +224,20 @@ export class LeagueTaskService {
     ): LeagueTaskAwardResult {
         const tid = taskId;
         const { varpId, mask } = getLeagueTaskBitfield(tid);
+        if (varpId < 0 || mask === 0) {
+            return { changed: false, varpUpdates: [], varbitUpdates: [] };
+        }
+
+        if (typeof player.hasLeagueTaskCompleted === "function" && player.hasLeagueTaskCompleted(tid)) {
+            return { changed: false, varpUpdates: [], varbitUpdates: [] };
+        }
 
         const prevMask = player.getVarpValue(varpId);
-        const nextMask = prevMask | mask;
-        if (nextMask === prevMask) {
+        const nextMask = mergeLeagueTaskCompletionVarp(prevMask, mask);
+        if (
+            typeof player.hasLeagueTaskCompleted !== "function" &&
+            nextMask === ((prevMask | 0) >>> 0)
+        ) {
             return { changed: false, varpUpdates: [], varbitUpdates: [] };
         }
 
@@ -88,22 +248,26 @@ export class LeagueTaskService {
         const varpUpdates: Array<{ id: number; value: number }> = [];
         const varbitUpdates: Array<{ id: number; value: number }> = [];
 
-        player.setVarpValue(varpId, nextMask);
-        varpUpdates.push({ id: varpId, value: nextMask });
+        player.addLeagueTaskCompleted?.(tid);
+        if (typeof player.syncLeagueTaskCompletionVarpsFromSet === "function") {
+            varpUpdates.push(...player.syncLeagueTaskCompletionVarpsFromSet());
+        } else {
+            player.setVarpValue(varpId, nextMask | 0);
+            varpUpdates.push({ id: varpId, value: nextMask | 0 });
+        }
 
-        const prevTotalTasks = player.getVarbitValue(VARBIT_LEAGUE_TOTAL_TASKS_COMPLETED);
-        const nextTotalTasks = prevTotalTasks + 1;
-        player.setVarbitValue(VARBIT_LEAGUE_TOTAL_TASKS_COMPLETED, nextTotalTasks);
-        varbitUpdates.push({ id: VARBIT_LEAGUE_TOTAL_TASKS_COMPLETED, value: nextTotalTasks });
-
-        // Also update the backing varp (2612) for client synchronization.
-        // Varbit 10046 uses bits 0-15 of varp 2612, so we pack the task count there.
-        // This ensures the client receives the correct varp value for CS2 scripts.
-        const prevVarpValue = player.getVarpValue(VARP_LEAGUE_TASK_COUNT);
-        // Clear bits 0-15 and set new task count value
-        const nextVarpValue = (prevVarpValue & ~0xffff) | (nextTotalTasks & 0xffff);
-        player.setVarpValue(VARP_LEAGUE_TASK_COUNT, nextVarpValue);
-        varpUpdates.push({ id: VARP_LEAGUE_TASK_COUNT, value: nextVarpValue });
+        const totalCompleted = countCompletedTasksForPlayer(player);
+        const prevTasks4Varp = player.getVarpValue(VARP_LEAGUE_GENERAL_TASKS_4);
+        const prevTotalCount = prevTasks4Varp & VARP_LEAGUE_GENERAL_TASKS_4_COUNT_MASK;
+        const nextTasks4Varp = packTotalTasksIntoGeneralTasks4Varp(prevTasks4Varp, totalCompleted);
+        player.setVarpValue(VARP_LEAGUE_GENERAL_TASKS_4, nextTasks4Varp);
+        varpUpdates.push({ id: VARP_LEAGUE_GENERAL_TASKS_4, value: nextTasks4Varp });
+        if (prevTotalCount !== totalCompleted) {
+            varbitUpdates.push({
+                id: VARBIT_LEAGUE_TOTAL_TASKS_COMPLETED,
+                value: totalCompleted,
+            });
+        }
 
         if (points > 0) {
             const prevClaimed = player.getVarpValue(VARP_LEAGUE_POINTS_CLAIMED);
