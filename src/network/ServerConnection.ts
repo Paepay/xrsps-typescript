@@ -36,6 +36,12 @@ export type InventoryServerUpdate =
     | { kind: "snapshot"; slots: InventorySlotMessage[] }
     | { kind: "slot"; slot: InventorySlotMessage };
 
+/** Worn equipment container (OSRS inv 94). Slots use EquipmentDisplaySlot indices. */
+export type EquipmentServerUpdate = {
+    kind: "snapshot";
+    slots: InventorySlotMessage[];
+};
+
 /** Collection log inventory update (ID 620 - collection_transmit) */
 export type CollectionLogSlotMessage = { slot: number; itemId: number; quantity: number };
 export type CollectionLogServerPayload = {
@@ -668,6 +674,7 @@ const handshakeListeners = new Set<
     }) => void
 >();
 const inventoryListeners = new Set<(update: InventoryServerUpdate) => void>();
+const equipmentListeners = new Set<(update: EquipmentServerUpdate) => void>();
 const collectionLogListeners = new Set<(update: CollectionLogServerPayload) => void>();
 const widgetListeners = new Set<(payload: WidgetServerPayload) => void>();
 export type SkillsUpdateEvent = {
@@ -724,6 +731,7 @@ let lastHandshake:
       }
     | undefined;
 let lastInventorySnapshot: InventorySlotMessage[] | undefined;
+let lastEquipmentSnapshot: InventorySlotMessage[] | undefined;
 let lastCollectionLogSnapshot: CollectionLogSlotMessage[] | undefined;
 let lastBankState: { capacity: number; slots: BankSlotMessage[] } | undefined;
 let lastShopState: ShopWindowState = createDefaultShopState();
@@ -1207,6 +1215,17 @@ function emitInventory(update: InventoryServerUpdate): void {
             }
         } catch (err) {
             console.warn("inventory listener error", err);
+        }
+    }
+}
+
+function emitEquipment(update: EquipmentServerUpdate): void {
+    lastEquipmentSnapshot = update.slots.map((slot) => ({ ...slot }));
+    for (const listener of equipmentListeners) {
+        try {
+            listener({ kind: "snapshot", slots: update.slots.map((slot) => ({ ...slot })) });
+        } catch (err) {
+            console.warn("equipment listener error", err);
         }
     }
 }
@@ -1870,6 +1889,15 @@ function processServerMessage(msg: any): void {
                 });
             }
         }
+    } else if (msg.type === "equipment") {
+        const payload: any = msg.payload;
+        if (!payload) return;
+        if (payload.kind === "snapshot") {
+            const slots = Array.isArray(payload.slots)
+                ? payload.slots.map((slot: any) => sanitizeInventorySlotMessage(slot))
+                : [];
+            emitEquipment({ kind: "snapshot", slots });
+        }
     } else if (msg.type === "collection_log") {
         const payload: any = msg.payload;
         if (!payload) return;
@@ -2338,6 +2366,7 @@ export function disposeServerConnection(reason: string = "hmr refresh"): void {
             g[WS_SUPPRESS_RECONNECT_KEY] = true;
         } catch {}
         lastInventorySnapshot = undefined;
+        lastEquipmentSnapshot = undefined;
         lastTradeState = createDefaultTradeState();
         lastGroundItems = undefined;
     }
@@ -3315,6 +3344,17 @@ export function subscribeInventory(cb: (update: InventoryServerUpdate) => void):
         });
     }
     return () => inventoryListeners.delete(cb);
+}
+
+export function subscribeEquipment(cb: (update: EquipmentServerUpdate) => void): () => void {
+    equipmentListeners.add(cb);
+    if (lastEquipmentSnapshot) {
+        cb({
+            kind: "snapshot",
+            slots: lastEquipmentSnapshot.map((slot) => ({ ...slot })),
+        });
+    }
+    return () => equipmentListeners.delete(cb);
 }
 
 export function subscribeCollectionLog(

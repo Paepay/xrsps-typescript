@@ -429,6 +429,24 @@ export function decodeServerPacket(data: Uint8Array | ArrayBuffer): DecodedServe
             };
         }
 
+        case ServerPacketId.EQUIPMENT_SNAPSHOT: {
+            const count = reader.readShort();
+            const slots: any[] = [];
+            for (let i = 0; i < count; i++) {
+                const slot = reader.readShort();
+                const itemId = reader.readShort() - 1;
+                let quantity = reader.readByte();
+                if (quantity === 255) {
+                    quantity = reader.readInt();
+                }
+                slots.push({ slot, itemId, quantity });
+            }
+            return {
+                type: "equipment",
+                payload: { kind: "snapshot", slots },
+            };
+        }
+
         case ServerPacketId.SKILLS_SNAPSHOT:
         case ServerPacketId.SKILLS_DELTA: {
             const kind = opcode === ServerPacketId.SKILLS_SNAPSHOT ? "snapshot" : "delta";

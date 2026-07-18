@@ -93,6 +93,8 @@ export interface SkillPicklockActionData {
 export interface SkillPickpocketActionData {
     npcId: number;
     npcTypeId: number;
+    /** Skill-guide pickpocket activity id. */
+    guideId: string;
     reqLevel: number;
     xp: number;
     lootTable: Array<{
@@ -107,6 +109,64 @@ export interface SkillPickpocketActionData {
     stunTicks: number;
     displayName?: string;
     /** 0=attempt, 1=resolve, 2=stun_visual, 3=stun_damage */
+    phase: number;
+}
+
+export interface SkillStallActionData {
+    guideId: string;
+    locId: number;
+    emptyLocId: number;
+    stallName: string;
+    reqLevel: number;
+    xp: number;
+    respawnTicks: number;
+    lootTable: Array<{
+        itemId: number;
+        minAmount: number;
+        maxAmount: number;
+        weight: number;
+        message: string;
+    }>;
+    lootTotal: number;
+    ownerNpcIds: number[];
+    guardNpcIds: number[];
+    tile: { x: number; y: number };
+    level: number;
+}
+
+export interface SkillChestActionData {
+    guideId: string;
+    locId: number;
+    emptyLocId: number;
+    openLocId?: number;
+    openTicks?: number;
+    reqLevel: number;
+    xp: number;
+    respawnTicks: number;
+    lootTable: Array<{
+        itemId: number;
+        minAmount: number;
+        maxAmount: number;
+        weight: number;
+    }>;
+    lootTotal: number;
+    trapped: boolean;
+    requiresLockpick?: boolean;
+    trapDamage?:
+        | { kind: "hp_percent"; percent: number; flat: number }
+        | { kind: "formula"; id: "blood_rune" };
+    teleCoord?: { x: number; y: number; level: number };
+    tile: { x: number; y: number };
+    level: number;
+    /**
+     * 0 = open (trigger trap),
+     * 1 = search begin,
+     * 2 = find trap,
+     * 6 = disable trap,
+     * 3 = open chest,
+     * 4 = loot + XP,
+     * 5 = post-loot teleport / deplete
+     */
     phase: number;
 }
 
@@ -136,6 +196,8 @@ export type SkillActionPayloadByKind = {
     "skill.woodcut": SkillWoodcuttingActionData;
     "skill.picklock": SkillPicklockActionData;
     "skill.pickpocket": SkillPickpocketActionData;
+    "skill.stall": SkillStallActionData;
+    "skill.chest": SkillChestActionData;
 };
 
 export type SkillActionRequest<K extends keyof SkillActionPayloadByKind> = {

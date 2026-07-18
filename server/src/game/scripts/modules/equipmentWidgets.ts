@@ -1,4 +1,3 @@
-import { getMainmodalUid, getSidemodalUid } from "../../../widgets/viewport";
 import type { ScriptModule, ScriptServices } from "../types";
 
 /**
@@ -10,12 +9,11 @@ import type { ScriptModule, ScriptServices } from "../types";
  * - 387:7 = "Call follower" button
  *
  * The equipment stats interface (84) opens alongside equipment inventory (85).
- * Bonus value fields in 84 are cache-empty text widgets and are populated by
- * wsServer using authoritative equipment state. This module just needs to:
- * 1. Set varbit 12393 = 1 (equipment stats open)
- * 2. Open interfaces 84 (mainmodal) and 85 (sidemodal)
- * 3. Initialize inventory ops via script 149/151
- * 4. Handle Remove actions from both equipment tab (387) and stats view (84)
+ * Opening is owned by InterfaceService + EquipmentStatsInterfaceHooks (IF_SETEVENTS,
+ * sidemodal 85, inv init scripts). This module:
+ * 1. Opens equipment stats via InterfaceService.openModal
+ * 2. Handles Remove on worn equipment tab (387) and stats view (84)
+ * 3. Handles Equip clicks from equipment inventory (85)
  */
 
 // Equipment tab interface
@@ -30,6 +28,7 @@ const EQUIPMENT_INVENTORY_INTERFACE_ID = 85;
 // Component IDs
 const VIEW_EQUIPMENT_STATS_COMPONENT = 1;
 const CALL_FOLLOWER_COMPONENT = 7;
+const EQUIPMENT_INVENTORY_COMPONENT = 0;
 
 // Equipment slot component IDs (387:15-25) -> EquipmentSlot index
 // EquipmentSlot: HEAD=0, CAPE=1, AMULET=2, WEAPON=3, BODY=4, SHIELD=5, LEGS=6, GLOVES=7, BOOTS=8, RING=9, AMMO=10
@@ -76,88 +75,46 @@ const EQUIPMENT_STATS_SLOTS = [
     { component: 20, slot: 10 }, // worn 13 (ammo)
 ];
 
-// Varbit for equipment stats open state
-const VARBIT_EQUIPMENT_STATS_OPEN = 12393;
-
-// Widget UIDs
-const EQUIPMENT_INVENTORY_WIDGET_UID = EQUIPMENT_INVENTORY_INTERFACE_ID << 16; // 85:0 = 5570560
-
-// Player inventory ID
-const PLAYER_INV_ID = 93;
-
 /**
- * Open the equipment stats interface.
+ * Open the equipment stats interface via InterfaceService.
+ * Hooks set IF_SETEVENTS, open sidemodal 85, and run inv-init scripts.
  */
 function openEquipmentStats(player: any, services: ScriptServices): void {
-    const playerId = player.id;
-    const displayMode = player.displayMode ?? 1;
+    if (!player) return;
+    services.openModal?.(player, EQUIPMENT_STATS_INTERFACE_ID);
+    services.logger?.info?.(`[equipment-widgets] Opened equipment stats for player=${player.id}`);
+}
 
-    // Helper to queue scripts
-    const runScript = (scriptId: number, args: (number | string)[]) => {
-        services.queueWidgetEvent?.(playerId, {
-            action: "run_script",
-            scriptId,
-            args,
-        });
-    };
-
-    // 1. Set varbit 12393 = 1 (equipment stats open)
-    services.queueVarbit?.(playerId, VARBIT_EQUIPMENT_STATS_OPEN, 1);
-
-    // 2. Open equipment stats (84) in mainmodal
-    const mainmodalUid = getMainmodalUid(displayMode);
-    services.queueWidgetEvent?.(playerId, {
-        action: "open_sub",
-        targetUid: mainmodalUid,
-        groupId: EQUIPMENT_STATS_INTERFACE_ID,
-        type: 0, // modal
-    });
-
-    // 3. Open equipment inventory (85) in sidemodal
-    const sidemodalUid = getSidemodalUid(displayMode);
-    services.queueWidgetEvent?.(playerId, {
-        action: "open_sub",
-        targetUid: sidemodalUid,
-        groupId: EQUIPMENT_INVENTORY_INTERFACE_ID,
-        type: 3, // tab/sidemodal replacement (closed by IF_CLOSE)
-    });
-
-    // 4. Initialize inventory ops for the equipment inventory interface
-    // Script 149 - Interface inv init
-    runScript(149, [
-        EQUIPMENT_INVENTORY_WIDGET_UID,
-        PLAYER_INV_ID,
-        4,
-        7,
-        1,
-        -1,
-        "Equip",
-        "",
-        "",
-        "",
-        "",
-    ]);
-
-    // Script 151 - Extended interface inv init (9 op strings)
-    runScript(151, [
-        EQUIPMENT_INVENTORY_WIDGET_UID,
-        PLAYER_INV_ID,
-        4,
-        7,
-        1,
-        -1,
-        "Equip",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-    ]);
-
-    services.logger?.info?.(`[equipment-widgets] Opened equipment stats for player=${playerId}`);
+function equipFromInventorySlot(
+    player: any,
+    services: ScriptServices,
+    slot: number,
+    itemId: number,
+): void {
+    if (!player || !(itemId > 0)) return;
+    const tick = services.getCurrentTick?.() ?? 0;
+    const res = services.requestAction(
+        player,
+        {
+            kind: "inventory.equip",
+            data: {
+                slotIndex: slot,
+                itemId,
+                option: "Equip",
+            },
+            delayTicks: 0,
+            groups: ["inventory"],
+            cooldownTicks: 0,
+        },
+        tick,
+    );
+    if (!res.ok) {
+        services.logger?.info?.(
+            `[equipment-widgets] Equip rejected player=${player.id} slot=${slot} item=${itemId} reason=${
+                res.reason ?? "unknown"
+            }`,
+        );
+    }
 }
 
 export const equipmentWidgetModule: ScriptModule = {
@@ -218,5 +175,17 @@ export const equipmentWidgetModule: ScriptModule = {
 
         // ============ EQUIPMENT STATS REMOVE BUTTONS (84:10-20) ============
         registerRemoveButtons(EQUIPMENT_STATS_INTERFACE_ID, EQUIPMENT_STATS_SLOTS);
+
+        // ============ EQUIPMENT INVENTORY EQUIP (85:0) ============
+        // OSRS parity: op1 on the equipment inventory always means Equip (interface-overridden ops),
+        // not the item's native inventoryActions entry.
+        registry.onButton(EQUIPMENT_INVENTORY_INTERFACE_ID, EQUIPMENT_INVENTORY_COMPONENT, (event) => {
+            const player = event.player;
+            if (!player) return;
+            const slot = event.slot ?? event.childId ?? -1;
+            const itemId = event.itemId ?? -1;
+            if (slot < 0 || !(itemId > 0)) return;
+            equipFromInventorySlot(player, services, slot, itemId);
+        });
     },
 };

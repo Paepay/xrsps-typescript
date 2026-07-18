@@ -455,6 +455,11 @@ export interface PlayerPersistentVars {
      * Used by the hunter skill-guide teleport feature.
      */
     hunterCatchLocations?: Record<string, PlayerLocationSnapshot>;
+    /**
+     * Last non-instanced standing tile per Thieving skill-guide activity id.
+     * Used by the thieving skill-guide teleport feature.
+     */
+    thievingLocations?: Record<string, PlayerLocationSnapshot>;
 }
 
 export class PlayerState extends Actor {
@@ -480,6 +485,8 @@ export class PlayerState extends Actor {
     private fishingCatchLocations: Map<string, PlayerLocationSnapshot> = new Map();
     /** Last standing tile per Hunter skill-guide catch id. */
     private hunterCatchLocations: Map<string, PlayerLocationSnapshot> = new Map();
+    /** Last standing tile per Thieving skill-guide activity id. */
+    private thievingLocations: Map<string, PlayerLocationSnapshot> = new Map();
     readonly skills: PlayerSkillState[];
     skillTotal: number;
     combatLevel: number;
@@ -1106,6 +1113,10 @@ export class PlayerState extends Actor {
         if (!this.equipmentDirty) return undefined;
         this.equipmentDirty = false;
         return this.exportEquipmentSnapshot();
+    }
+
+    hasEquipmentUpdate(): boolean {
+        return this.equipmentDirty;
     }
 
     hasAppearanceUpdate(): boolean {
@@ -2256,6 +2267,24 @@ export class PlayerState extends Actor {
         return { x: loc.x, y: loc.y, level: loc.level };
     }
 
+    rememberThievingLocation(activityId: string, location: PlayerLocationSnapshot): void {
+        const id = typeof activityId === "string" ? activityId.trim() : "";
+        if (!id) return;
+        this.thievingLocations.set(id, {
+            x: Math.floor(location.x),
+            y: Math.floor(location.y),
+            level: Math.max(0, Math.min(3, Math.floor(location.level))),
+        });
+    }
+
+    getThievingLocation(activityId: string): PlayerLocationSnapshot | undefined {
+        const id = typeof activityId === "string" ? activityId.trim() : "";
+        if (!id) return undefined;
+        const loc = this.thievingLocations.get(id);
+        if (!loc) return undefined;
+        return { x: loc.x, y: loc.y, level: loc.level };
+    }
+
     private loadMiningOreLocations(
         locations: Record<string, PlayerLocationSnapshot> | undefined,
     ): void {
@@ -2309,6 +2338,20 @@ export class PlayerState extends Actor {
                 continue;
             }
             this.rememberHunterCatchLocation(catchId, loc);
+        }
+    }
+
+    private loadThievingLocations(
+        locations: Record<string, PlayerLocationSnapshot> | undefined,
+    ): void {
+        this.thievingLocations.clear();
+        if (!locations || typeof locations !== "object") return;
+        for (const [activityId, loc] of Object.entries(locations)) {
+            if (!activityId || !loc) continue;
+            if (!Number.isFinite(loc.x) || !Number.isFinite(loc.y) || !Number.isFinite(loc.level)) {
+                continue;
+            }
+            this.rememberThievingLocation(activityId, loc);
         }
     }
 
@@ -3010,6 +3053,17 @@ export class PlayerState extends Actor {
             }
             snapshot.hunterCatchLocations = hunterCatchLocations;
         }
+        if (this.thievingLocations.size > 0) {
+            const thievingLocations: Record<string, PlayerLocationSnapshot> = {};
+            for (const [activityId, loc] of this.thievingLocations.entries()) {
+                thievingLocations[activityId] = {
+                    x: loc.x,
+                    y: loc.y,
+                    level: loc.level,
+                };
+            }
+            snapshot.thievingLocations = thievingLocations;
+        }
         snapshot.accountCreationTimeMs = Math.max(
             0,
             Number.isFinite(this.accountCreationTimeMs)
@@ -3209,6 +3263,7 @@ export class PlayerState extends Actor {
         this.loadWoodcuttingTreeLocations(state.woodcuttingTreeLocations);
         this.loadFishingCatchLocations(state.fishingCatchLocations);
         this.loadHunterCatchLocations(state.hunterCatchLocations);
+        this.loadThievingLocations(state.thievingLocations);
     }
 
     getFollowerState(): PlayerFollowerPersistentEntry | undefined {

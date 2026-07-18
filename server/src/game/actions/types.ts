@@ -33,6 +33,8 @@ export type BuiltInActionKind =
     | "skill.bolt_enchant"
     | "skill.picklock"
     | "skill.pickpocket"
+    | "skill.stall"
+    | "skill.chest"
     | "movement.teleport"
     | "emote.play";
 

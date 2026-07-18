@@ -1375,10 +1375,14 @@ export class PlayerEcs {
     }
 
     private getAppearanceCacheKey(app: PlayerAppearance): string {
+        // Bump when PlayerModelLoader wear-composition rules change (e.g. maleOffset).
+        const buildVersion = "wear-off-v2";
         const equipKey =
             app.getEquipKey?.() ??
             (Array.isArray(app.equip) ? app.equip.slice(0, 14).join(",") : "");
-        return app.getCacheKey?.() ?? `${app.getHash?.().toString() ?? "0"}|${equipKey}`;
+        return `${buildVersion}|${
+            app.getCacheKey?.() ?? `${app.getHash?.().toString() ?? "0"}|${equipKey}`
+        }`;
     }
 
     /**

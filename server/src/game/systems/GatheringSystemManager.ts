@@ -1,6 +1,8 @@
 import { ASHES_ITEM_ID, FiremakingTracker } from "../skills/firemaking";
 import { FlaxPatchTracker } from "../skills/flaxPatchTracker";
 import { MiningNodeTracker, buildMiningTileKey } from "../skills/mining";
+import { ThievingChestTracker, buildThievingChestTileKey } from "../skills/thievingChests";
+import { ThievingStallTracker, buildThievingStallTileKey } from "../skills/thievingStalls";
 import { WoodcuttingNodeTracker, buildWoodcuttingTileKey } from "../skills/woodcutting";
 
 export interface GatheringSystemServices {
@@ -29,6 +31,8 @@ export class GatheringSystemManager {
     readonly miningTracker = new MiningNodeTracker();
     readonly firemakingTracker = new FiremakingTracker();
     readonly flaxTracker = new FlaxPatchTracker();
+    readonly thievingStallTracker = new ThievingStallTracker();
+    readonly thievingChestTracker = new ThievingChestTracker();
 
     private services: GatheringSystemServices;
 
@@ -44,6 +48,8 @@ export class GatheringSystemManager {
         this.processMiningRespawns(tick);
         this.processFlaxRespawns(tick);
         this.processFiremakingExpirations(tick);
+        this.processThievingStallRespawns(tick);
+        this.processThievingChestRespawns(tick);
     }
 
     private processWoodcuttingRespawns(tick: number): void {
@@ -61,6 +67,18 @@ export class GatheringSystemManager {
     private processFlaxRespawns(tick: number): void {
         this.flaxTracker.processRespawns(tick, (state) =>
             this.services.emitLocChange(0, state.locId, state.tile, state.level),
+        );
+    }
+
+    private processThievingStallRespawns(tick: number): void {
+        this.thievingStallTracker.processRespawns(tick, (oldId, newId, tile, level) =>
+            this.services.emitLocChange(oldId, newId, tile, level),
+        );
+    }
+
+    private processThievingChestRespawns(tick: number): void {
+        this.thievingChestTracker.processRespawns(tick, (oldId, newId, tile, level) =>
+            this.services.emitLocChange(oldId, newId, tile, level),
         );
     }
 
@@ -158,5 +176,51 @@ export class GatheringSystemManager {
             locId: info.locId,
             respawnTick: tick + info.respawnTicks,
         });
+    }
+
+    // ----- Thieving stalls / chests -----
+
+    isThievingStallDepleted(key: string): boolean {
+        return this.thievingStallTracker.isDepleted(key);
+    }
+
+    markThievingStallDepleted(
+        info: {
+            key: string;
+            locId: number;
+            emptyLocId: number;
+            tile: { x: number; y: number };
+            level: number;
+            respawnTicks: number;
+        },
+        tick: number,
+    ): void {
+        this.thievingStallTracker.markDepleted(info, tick);
+    }
+
+    buildThievingStallTileKey(tile: { x: number; y: number }, level: number): string {
+        return buildThievingStallTileKey(tile, level);
+    }
+
+    isThievingChestDepleted(key: string): boolean {
+        return this.thievingChestTracker.isDepleted(key);
+    }
+
+    markThievingChestDepleted(
+        info: {
+            key: string;
+            locId: number;
+            emptyLocId: number;
+            tile: { x: number; y: number };
+            level: number;
+            respawnTicks: number;
+        },
+        tick: number,
+    ): void {
+        this.thievingChestTracker.markDepleted(info, tick);
+    }
+
+    buildThievingChestTileKey(tile: { x: number; y: number }, level: number): string {
+        return buildThievingChestTileKey(tile, level);
     }
 }

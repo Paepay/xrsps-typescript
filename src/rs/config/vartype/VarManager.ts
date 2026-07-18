@@ -111,6 +111,10 @@ export class VarManager {
         // Varbit 10032: league_type
         // Stored in varp 2606, bits 1-4
         this.registerVarbit(10032, 2606, 1, 4);
+
+        // Controls: shift-click to drop items (cache-defined; fallback if loader misses it)
+        // Varbit 5542 packs into varp 117 bit 30.
+        this.registerVarbit(5542, 117, 30, 30);
     }
 
     /**

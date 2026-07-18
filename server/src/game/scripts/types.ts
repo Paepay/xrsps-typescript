@@ -510,6 +510,11 @@ export interface ScriptServices {
      */
     closeModal?: (player: PlayerState) => void;
     /**
+     * Open a modal interface via InterfaceService.
+     * Triggers onOpen hooks (IF_SETEVENTS, sidemodals, init scripts, etc.).
+     */
+    openModal?: (player: PlayerState, interfaceId: number, data?: unknown) => void;
+    /**
      * Teleport a player to a new location with proper OSRS parity.
      * Clears actions, updates playerViews, and syncs appearance.
      * @param player The player to teleport

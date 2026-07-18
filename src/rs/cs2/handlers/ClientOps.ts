@@ -7,6 +7,7 @@ import {
     DEFAULT_SCREEN_WIDTH,
 } from "../../../client/ClientState";
 import { getClientClock } from "../../../client/TransmitCycles";
+import { VARBIT_SHIFT_CLICK_DROP } from "../../../shared/vars";
 import { getSafeAreaBounds, isTouchDevice } from "../../../util/DeviceUtil";
 import { MenuTargetType } from "../../MenuEntry";
 import { chatHistory } from "../ChatHistory";
@@ -553,7 +554,21 @@ export function registerClientOps(handlers: HandlerMap): void {
     });
 
     handlers.set(Opcodes.SETSHIFTCLICKDROP, (ctx) => {
-        ctx.intStackSize--; // pop enabled
+        // Modern OSRS stubs this opcode (CS2 owns varbit 5542 via SET_VARBIT).
+        // Settings scripts still call it with the toggled value — write both the
+        // client mirror and varbit so shift-drop gating stays in sync either way.
+        const enabled = ctx.intStack[--ctx.intStackSize] === 1;
+        const osrsClient = (ctx.widgetManager as any)?.osrsClient;
+        if (!osrsClient) return;
+        if (osrsClient.settings) {
+            osrsClient.settings.shiftClickEnabled = enabled;
+        }
+        try {
+            osrsClient.varManager?.setVarbit?.(VARBIT_SHIFT_CLICK_DROP, enabled ? 1 : 0);
+        } catch {}
+        try {
+            osrsClient.syncShiftClickDropFromVarbit?.();
+        } catch {}
     });
 
     handlers.set(Opcodes.SETREMOVEROOFS, (ctx) => {
@@ -887,6 +902,46 @@ export function registerClientOps(handlers: HandlerMap): void {
         const primaryOption = hoverTarget?.primaryOption;
         let componentOption = typeof primaryOption?.option === "string" ? primaryOption.option : "";
         let componentTarget = typeof primaryOption?.target === "string" ? primaryOption.target : "";
+
+        // OSRS parity: with "Shift click to drop items" (varbit 5542) on, holding Shift
+        // swaps the inventory hover/status option to Drop/Destroy/Release.
+        // Applied at snapshot read time so it updates without a widget redraw.
+        const resolveShiftDropOption = (): string | undefined => {
+            const fromTarget =
+                typeof hoverTarget?.shiftDropOption === "string"
+                    ? hoverTarget.shiftDropOption.trim()
+                    : "";
+            if (fromTarget) return fromTarget;
+            const uid = typeof hoverTarget?.widgetUid === "number" ? hoverTarget.widgetUid | 0 : 0;
+            if (uid <= 0) return undefined;
+            const w = osrsClient?.widgetManager?.getWidgetByUid?.(uid);
+            if (!w) return undefined;
+            const groupId =
+                typeof w.groupId === "number" ? w.groupId | 0 : ((uid >>> 16) | 0);
+            if (groupId !== 149) return undefined;
+            const actions = Array.isArray(w.actions) ? w.actions : [];
+            for (let i = 0; i < actions.length; i++) {
+                const a = actions[i];
+                if (typeof a !== "string") continue;
+                const trimmed = a.trim();
+                const lower = trimmed.toLowerCase();
+                if (lower === "drop" || lower === "destroy" || lower === "release") {
+                    return trimmed;
+                }
+            }
+            return undefined;
+        };
+        const shiftHeld = osrsClient?.inputManager?.isShiftDown?.() === true;
+        const shiftDropEnabled = osrsClient?.isShiftClickDropEnabled?.() === true;
+        const hasSelection =
+            ClientState.isSpellSelected || ClientState.isItemSelected === 1;
+        if (shiftHeld && shiftDropEnabled && !hasSelection) {
+            const shiftDrop = resolveShiftDropOption();
+            if (shiftDrop) {
+                componentOption = shiftDrop;
+            }
+        }
+
         // CS2 mouseover scripts treat numops as actionable options (exclude Cancel).
         const componentNumOpsRaw =
             typeof hoverTarget?.menuOptionsCount === "number"

@@ -433,7 +433,8 @@ type WidgetClickMeta = {
     widget: Widget;
     option: string;
     target?: string;
-    hasDropAction: boolean;
+    /** Inventory Discard-style option for shift-click ("Drop" / "Destroy" / "Release"). */
+    shiftDropOption?: string;
     itemId?: number;
     slot?: number;
 };
@@ -445,6 +446,12 @@ type CachedClickTarget = {
     priority: number;
     hoverText?: string;
     primaryOption?: { option: string; target?: string };
+    /**
+     * Inventory Discard-style option (Drop/Destroy/Release) for shift-click drop.
+     * Kept separate from primaryOption so hover text can swap at read time when Shift
+     * is pressed without requiring a widget redraw.
+     */
+    shiftDropOption?: string;
     /**
      * OSRS parity: number of minimenu options for this hover target (including Cancel).
      * Used by CS2 minimenu_* opcodes via ClientOps snapshot logic.
@@ -1622,9 +1629,13 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
             const isShiftHeld = inputManager?.shiftDown === true;
             let actionOption = meta.option;
 
-            // OSRS shift-click drop: if shift held and item has Drop action, use Drop
-            if (isShiftHeld && meta.hasDropAction) {
-                actionOption = "Drop";
+            // OSRS shift-click drop: gated by Controls setting (varbit 5542).
+            if (
+                isShiftHeld &&
+                meta.shiftDropOption &&
+                osrsClient?.isShiftClickDropEnabled?.() === true
+            ) {
+                actionOption = meta.shiftDropOption;
             }
 
             hook({
@@ -1878,7 +1889,11 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                 }
             }
             if (ct === 327 || ct === 328) {
-                // Reference: class326.method6261
+                // Reference: WorldSelectBackgroundType (contentType 327/328)
+                // rotationX = 150, rotationZ = sin(cycle/40)*256, modelType=5,
+                // modelId = 0 (327) / 1 (328).
+                // Model2DRenderer maps yan2d → drawFrustum yaw (OSRS var2), so the
+                // spin is applied via rotationY here to match that pipeline.
                 const cycleCntr = ((osrsClient?.transmitCycles?.cycleCntr ?? 0) | 0) as number;
                 const angleX = 150;
                 const angleY = ((Math.sin(cycleCntr / 40.0) * 256.0) | 0) & 2047;
@@ -2184,14 +2199,34 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                     clickPrimaryResolveMs += performance.now() - clickPrimaryResolveStartMs;
                 }
 
-                // Check if widget has a Drop action (for shift-click drop)
+                // Resolve Discard-style option for shift-click drop (varbit 5542).
+                // Store on the click target; hover/status text swaps at MINIMENU snapshot
+                // read time so Shift mid-hover works without a widget redraw.
                 const clickMetaStartMs = profileWidgetRender ? performance.now() : 0;
-                const hasDropAction =
-                    interaction.isInventoryItem &&
-                    !!widgetActions &&
-                    widgetActions.some(
-                        (a: any) => a && typeof a === "string" && a.trim().toLowerCase() === "drop",
-                    );
+                let shiftDropOption: string | undefined;
+                if (interaction.isInventoryItem) {
+                    if (widgetActions) {
+                        for (const a of widgetActions) {
+                            if (typeof a !== "string") continue;
+                            const trimmed = a.trim();
+                            const lower = trimmed.toLowerCase();
+                            if (lower === "drop" || lower === "destroy" || lower === "release") {
+                                shiftDropOption = trimmed;
+                                break;
+                            }
+                        }
+                    }
+                    if (!shiftDropOption && Array.isArray(entries)) {
+                        for (const e of entries) {
+                            const trimmed = String(e?.option ?? "").trim();
+                            const lower = trimmed.toLowerCase();
+                            if (lower === "drop" || lower === "destroy" || lower === "release") {
+                                shiftDropOption = trimmed;
+                                break;
+                            }
+                        }
+                    }
+                }
 
                 // PERF: Update cached metadata object in-place instead of creating new
                 const slot =
@@ -2206,7 +2241,7 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                         widget: w,
                         option: primaryOptionText,
                         target: primaryTarget,
-                        hasDropAction,
+                        shiftDropOption,
                         itemId,
                         slot,
                     };
@@ -2215,7 +2250,7 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                     meta.widget = w;
                     meta.option = primaryOptionText;
                     meta.target = primaryTarget;
-                    meta.hasDropAction = hasDropAction;
+                    meta.shiftDropOption = shiftDropOption;
                     meta.itemId = itemId;
                     meta.slot = slot;
                 }
@@ -2238,6 +2273,7 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                             primaryOptionText || primaryTarget
                                 ? { option: primaryOptionText, target: primaryTarget }
                                 : undefined,
+                        shiftDropOption,
                         menuOptionsCount: entries.length | 0,
                         persist: true, // OSRS-style: persist for perf, visibility checked at query time
                         widgetUid: w.uid, // For OSRS-style visibility filtering during hit testing
@@ -2252,6 +2288,7 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                     target.rect.w = width;
                     target.rect.h = height;
                     target.hoverText = primaryOptionText;
+                    target.shiftDropOption = shiftDropOption;
                     // OSRS parity: left-click primary actions are handled by OsrsClient.handleUiInput,
                     // not by the GL click registry. Ensure any previously-set handlers are cleared.
                     target.onDown = undefined;
@@ -2315,6 +2352,7 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                         priority: 50,
                         hoverText: undefined,
                         primaryOption: undefined,
+                        shiftDropOption: undefined,
                         onClick: CANCEL_SELECTION_HANDLER,
                         persist: true, // OSRS-style: persist for perf, visibility checked at query time
                         widgetUid: w.uid, // For OSRS-style visibility filtering during hit testing
@@ -2330,6 +2368,7 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                     target.priority = 50;
                     target.hoverText = undefined;
                     target.primaryOption = undefined;
+                    target.shiftDropOption = undefined;
                     target.onClick = CANCEL_SELECTION_HANDLER;
                     (w as any).__clickTargetId = target.id;
                 }
@@ -3139,17 +3178,39 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
             let sequenceId =
                 typeof rawSeqId === "number" && rawSeqId >= 0 ? rawSeqId | 0 : undefined;
             // OSRS parity: contentType=328 (modelType=5, modelId=1) renders via
-            // localPlayer.getModelInternal() which bakes in the live idle animation.
-            // Inject the local player's movement sequence so the widget model animates.
+            // localPlayer.getModelInternal() which bakes in the live player animation.
+            // Prefer the same action/movement selection as PlayerRenderer; fall back to
+            // movement-only when ECS anim fields are unavailable.
             let liveMovementFrame: number | undefined;
             if (
                 sequenceId === undefined &&
                 ((w.contentType ?? 0) | 0) === 328
             ) {
                 try {
-                    const ac = osrsClient?.playerAnimController;
                     const sid = osrsClient?.controlledPlayerServerId;
-                    if (ac && typeof sid === "number" && sid >= 0) {
+                    const pe = osrsClient?.playerEcs;
+                    const ac = osrsClient?.playerAnimController;
+                    const idx =
+                        pe && typeof sid === "number" && sid >= 0
+                            ? pe.getIndexForServerId?.(sid)
+                            : undefined;
+                    if (idx !== undefined && idx >= 0 && pe && ac && typeof sid === "number") {
+                        const actionSeqId = (pe.getAnimSeqId?.(idx) ?? -1) | 0;
+                        const movementSeqId = (pe.getAnimMovementSeqId?.(idx) ?? -1) | 0;
+                        const actionDelay = (pe.getAnimSeqDelay?.(idx) ?? 0) | 0;
+                        const actionActive = (actionSeqId | 0) >= 0 && (actionDelay | 0) === 0;
+                        if (actionActive) {
+                            sequenceId = actionSeqId | 0;
+                            liveMovementFrame =
+                                (ac.getSequenceState?.(sid)?.frame ??
+                                    pe.getAnimSeqFrame?.(idx) ??
+                                    0) | 0;
+                        } else if ((movementSeqId | 0) >= 0) {
+                            sequenceId = movementSeqId | 0;
+                            liveMovementFrame =
+                                (ac.getMovementSequenceState?.(sid)?.frame ?? 0) | 0;
+                        }
+                    } else if (ac && typeof sid === "number" && sid >= 0) {
                         const ms = ac.getMovementSequenceState(sid);
                         if (ms && (ms.seqId | 0) >= 0) {
                             sequenceId = ms.seqId | 0;
@@ -3319,7 +3380,11 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                         widget: w,
                         sequenceId,
                         sequenceFrame: liveMovementFrame !== undefined ? liveMovementFrame : (w.modelFrame ?? 0) | 0,
-                        depthTest: true,
+                        // OSRS parity: WidgetRenderer always calls
+                        // Rasterizer3D.setDepthBufferingEnabled(false) before drawing
+                        // type-6 models. Enabling z-test lets high-priority face faces
+                        // punch through hat brims (equipment stats Infinity hat).
+                        depthTest: false,
                     },
                     width,
                     height,

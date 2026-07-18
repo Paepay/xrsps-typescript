@@ -53,6 +53,18 @@ import {
     isHunterCatchGuideUnlocked,
     resolveHunterGuideCatchIdByItem,
 } from "../../skills/hunterCatchGuideLocations";
+import {
+    THIEVING_SKILL_GUIDE_VARBIT_VALUE,
+    THIEVING_TELEPORT_ANIM_ID,
+    THIEVING_TELEPORT_ARRIVE_SOUND,
+    THIEVING_TELEPORT_CAST_GFX,
+    THIEVING_TELEPORT_CAST_GFX_HEIGHT,
+    THIEVING_TELEPORT_CAST_SOUND,
+    THIEVING_TELEPORT_DELAY_TICKS,
+    getSavedThievingGuideLocation,
+    isThievingGuideUnlocked,
+    resolveThievingGuideActivityIdByIcon,
+} from "../../skills/thievingGuideLocations";
 import { getMainmodalUid } from "../../../widgets/viewport";
 import { type ScriptModule, type ScriptServices } from "../types";
 
@@ -69,8 +81,9 @@ import { type ScriptModule, type ScriptServices } from "../types";
  *
  * Gathering extensions (unlocked by league relics; admins retain access for testing):
  * - Icons under 214:32 transmit clicks when IF_SETEVENTS is set
- * - Mining / Woodcutting / Fishing / Hunter guide icons teleport to last saved gather location
- * - Power Miner → Mining, Lumberjack → Woodcutting, Animal Wrangler → Fishing + Hunter
+ * - Mining / Woodcutting / Fishing / Hunter / Thieving guide icons teleport to last saved location
+ * - Power Miner → Mining, Lumberjack → Woodcutting, Animal Wrangler → Fishing + Hunter,
+ *   Dodgy Deals → Thieving
  */
 
 // Widget/Interface IDs
@@ -370,6 +383,47 @@ function tryTeleportToHunterCatchLocation(
     return true;
 }
 
+function tryTeleportToThievingLocation(
+    player: any,
+    services: ScriptServices,
+    itemId: number,
+    slot?: number,
+): boolean {
+    if (!isThievingGuideUnlocked(player, services)) {
+        return false;
+    }
+
+    const skill = player.getVarbitValue?.(VARBIT_SKILL_GUIDE_SKILL) ?? 0;
+    if (skill !== THIEVING_SKILL_GUIDE_VARBIT_VALUE) {
+        return false;
+    }
+
+    // Client may change Pickpocket/Stalls/Chests tabs without syncing subsection
+    // (varbit 4372) to the server. Resolver falls back to itemId + slot.
+    const subsection = player.getVarbitValue?.(VARBIT_SKILL_GUIDE_SUBSECTION) ?? 0;
+    const activityId = resolveThievingGuideActivityIdByIcon(itemId, subsection, slot);
+    if (!activityId) {
+        return false;
+    }
+
+    const destination = getSavedThievingGuideLocation(player, activityId);
+    if (!destination) {
+        services.sendGameMessage?.(player, "You haven't saved a location for that yet.");
+        return true;
+    }
+
+    castStandardTeleport(player, services, destination, {
+        delayTicks: THIEVING_TELEPORT_DELAY_TICKS,
+        animId: THIEVING_TELEPORT_ANIM_ID,
+        castGfx: THIEVING_TELEPORT_CAST_GFX,
+        castGfxHeight: THIEVING_TELEPORT_CAST_GFX_HEIGHT,
+        castSound: THIEVING_TELEPORT_CAST_SOUND,
+        arriveSound: THIEVING_TELEPORT_ARRIVE_SOUND,
+        abortLabel: "thieving teleport",
+    });
+    return true;
+}
+
 export const skillGuideWidgetModule: ScriptModule = {
     id: "content.skill-guide-widgets",
     register(registry, services) {
@@ -425,7 +479,16 @@ export const skillGuideWidgetModule: ScriptModule = {
                 const unlockHunter =
                     skillVarbitValue === HUNTER_SKILL_GUIDE_VARBIT_VALUE &&
                     isHunterCatchGuideUnlocked(player, services);
-                if (unlockMining || unlockWoodcutting || unlockFishing || unlockHunter) {
+                const unlockThieving =
+                    skillVarbitValue === THIEVING_SKILL_GUIDE_VARBIT_VALUE &&
+                    isThievingGuideUnlocked(player, services);
+                if (
+                    unlockMining ||
+                    unlockWoodcutting ||
+                    unlockFishing ||
+                    unlockHunter ||
+                    unlockThieving
+                ) {
                     enableSkillGuideIconTransmit(player, services);
                 }
             });
@@ -438,7 +501,8 @@ export const skillGuideWidgetModule: ScriptModule = {
             if (tryTeleportToMiningOreLocation(event.player, services, itemId)) return;
             if (tryTeleportToWoodcuttingTreeLocation(event.player, services, itemId)) return;
             if (tryTeleportToFishingCatchLocation(event.player, services, itemId)) return;
-            tryTeleportToHunterCatchLocation(event.player, services, itemId);
+            if (tryTeleportToHunterCatchLocation(event.player, services, itemId)) return;
+            tryTeleportToThievingLocation(event.player, services, itemId, event.slot);
         });
 
         // Sub-section button clicks (interface 214, children 11-24) are handled purely

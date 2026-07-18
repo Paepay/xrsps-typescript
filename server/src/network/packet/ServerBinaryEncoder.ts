@@ -136,7 +136,11 @@ export class ServerPacketBuffer {
      * Get the packet data with opcode and length prefix
      */
     toPacket(opcode: ServerPacketId): Uint8Array {
-        const length = SERVER_PACKET_LENGTHS[opcode];
+        let length = SERVER_PACKET_LENGTHS[opcode];
+        // Fallback: treat unknown opcodes as variable-short so new packets never crash login.
+        if (length === undefined) {
+            length = -2;
+        }
         const dataLen = this.offset;
 
         if (length === -1) {
@@ -349,6 +353,29 @@ export class ServerBinaryEncoder {
             this.buffer.writeByte(quantity);
         }
         return this.buffer.toPacket(ServerPacketId.INVENTORY_SLOT);
+    }
+
+    /**
+     * Worn equipment container snapshot (OSRS inventory id 94).
+     * Slots are EquipmentDisplaySlot indices used by CS2 INV_GETOBJ(94, slot).
+     */
+    encodeEquipmentSnapshot(
+        slots: Array<{ slot: number; itemId: number; quantity: number }>,
+    ): Uint8Array {
+        this.buffer.reset();
+        this.buffer.writeShort(slots.length);
+        for (const s of slots) {
+            this.buffer.writeShort(s.slot);
+            this.buffer.writeShort(s.itemId + 1);
+            if (s.quantity >= 255) {
+                this.buffer.writeByte(255);
+                this.buffer.writeInt(s.quantity);
+            } else {
+                this.buffer.writeByte(s.quantity);
+            }
+        }
+        // Use numeric opcode so encoding cannot fail if const-enum inlining drifts.
+        return this.buffer.toPacket(56 as ServerPacketId);
     }
 
     // ========================================

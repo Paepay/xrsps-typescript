@@ -187,6 +187,13 @@ export class LoadingTracker {
     }
 
     /**
+     * Check if a requirement is currently expected and not yet complete.
+     */
+    isRequirementPending(requirement: LoadingRequirement): boolean {
+        return this.requirements.has(requirement) && !this.completed.has(requirement);
+    }
+
+    /**
      * Get the list of pending requirements.
      */
     getPendingRequirements(): LoadingRequirement[] {

@@ -92,6 +92,10 @@ export interface MessageRouterServices {
 
 /**
  * Set of message types that should close interruptible interfaces before processing.
+ *
+ * Note: `inventory_use` is intentionally excluded. Equip/unequip must keep the
+ * equipment-stats try-on UI (84) open; close is handled per-action instead
+ * (EquipmentHandler for equip, drop/consume handlers for those options).
  */
 const INTERFACE_CLOSING_ACTIONS = new Set([
     "walk",
@@ -102,7 +106,6 @@ const INTERFACE_CLOSING_ACTIONS = new Set([
     "npc_interact",
     "loc_interact",
     "ground_item_action",
-    "inventory_use",
     "inventory_use_on",
     "spell_cast_npc",
     "spell_cast_player",

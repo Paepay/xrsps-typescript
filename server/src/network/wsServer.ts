@@ -23,6 +23,7 @@ import type { ObjType } from "../../../src/rs/config/objtype/ObjType";
 import type { ObjTypeLoader } from "../../../src/rs/config/objtype/ObjTypeLoader";
 import {
     EquipmentSlot,
+    EquipToDisplaySlot,
     HeadCoverage,
     deriveEquipSlotFromParams,
     getHeadCoverage,
@@ -208,6 +209,7 @@ import type {
 } from "../game/actions/actionPayloads";
 import type {
     SkillBoltEnchantActionData,
+    SkillChestActionData,
     SkillCookActionData,
     SkillFiremakingActionData,
     SkillFishingActionData,
@@ -217,6 +219,7 @@ import type {
     SkillPicklockActionData,
     SkillPickpocketActionData,
     SkillSinewActionData,
+    SkillStallActionData,
     SkillSmeltActionData,
     SkillSmithActionData,
     SkillSpinActionData,
@@ -609,6 +612,8 @@ const ADMIN_USERNAMES = new Set(
 const WEAPON_SPEED_PARAM = 14;
 const DEFAULT_ATTACK_SPEED = 4;
 const EQUIPMENT_STATS_GROUP_ID = 84;
+/** Equipment inventory sidemodal opened alongside equipment stats (84). */
+const EQUIPMENT_INVENTORY_INTERFACE_ID = 85;
 const EQUIPMENT_STATS_ATTACK_CHILD_BY_INDEX = [24, 25, 26, 27, 28] as const;
 const EQUIPMENT_STATS_DEFENCE_CHILD_BY_INDEX = [30, 31, 32, 33, 34] as const;
 const EQUIPMENT_STATS_OTHER_CHILD_BY_INDEX = [36, 37, 38, 39] as const;
@@ -2133,6 +2138,9 @@ export class WSServer {
                 closeModal: (player) => {
                     // Close via InterfaceService to properly trigger hooks and update tracking
                     this.interfaceService?.closeModal(player);
+                },
+                openModal: (player, interfaceId, data) => {
+                    this.interfaceService?.openModal(player, interfaceId, data);
                 },
                 teleportPlayer: (player, x, y, level, forceRebuild = false) =>
                     this.teleportPlayer(player, x, y, level, forceRebuild),
@@ -4159,6 +4167,12 @@ export class WSServer {
                 this.sendInventorySnapshotImmediate(ws, player);
             }
         }
+        if (player.hasEquipmentUpdate()) {
+            const snapshot = player.takeEquipmentSnapshot();
+            if (snapshot) {
+                this.sendEquipmentSnapshotImmediate(ws, player, snapshot);
+            }
+        }
         if (player.hasBankUpdate()) {
             const snapshot = player.takeBankSnapshot();
             if (snapshot) this.bankingManager.queueBankSnapshot(player);
@@ -4191,6 +4205,65 @@ export class WSServer {
                 "inventory_snapshot_immediate",
             ),
         );
+    }
+
+    /**
+     * Build worn-equipment slots using OSRS EquipmentDisplaySlot indices for CS2 inv 94.
+     */
+    private buildEquipmentDisplaySlots(
+        snapshot: Array<{ slot: number; itemId: number; quantity?: number }>,
+    ): Array<{ slot: number; itemId: number; quantity: number }> {
+        const slots: Array<{ slot: number; itemId: number; quantity: number }> = [];
+        for (const entry of snapshot) {
+            const equipSlot = entry.slot | 0;
+            const displaySlot = EquipToDisplaySlot?.[equipSlot];
+            if (displaySlot === undefined) continue;
+            const itemId = entry.itemId | 0;
+            if (!(itemId > 0)) continue;
+            const quantity =
+                equipSlot === EquipmentSlot.AMMO
+                    ? Math.max(1, Number(entry.quantity ?? 1) | 0)
+                    : 1;
+            slots.push({ slot: displaySlot, itemId, quantity });
+        }
+        return slots;
+    }
+
+    private sendEquipmentSnapshotImmediate(
+        ws: WebSocket,
+        _player: PlayerState,
+        snapshot: Array<{ slot: number; itemId: number; quantity?: number }>,
+    ): void {
+        const slots = this.buildEquipmentDisplaySlots(snapshot);
+        this.withDirectSendBypass("equipment_snapshot_immediate", () =>
+            this.sendWithGuard(
+                ws,
+                encodeMessage({
+                    type: "equipment",
+                    payload: { kind: "snapshot", slots },
+                } as any),
+                "equipment_snapshot_immediate",
+            ),
+        );
+    }
+
+    private sendEquipmentSnapshot(ws: WebSocket, player: PlayerState): void {
+        try {
+            const snapshot = player.exportEquipmentSnapshot();
+            const slots = this.buildEquipmentDisplaySlots(snapshot);
+            this.withDirectSendBypass("equipment_snapshot", () =>
+                this.sendWithGuard(
+                    ws,
+                    encodeMessage({
+                        type: "equipment",
+                        payload: { kind: "snapshot", slots },
+                    } as any),
+                    "equipment_snapshot",
+                ),
+            );
+        } catch (err) {
+            logger.warn("[equipment] failed to send equipment snapshot", err);
+        }
     }
 
     private runBroadcastPhase(frame: TickFrame): void {
@@ -4421,6 +4494,11 @@ export class WSServer {
             if (this.players) {
                 this.players.forEach((sock, player) => {
                     const session = this.ensurePlayerSyncSession(sock);
+                    // Force appearance block when gear/appearance is dirty so equip updates
+                    // always reach the client even if hash edge-cases would skip them.
+                    if (player.hasAppearanceUpdate()) {
+                        session.lastAppearanceHash.delete(player.id);
+                    }
                     // Use the extracted PlayerPacketEncoder
                     const playerFrame: PlayerTickFrameData = {
                         tick: frame.tick,
@@ -4772,6 +4850,20 @@ export class WSServer {
                                     payload: { kind: "snapshot", slots },
                                 } as any),
                                 "inventory_snapshot",
+                            );
+                        }
+                    }
+                    if (player.hasEquipmentUpdate()) {
+                        const snapshot = player.takeEquipmentSnapshot();
+                        if (snapshot) {
+                            const slots = this.buildEquipmentDisplaySlots(snapshot);
+                            this.sendWithGuard(
+                                sock,
+                                encodeMessage({
+                                    type: "equipment",
+                                    payload: { kind: "snapshot", slots },
+                                } as any),
+                                "equipment_snapshot",
                             );
                         }
                     }
@@ -6028,6 +6120,70 @@ export class WSServer {
             return;
         }
         player.lock = LockState.NONE;
+    }
+
+    /**
+     * Stall thieving guard/owner LoS check (OSRS / LostCity steal_from_stall).
+     * Guards that spot the player engage combat; owners only shout and block the steal.
+     */
+    private checkThievingStallSpotters(
+        player: PlayerState,
+        ownerNpcIds: number[],
+        guardNpcIds: number[],
+        tick: number,
+    ): { spotted: boolean; byGuard: boolean } {
+        const ownerSet = new Set(ownerNpcIds.filter((id) => id > 0));
+        const guardSet = new Set(guardNpcIds.filter((id) => id > 0));
+        if (ownerSet.size === 0 && guardSet.size === 0) {
+            return { spotted: false, byGuard: false };
+        }
+
+        const radius = 5;
+        const px = player.tileX;
+        const py = player.tileY;
+        const plane = player.level;
+        const pathService = this.options.pathService;
+
+        const hasLos = (nx: number, ny: number): boolean => {
+            if (!pathService?.projectileRaycast) return true;
+            const ray = pathService.projectileRaycast(
+                { x: nx, y: ny, plane },
+                { x: px, y: py },
+            );
+            return ray.clear;
+        };
+
+        let spottedOwner: import("../game/npc").NpcState | undefined;
+        let spottedGuard: import("../game/npc").NpcState | undefined;
+
+        this.npcManager?.forEach((npc) => {
+            if (spottedGuard) return;
+            if (npc.level !== plane) return;
+            if (npc.isDead?.(tick)) return;
+            const dx = Math.abs(npc.tileX - px);
+            const dy = Math.abs(npc.tileY - py);
+            if (dx > radius || dy > radius) return;
+            if (!hasLos(npc.tileX, npc.tileY)) return;
+
+            if (guardSet.has(npc.typeId)) {
+                if (npc.getCombatTargetPlayerId?.() === undefined || !npc.isInCombat?.(tick)) {
+                    spottedGuard = npc;
+                }
+            } else if (!spottedOwner && ownerSet.has(npc.typeId)) {
+                spottedOwner = npc;
+            }
+        });
+
+        if (spottedGuard) {
+            spottedGuard.pendingSay = "Hey! Get your hands off there!";
+            spottedGuard.engageCombat(player.id, tick);
+            return { spotted: true, byGuard: true };
+        }
+        if (spottedOwner) {
+            spottedOwner.pendingSay = "Hey! Get your hands off there!";
+            return { spotted: true, byGuard: false };
+        }
+        return { spotted: false, byGuard: false };
     }
 
     /**
@@ -7608,6 +7764,7 @@ export class WSServer {
             canUseMiningOreGuideFeature: (player) => this.isAdminPlayer(player),
             canUseWoodcuttingTreeGuideFeature: (player) => this.isAdminPlayer(player),
             canUseFishingCatchGuideFeature: (player) => this.isAdminPlayer(player),
+            canUseThievingGuideFeature: (player) => this.isAdminPlayer(player),
             getEnumTypeLoader: () => this.enumTypeLoader,
             getStructTypeLoader: () => this.structTypeLoader,
             rollFishingSuccess: (level, catchLevel, tool) =>
@@ -7628,6 +7785,21 @@ export class WSServer {
                 this.gatheringSystem.flaxTracker.isDepleted(tile, level),
             markFlaxDepleted: (info, tick) =>
                 this.gatheringSystem.markFlaxDepleted(info, tick),
+            isThievingStallDepleted: (key) =>
+                this.gatheringSystem.isThievingStallDepleted(key),
+            markThievingStallDepleted: (info, tick) =>
+                this.gatheringSystem.markThievingStallDepleted(info, tick),
+            buildThievingStallTileKey: (tile, level) =>
+                this.gatheringSystem.buildThievingStallTileKey(tile, level),
+            isThievingChestDepleted: (key) =>
+                this.gatheringSystem.isThievingChestDepleted(key),
+            markThievingChestDepleted: (info, tick) =>
+                this.gatheringSystem.markThievingChestDepleted(info, tick),
+            buildThievingChestTileKey: (tile, level) =>
+                this.gatheringSystem.buildThievingChestTileKey(tile, level),
+            checkStallSpotters: (player, ownerNpcIds, guardNpcIds, tick) =>
+                this.checkThievingStallSpotters(player, ownerNpcIds, guardNpcIds, tick),
+            teleportPlayer: (player, x, y, level) => this.teleportPlayer(player, x, y, level),
             isTileLit: (tile, level) => this.gatheringSystem.isTileLit(tile, level),
             isFiremakingTileBlocked: (tile, level) => this.isFiremakingTileBlocked(tile, level),
             lightFire: (params) =>
@@ -7936,8 +8108,14 @@ export class WSServer {
             equipItem: (player, slotIndex, itemId, equipSlot, options) =>
                 this.equipItem(player, slotIndex, itemId, equipSlot, options),
             unequipItem: (player, equipSlot) => {
-                // OSRS parity: Unequipping closes interruptible interfaces (modals, dialogs)
-                this.closeInterruptibleInterfaces(player);
+                // OSRS parity: Unequipping closes interruptible interfaces, except the
+                // equipment stats try-on UI (84) which must stay open while swapping gear.
+                if (
+                    !this.interfaceService?.isModalOpen(player, EQUIPMENT_STATS_GROUP_ID) &&
+                    !this.isWidgetGroupOpenInLedger(player.id, EQUIPMENT_STATS_GROUP_ID)
+                ) {
+                    this.closeInterruptibleInterfaces(player);
+                }
 
                 const appearance = this.getOrCreateAppearance(player);
                 return unequipItemApply({
@@ -8393,7 +8571,17 @@ export class WSServer {
             getObjType: (itemId) => this.getObjType(itemId),
             addItemToInventory: (player, itemId, quantity) =>
                 this.addItemToInventory(player, itemId, quantity),
-            closeInterruptibleInterfaces: (player) => this.closeInterruptibleInterfaces(player),
+            // OSRS parity: equip/unequip closes interruptible interfaces, but not the
+            // equipment stats try-on UI (84) while it is open.
+            closeInterruptibleInterfaces: (player) => {
+                if (
+                    this.interfaceService?.isModalOpen(player, EQUIPMENT_STATS_GROUP_ID) ||
+                    this.isWidgetGroupOpenInLedger(player.id, EQUIPMENT_STATS_GROUP_ID)
+                ) {
+                    return;
+                }
+                this.closeInterruptibleInterfaces(player);
+            },
             refreshCombatWeaponCategory: (player) => this.refreshCombatWeaponCategory(player),
             refreshAppearanceKits: (player) => this.refreshAppearanceKits(player),
             resetAutocast: (player) => this.resetAutocast(player),
@@ -10076,6 +10264,18 @@ export class WSServer {
                 return this.skillActionHandler.executeSkillPickpocketAction(
                     player,
                     action.data as SkillPickpocketActionData,
+                    tick,
+                );
+            case "skill.stall":
+                return this.skillActionHandler.executeSkillStallAction(
+                    player,
+                    action.data as SkillStallActionData,
+                    tick,
+                );
+            case "skill.chest":
+                return this.skillActionHandler.executeSkillChestAction(
+                    player,
+                    action.data as SkillChestActionData,
                     tick,
                 );
             case "movement.teleport":
@@ -11815,6 +12015,13 @@ export class WSServer {
         const nowTick = this.options.ticker.currentTick();
         // First, allow scripts to handle item actions (e.g., bury bones, herblore steps)
         if (optionLower) {
+            const isEquipOption =
+                optionLower === "wear" || optionLower === "wield" || optionLower === "equip";
+            // OSRS parity: most inventory ops dismiss modals; Wear/Wield/Equip keep the
+            // equipment-stats try-on UI open (EquipmentHandler skips close when 84 is open).
+            if (!isEquipOption) {
+                this.closeInterruptibleInterfaces(p);
+            }
             try {
                 const handled = this.scriptRuntime.queueItemAction({
                     tick: nowTick,
@@ -11955,6 +12162,8 @@ export class WSServer {
             }
         } else if (this.isConsumable(obj, optionLower)) {
             if (!hasItemInInventory) return;
+            // OSRS parity: Eating/drinking closes interruptible interfaces
+            this.closeInterruptibleInterfaces(p);
             const res = this.actionScheduler.requestAction(
                 p.id,
                 {
@@ -12746,6 +12955,11 @@ export class WSServer {
                         );
                         this.sendAnimUpdate(ws, p);
                         this.sendInventorySnapshotImmediate(ws, p);
+                        try {
+                            this.sendEquipmentSnapshot(ws, p);
+                        } catch (err) {
+                            logger.warn("[handshake] equipment snapshot failed", err);
+                        }
                         // OSRS parity: ensure login sends a full skill snapshot (packet 134 burst).
                         // Without this, reconnect paths can end up sending only deltas (or nothing),
                         // leading to briefly incorrect levels until the next XP/HP change.
@@ -13298,7 +13512,9 @@ export class WSServer {
 
                         this.maybeReplayDynamicLocState(ws, p, true);
                     }
-                } catch {}
+                } catch (err) {
+                    logger.warn("[handshake] failed", err);
+                }
             } else if (parsed.type === "logout") {
                 // Handle logout request - check if player can logout first
                 try {
@@ -15051,6 +15267,23 @@ export class WSServer {
                     // Handle dialog options (interface 219)
                     if (groupId === 219) {
                         this.widgetDialogHandler.handleDialogOptionClick(ws, player.id, childId);
+                    } else if (
+                        // OSRS parity: equipment inventory (85) overrides item ops to "Equip".
+                        // Op1 always means equip — do not resolve native inventoryActions
+                        // (e.g. Eat/Drink) from the item definition.
+                        groupId === EQUIPMENT_INVENTORY_INTERFACE_ID &&
+                        payload.itemId !== undefined &&
+                        payload.itemId > 0 &&
+                        hasValidSlot &&
+                        opId === 1
+                    ) {
+                        this.widgetDialogHandler.handleWidgetActionMessage(ws, {
+                            ...payload,
+                            opId,
+                            childId: componentId,
+                            slot: slotVal,
+                            option: "Equip",
+                        });
                     } else {
                         // OSRS parity: inventory item actions resolve the option from
                         // the item's cache definition and route through the item action

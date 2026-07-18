@@ -217,6 +217,24 @@ function sanitizeHunterCatchLocations(
     return Object.keys(result).length > 0 ? result : undefined;
 }
 
+function sanitizeThievingLocations(
+    locations: PlayerPersistentVars["thievingLocations"] | undefined,
+): PlayerPersistentVars["thievingLocations"] | undefined {
+    if (!locations || typeof locations !== "object") return undefined;
+    const result: Record<string, PlayerLocationSnapshot> = {};
+    for (const [activityId, loc] of Object.entries(locations)) {
+        if (typeof activityId !== "string" || activityId.length === 0) continue;
+        const sanitized = sanitizeLocationSnapshot(loc);
+        if (!sanitized) continue;
+        result[activityId] = {
+            x: sanitized.x,
+            y: sanitized.y,
+            level: sanitized.level,
+        };
+    }
+    return Object.keys(result).length > 0 ? result : undefined;
+}
+
 function clampCoord(value: number): number {
     return Math.max(0, Math.min(MAX_TILE_COORD, Math.floor(value)));
 }
@@ -473,6 +491,10 @@ function mergeStates(
     const hunterCatchLocations = sanitizeHunterCatchLocations(pick("hunterCatchLocations"));
     if (hunterCatchLocations) {
         result.hunterCatchLocations = hunterCatchLocations;
+    }
+    const thievingLocations = sanitizeThievingLocations(pick("thievingLocations"));
+    if (thievingLocations) {
+        result.thievingLocations = thievingLocations;
     }
 
     const runEnergy = pick("runEnergy");

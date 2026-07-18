@@ -20,10 +20,22 @@ import type { MiningRockDefinition, PickaxeDefinition } from "../../skills/minin
 import { tryRememberMiningOreGuideLocation } from "../../skills/miningOreGuideLocations";
 import { tryRememberWoodcuttingTreeGuideLocation } from "../../skills/woodcuttingTreeGuideLocations";
 import { tryRememberFishingCatchGuideLocation } from "../../skills/fishingCatchGuideLocations";
+import {
+    notifyThievingChestSuccess,
+    notifyThievingStallSuccess,
+    tryRememberThievingPickpocketGuideLocation,
+} from "../../skills/thievingGuideLocations";
+import {
+    computeChestTrapDamage,
+    rollChestLoot,
+    rollStoneChestSuccess,
+} from "../../skills/thievingChests";
+import { rollStallLoot } from "../../skills/thievingStalls";
 import type { HatchetDefinition, WoodcuttingTreeDefinition } from "../../skills/woodcutting";
 import { type InventoryItem as RuneInventoryItem, RuneValidator } from "../../spells/RuneValidator";
 import type {
     SkillBoltEnchantActionData as BoltEnchantActionData,
+    SkillChestActionData as ChestActionData,
     SkillCookActionData as CookActionData,
     SkillFiremakingActionData as FiremakingActionData,
     SkillFishingActionData as FishingActionData,
@@ -34,6 +46,7 @@ import type {
     SkillSmeltActionData as SmeltActionData,
     SkillSmithActionData as SmithActionData,
     SkillSpinActionData as SpinActionData,
+    SkillStallActionData as StallActionData,
     SkillTanActionData as TanActionData,
     SkillWoodcuttingActionData as WoodcuttingActionData,
     SkillPicklockActionData as PicklockActionData,
@@ -92,7 +105,9 @@ export type SkillScheduledActionKind =
     | "skill.smelt"
     | "skill.bolt_enchant"
     | "skill.picklock"
-    | "skill.pickpocket";
+    | "skill.pickpocket"
+    | "skill.stall"
+    | "skill.chest";
 
 export type ActionScheduleRequest<K extends SkillScheduledActionKind = SkillScheduledActionKind> =
     ActionRequest<K>;
@@ -298,6 +313,8 @@ export interface SkillActionServices {
     canUseWoodcuttingTreeGuideFeature?(player: PlayerState): boolean;
     /** Admin bypass for fishing skill-guide catch memory + teleport. */
     canUseFishingCatchGuideFeature?(player: PlayerState): boolean;
+    /** Admin bypass for thieving skill-guide location memory + teleport. */
+    canUseThievingGuideFeature?(player: PlayerState): boolean;
     /** Cache enum loader for league relic unlock checks. */
     getEnumTypeLoader?(): any;
     /** Cache struct loader for league relic unlock checks. */
@@ -360,6 +377,48 @@ export interface SkillActionServices {
         locId: number;
         respawnTicks: number;
     }, tick: number): void;
+
+    // --- Thieving stall / chest tracking ---
+    isThievingStallDepleted(key: string): boolean;
+    markThievingStallDepleted(
+        info: {
+            key: string;
+            locId: number;
+            emptyLocId: number;
+            tile: Vec2;
+            level: number;
+            respawnTicks: number;
+        },
+        tick: number,
+    ): void;
+    buildThievingStallTileKey(tile: Vec2, level: number): string;
+    isThievingChestDepleted(key: string): boolean;
+    markThievingChestDepleted(
+        info: {
+            key: string;
+            locId: number;
+            emptyLocId: number;
+            tile: Vec2;
+            level: number;
+            respawnTicks: number;
+        },
+        tick: number,
+    ): void;
+    buildThievingChestTileKey(tile: Vec2, level: number): string;
+
+    /**
+     * Spot stall owners/guards with LoS. Returns whether steal should abort.
+     * Guards that spot the player should engage combat.
+     */
+    checkStallSpotters?(
+        player: PlayerState,
+        ownerNpcIds: number[],
+        guardNpcIds: number[],
+        tick: number,
+    ): { spotted: boolean; byGuard: boolean };
+
+    /** Teleport player (chest second trap). */
+    teleportPlayer?(player: PlayerState, x: number, y: number, level: number): void;
 
     // --- Tile Key Builders ---
     buildWoodcuttingTileKey(tile: Vec2, level: number): string;
@@ -2940,6 +2999,15 @@ export class SkillActionHandler {
                     ),
                 );
 
+                if (data.guideId) {
+                    tryRememberThievingPickpocketGuideLocation(player, data.guideId, {
+                        canUseAdminTeleport: (p) =>
+                            this.services.canUseThievingGuideFeature?.(p) === true,
+                        getEnumTypeLoader: this.services.getEnumTypeLoader,
+                        getStructTypeLoader: this.services.getStructTypeLoader,
+                    });
+                }
+
                 // Auto-repeat: schedule next attempt
                 this.services.scheduleAction(
                     player.id,
@@ -3060,6 +3128,462 @@ export class SkillActionHandler {
                 SkillActionHandler.PICKPOCKET_BUSY_VARBIT,
                 0,
             );
+        }
+
+        return { ok: true, effects };
+    }
+
+    // ========================================================================
+    // Stall thieving
+    // ========================================================================
+
+    private static readonly STALL_ANIM = 832; // human_pickuptable
+    private static readonly STALL_SOUND = 2581; // pick
+    private static readonly LOCKPICK_ITEM_ID = 1523;
+
+    executeSkillStallAction(
+        player: PlayerState,
+        data: StallActionData,
+        tick: number,
+    ): ActionExecutionResult {
+        const effects: ActionEffect[] = [];
+        const tile: Vec2 = { x: data.tile.x, y: data.tile.y };
+        const key = this.services.buildThievingStallTileKey(tile, data.level);
+
+        if (this.services.isThievingStallDepleted(key)) {
+            return { ok: true, effects };
+        }
+
+        if (this.services.isPlayerInCombat(player)) {
+            effects.push(
+                this.services.buildSkillMessageEffect(
+                    player,
+                    "You can't steal from the market stall during combat!",
+                ),
+            );
+            return { ok: true, effects };
+        }
+
+        const thievingSkill = this.services.getSkill(
+            player,
+            SkillActionHandler.THIEVING_SKILL_ID,
+        );
+        const thievingLevel = thievingSkill?.baseLevel ?? 1;
+
+        // Attempt message only when stall has a fixed loot description (OSRS / LostCity).
+        if (data.lootTable.length === 1) {
+            effects.push(
+                this.services.buildSkillMessageEffect(
+                    player,
+                    `You attempt to steal ${data.lootTable[0].message} from the ${data.stallName}.`,
+                ),
+            );
+        }
+
+        if (thievingLevel < data.reqLevel) {
+            effects.push(
+                this.services.buildSkillMessageEffect(
+                    player,
+                    `You need to be level ${data.reqLevel} to steal from the ${data.stallName}.`,
+                ),
+            );
+            return { ok: true, effects };
+        }
+
+        if (!this.services.hasInventorySlot(player)) {
+            effects.push(
+                this.services.buildSkillMessageEffect(
+                    player,
+                    "Your inventory is too full to hold any more.",
+                ),
+            );
+            return { ok: true, effects };
+        }
+
+        const spot = this.services.checkStallSpotters?.(
+            player,
+            data.ownerNpcIds,
+            data.guardNpcIds,
+            tick,
+        );
+        if (spot?.spotted) {
+            return { ok: true, effects };
+        }
+
+        this.services.faceGatheringTarget(player, tile);
+        player.queueOneShotSeq(SkillActionHandler.STALL_ANIM);
+        this.services.sendSound(player, SkillActionHandler.STALL_SOUND);
+
+        const reward = rollStallLoot({
+            lootTable: data.lootTable,
+            lootTotal: data.lootTotal,
+        });
+        if (reward) {
+            this.services.addItemToInventory(player, reward.itemId, reward.quantity);
+            effects.push({ type: "inventorySnapshot", playerId: player.id });
+            effects.push(
+                this.services.buildSkillMessageEffect(
+                    player,
+                    `You steal ${reward.message}.`,
+                ),
+            );
+            if (reward.itemId === 2309) {
+                this.services.sendSound(player, SkillActionHandler.STALL_SOUND);
+            }
+        }
+
+        this.services.awardSkillXp(player, SkillActionHandler.THIEVING_SKILL_ID, data.xp);
+
+        this.services.markThievingStallDepleted(
+            {
+                key,
+                locId: data.locId,
+                emptyLocId: data.emptyLocId,
+                tile,
+                level: data.level,
+                respawnTicks: data.respawnTicks,
+            },
+            tick,
+        );
+        this.services.emitLocChange(data.locId, data.emptyLocId, tile, data.level);
+
+        if (data.guideId) {
+            notifyThievingStallSuccess(player, data.guideId, {
+                canUseAdminTeleport: (p) =>
+                    this.services.canUseThievingGuideFeature?.(p) === true,
+                getEnumTypeLoader: this.services.getEnumTypeLoader,
+                getStructTypeLoader: this.services.getStructTypeLoader,
+            });
+        }
+
+        return { ok: true, effects };
+    }
+
+    // ========================================================================
+    // Chest thieving
+    // ========================================================================
+
+    private static readonly CHEST_SEARCH_ANIM = 537; // human_lockedchest
+    private static readonly CHEST_OPEN_ANIM = 536; // human_openchest
+    private static readonly CHEST_OPEN_SOUND = 52;
+    private static readonly CHEST_LOCKED_SOUND = 2402;
+    private static readonly CHEST_TRAP_SOUND = 2400; // lever
+    private static readonly CHEST_HIT_STYLE = 16;
+
+    executeSkillChestAction(
+        player: PlayerState,
+        data: ChestActionData,
+        tick: number,
+    ): ActionExecutionResult {
+        const effects: ActionEffect[] = [];
+        const tile: Vec2 = { x: data.tile.x, y: data.tile.y };
+        const key = this.services.buildThievingChestTileKey(tile, data.level);
+
+        if (this.services.isThievingChestDepleted(key)) {
+            effects.push(
+                this.services.buildSkillMessageEffect(
+                    player,
+                    "It looks like this chest has already been looted.",
+                ),
+            );
+            return { ok: true, effects };
+        }
+
+        const thievingSkill = this.services.getSkill(
+            player,
+            SkillActionHandler.THIEVING_SKILL_ID,
+        );
+        const thievingLevel = thievingSkill?.baseLevel ?? 1;
+
+        // Phase 0: Open without searching — trigger trap damage
+        if (data.phase === 0) {
+            if (data.requiresLockpick && !data.trapped) {
+                effects.push(
+                    this.services.buildSkillMessageEffect(player, "This chest is locked"),
+                );
+                this.services.sendSound(player, SkillActionHandler.CHEST_LOCKED_SOUND);
+                return { ok: true, effects };
+            }
+            if (!data.trapped) {
+                // Non-trapped lockpick chests: treat Open as locked prompt
+                effects.push(
+                    this.services.buildSkillMessageEffect(player, "This chest is locked"),
+                );
+                this.services.sendSound(player, SkillActionHandler.CHEST_LOCKED_SOUND);
+                return { ok: true, effects };
+            }
+
+            effects.push(
+                this.services.buildSkillMessageEffect(
+                    player,
+                    "You have activated a trap on the chest.",
+                ),
+            );
+            player.queueOneShotSeq(SkillActionHandler.CHEST_SEARCH_ANIM);
+            this.services.sendSound(player, SkillActionHandler.CHEST_TRAP_SOUND);
+
+            const hp = player.getHitpointsCurrent();
+            const damage = computeChestTrapDamage(hp, data.trapDamage);
+            const hitsplat = this.services.applyPlayerHitsplat(
+                player,
+                SkillActionHandler.CHEST_HIT_STYLE,
+                damage,
+                tick,
+            );
+            effects.push({
+                type: "hitsplat",
+                playerId: player.id,
+                targetType: "player",
+                targetId: player.id,
+                damage: hitsplat.amount,
+                style: hitsplat.style,
+                hpCurrent: hitsplat.hpCurrent,
+                hpMax: hitsplat.hpMax,
+                tick,
+                skipAutoSound: true,
+            });
+            return { ok: true, effects };
+        }
+
+        // Phase 1: Search for traps — begin
+        if (data.phase === 1) {
+            effects.push(
+                this.services.buildSkillMessageEffect(
+                    player,
+                    data.requiresLockpick
+                        ? "You attempt to pick the lock."
+                        : "You search the chest for traps.",
+                ),
+            );
+            this.services.faceGatheringTarget(player, tile);
+            player.queueOneShotSeq(SkillActionHandler.CHEST_SEARCH_ANIM);
+
+            if (thievingLevel < data.reqLevel) {
+                if (data.requiresLockpick) {
+                    effects.push(
+                        this.services.buildSkillMessageEffect(
+                            player,
+                            "You are not a high enough level to pick this lock.",
+                        ),
+                    );
+                } else {
+                    effects.push(
+                        this.services.buildSkillMessageEffect(player, "You find nothing."),
+                    );
+                }
+                return { ok: true, effects };
+            }
+
+            if (data.requiresLockpick) {
+                this.services.sendSound(player, SkillActionHandler.CHEST_LOCKED_SOUND);
+                if (!this.services.playerHasItem(player, SkillActionHandler.LOCKPICK_ITEM_ID)) {
+                    effects.push(
+                        this.services.buildSkillMessageEffect(
+                            player,
+                            "You need a lockpick for this lock.",
+                        ),
+                    );
+                    return { ok: true, effects };
+                }
+                // Stone chest: chance-based success
+                if (data.guideId === "chest_stone") {
+                    const ok = rollStoneChestSuccess(thievingLevel, true);
+                    if (!ok) {
+                        effects.push(
+                            this.services.buildSkillMessageEffect(
+                                player,
+                                "You fail to pick the lock.",
+                            ),
+                        );
+                        // 1/8 chance to teleport out of temple on fail
+                        if (Math.random() < 1 / 8) {
+                            this.services.teleportPlayer?.(player, 1310, 10086, 0);
+                        }
+                        return { ok: true, effects };
+                    }
+                }
+                effects.push(
+                    this.services.buildSkillMessageEffect(
+                        player,
+                        "You manage to pick the lock.",
+                    ),
+                );
+                this.services.scheduleAction(
+                    player.id,
+                    {
+                        kind: "skill.chest",
+                        data: { ...data, phase: 3 },
+                        delayTicks: 1,
+                        cooldownTicks: 1,
+                        groups: ["skill.chest"],
+                    },
+                    tick,
+                );
+                return { ok: true, cooldownTicks: 1, effects };
+            }
+
+            this.services.scheduleAction(
+                player.id,
+                {
+                    kind: "skill.chest",
+                    data: { ...data, phase: 2 },
+                    delayTicks: 1,
+                    cooldownTicks: 1,
+                    groups: ["skill.chest"],
+                },
+                tick,
+            );
+            return { ok: true, cooldownTicks: 1, effects };
+        }
+
+        // Phase 2: Find trap message
+        if (data.phase === 2) {
+            effects.push(
+                this.services.buildSkillMessageEffect(
+                    player,
+                    "You find a trap on the chest, ",
+                ),
+            );
+            this.services.scheduleAction(
+                player.id,
+                {
+                    kind: "skill.chest",
+                    data: { ...data, phase: 6 },
+                    delayTicks: 1,
+                    cooldownTicks: 1,
+                    groups: ["skill.chest"],
+                },
+                tick,
+            );
+            return { ok: true, cooldownTicks: 1, effects };
+        }
+
+        // Phase 6: Disable trap
+        if (data.phase === 6) {
+            effects.push(
+                this.services.buildSkillMessageEffect(player, "You disable the trap."),
+            );
+            this.services.sendSound(player, SkillActionHandler.CHEST_LOCKED_SOUND);
+            this.services.scheduleAction(
+                player.id,
+                {
+                    kind: "skill.chest",
+                    data: { ...data, phase: 3 },
+                    delayTicks: 1,
+                    cooldownTicks: 1,
+                    groups: ["skill.chest"],
+                },
+                tick,
+            );
+            return { ok: true, cooldownTicks: 1, effects };
+        }
+
+        // Phase 3: Open chest
+        if (data.phase === 3) {
+            effects.push(
+                this.services.buildSkillMessageEffect(player, "You open the chest."),
+            );
+            this.services.sendSound(player, SkillActionHandler.CHEST_OPEN_SOUND);
+            this.services.scheduleAction(
+                player.id,
+                {
+                    kind: "skill.chest",
+                    data: { ...data, phase: 4 },
+                    delayTicks: 1,
+                    cooldownTicks: 1,
+                    groups: ["skill.chest"],
+                },
+                tick,
+            );
+            return { ok: true, cooldownTicks: 1, effects };
+        }
+
+        // Phase 4: Loot + XP + anim
+        if (data.phase === 4) {
+            if (!this.services.hasInventorySlot(player)) {
+                effects.push(
+                    this.services.buildSkillMessageEffect(
+                        player,
+                        "Your inventory is too full to hold any more.",
+                    ),
+                );
+                return { ok: true, effects };
+            }
+
+            effects.push(
+                this.services.buildSkillMessageEffect(player, "You find treasure inside!"),
+            );
+            player.queueOneShotSeq(SkillActionHandler.CHEST_OPEN_ANIM);
+
+            const rewards = rollChestLoot({
+                lootTable: data.lootTable,
+                lootTotal: data.lootTotal,
+            });
+            for (const reward of rewards) {
+                this.services.addItemToInventory(player, reward.itemId, reward.quantity);
+            }
+            if (rewards.length > 0) {
+                effects.push({ type: "inventorySnapshot", playerId: player.id });
+            }
+
+            this.services.awardSkillXp(player, SkillActionHandler.THIEVING_SKILL_ID, data.xp);
+
+            if (data.guideId) {
+                notifyThievingChestSuccess(player, data.guideId, {
+                    canUseAdminTeleport: (p) =>
+                        this.services.canUseThievingGuideFeature?.(p) === true,
+                    getEnumTypeLoader: this.services.getEnumTypeLoader,
+                    getStructTypeLoader: this.services.getStructTypeLoader,
+                });
+            }
+
+            this.services.scheduleAction(
+                player.id,
+                {
+                    kind: "skill.chest",
+                    data: { ...data, phase: 5 },
+                    delayTicks: 2,
+                    cooldownTicks: 2,
+                    groups: ["skill.chest"],
+                },
+                tick,
+            );
+            return { ok: true, cooldownTicks: 2, effects };
+        }
+
+        // Phase 5: Deplete + optional second-trap teleport
+        if (data.phase === 5) {
+            if (data.teleCoord) {
+                effects.push(
+                    this.services.buildSkillMessageEffect(
+                        player,
+                        "Suddenly a second magical trap triggers.",
+                    ),
+                );
+                this.services.sendSound(player, SkillActionHandler.CHEST_TRAP_SOUND);
+                this.services.teleportPlayer?.(
+                    player,
+                    data.teleCoord.x,
+                    data.teleCoord.y,
+                    data.teleCoord.level,
+                );
+            }
+
+            if (data.respawnTicks > 0) {
+                this.services.markThievingChestDepleted(
+                    {
+                        key,
+                        locId: data.locId,
+                        emptyLocId: data.emptyLocId,
+                        tile,
+                        level: data.level,
+                        respawnTicks: data.respawnTicks,
+                    },
+                    tick,
+                );
+                this.services.emitLocChange(data.locId, data.emptyLocId, tile, data.level);
+            }
+            return { ok: true, effects };
         }
 
         return { ok: true, effects };

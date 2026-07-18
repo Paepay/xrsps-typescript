@@ -716,8 +716,6 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
 
     // Track if we've notified LoadingTracker that map data is ready
     private mapDataLoadedNotified: boolean = false;
-    // Time (in seconds) when height data first became valid (for fog fade-in delay)
-    private heightValidAtTime: number | undefined = undefined;
 
     // Optional override: force a specific idle SeqType id for player animation
     playerIdleSeqId: number = -1;
@@ -3393,12 +3391,27 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                                             equip,
                                         );
 
-                                        // OSRS parity: contentType=328 uses KeyHandler.localPlayer.getModel().
-                                        // Our ECS base-model pipeline applies additional alignment (to NPC "man")
-                                        // which is correct for in-world rendering, but skews UI preview offsets.
-                                        // For widget rendering, prefer the raw PlayerComposition model build.
+                                        // OSRS parity: contentType=328 uses localPlayer.getModelInternal()
+                                        // (same composition as the in-world player). Prefer the ECS base
+                                        // model so worn offsets (e.g. hat height) match the game view.
+                                        // modelType=7 clones still rebuild so keepEquipment stripping works.
                                         let model: any | undefined;
-                                        if (this.playerModelLoader2D) {
+                                        const useWorldBase =
+                                            ((params.widget as any).contentType | 0) === 328 &&
+                                            keepEquipment;
+                                        if (useWorldBase) {
+                                            try {
+                                                const idx =
+                                                    this.osrsClient.playerEcs.getIndexForServerId(
+                                                        this.osrsClient.controlledPlayerServerId,
+                                                    );
+                                                if (idx !== undefined && idx >= 0) {
+                                                    model =
+                                                        this.osrsClient.playerEcs.getBaseModel(idx);
+                                                }
+                                            } catch {}
+                                        }
+                                        if (!model && this.playerModelLoader2D) {
                                             model =
                                                 this.playerModelLoader2D.buildStaticModelFromEquipment(
                                                     pa,
@@ -6954,6 +6967,10 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         this.maybeRegenerateTextureMipmaps(time);
         profiler.endPhase();
 
+        // After maps are applied this frame, signal login loading if the local player's
+        // map square now has usable height data. Do not gate this on camera-follow.
+        this.tryCompleteMapDataLoadedRequirement();
+
         // Update positions for custom labels
         profiler.startPhase("labels");
         this.updateCustomLabels();
@@ -7547,6 +7564,54 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         return { x, y, z, yaw, pitch, active };
     }
 
+    /**
+     * Complete MAP_DATA_LOADED once the controlled player's map square has height data.
+     * Called after map apply so a map loaded this frame can unblock login immediately.
+     */
+    private tryCompleteMapDataLoadedRequirement(): void {
+        const tracker = this.osrsClient.loadingTracker;
+        if (!tracker.isRequirementPending(LoadingRequirement.MAP_DATA_LOADED)) {
+            return;
+        }
+
+        // Wait for the authoritative scene base from player_sync. Default (0,0) is unset.
+        // Exception: some scenes can legitimately use base 0 on one axis; only treat the
+        // unset default pair as missing.
+        if ((ClientState.baseX | 0) === 0 && (ClientState.baseY | 0) === 0) {
+            return;
+        }
+
+        const pe = this.osrsClient.playerEcs;
+        const playerEcsIndex = this.getControlledPlayerEcsIndex();
+        if (playerEcsIndex === undefined) {
+            return;
+        }
+
+        const playerX = (pe.getX(playerEcsIndex) | 0) / 128;
+        const playerZ = (pe.getY(playerEcsIndex) | 0) / 128;
+        const basePlane = pe.getLevel(playerEcsIndex) | 0;
+        const playerHeightSample = sampleBridgeHeightForWorldTile(
+            this.mapManager,
+            playerX,
+            playerZ,
+            basePlane,
+            BridgePlaneStrategy.RENDER,
+        );
+        if (!playerHeightSample.valid) {
+            return;
+        }
+
+        this.mapDataLoadedNotified = true;
+        tracker.markComplete(LoadingRequirement.MAP_DATA_LOADED);
+    }
+
+    /**
+     * Reset login map-ready latch so a new CONNECTING/LOADING_GAME cycle can complete again.
+     */
+    resetMapDataLoadedNotification(): void {
+        this.mapDataLoadedNotified = false;
+    }
+
     private updateCameraFollow(deltaTime?: number, timeSec?: number): void {
         const pe = this.osrsClient.playerEcs;
         const playerEcsIndex = this.getControlledPlayerEcsIndex();
@@ -7677,19 +7742,6 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         // This prevents the camera from snapping to height=0 then jumping when data loads.
         if (!playerHeightSample.valid) {
             return;
-        }
-
-        // Track when height data first became valid, then wait for fog animation to complete
-        // (fog fade-in takes 1 second: smoothstep over u_currentTime - u_timeLoaded)
-        if (!this.mapDataLoadedNotified && timeSec !== undefined) {
-            if (this.heightValidAtTime === undefined) {
-                // First frame with valid height - record the time
-                this.heightValidAtTime = timeSec;
-            } else if (timeSec - this.heightValidAtTime >= 1.0) {
-                // Fog animation complete (1 second elapsed) - notify loading tracker
-                this.mapDataLoadedNotified = true;
-                this.osrsClient.loadingTracker.markComplete(LoadingRequirement.MAP_DATA_LOADED);
-            }
         }
 
         const focusHeightTiles = (this.osrsClient.camFollowHeight | 0) / 128.0;
@@ -12998,7 +13050,6 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         this.cameraTerrainPitchPressure = 0;
         this.clearCameraShake();
         this.mapDataLoadedNotified = false;
-        this.heightValidAtTime = undefined;
     }
 
     override async cleanUp(): Promise<void> {

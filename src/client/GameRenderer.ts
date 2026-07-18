@@ -86,6 +86,13 @@ export abstract class GameRenderer<T extends MapSquare = MapSquare> extends Rend
         // Base implementation does nothing - subclasses override
     }
 
+    /**
+     * Reset the login map-ready latch for a new CONNECTING/LOADING_GAME cycle.
+     */
+    resetMapDataLoadedNotification(): void {
+        // Base implementation does nothing - subclasses override
+    }
+
     initCache(): void {
         if (!this.osrsClient.loadedCache) return;
         this.mapManager.init(

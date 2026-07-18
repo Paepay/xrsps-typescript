@@ -455,14 +455,15 @@ export class MapManager<T extends MapSquare> {
         const playerMapY = Math.floor(posZ / Scene.MAP_SQUARE_SIZE);
         const baseX = Number(sceneBaseX) | 0;
         const baseY = Number(sceneBaseY) | 0;
-        const baseFiniteAndPositive =
+        // ClientState defaults baseX/baseY to 0 before the first player_sync. Treating that
+        // as a real scene base streams the wrong origin maps and can stall login loading.
+        const sceneBaseReceived =
             Number.isFinite(sceneBaseX as number) &&
             Number.isFinite(sceneBaseY as number) &&
-            baseX >= 0 &&
-            baseY >= 0;
+            (baseX !== 0 || baseY !== 0);
         const expandedLoadingLevel = this.resolveExpandedMapLoading(expandedMapLoading);
 
-        const useSceneBaseStreaming = baseFiniteAndPositive;
+        const useSceneBaseStreaming = sceneBaseReceived;
         const sortX = camera.getPosX();
         const sortZ = camera.getPosZ();
 

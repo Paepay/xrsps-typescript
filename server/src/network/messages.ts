@@ -32,6 +32,12 @@ export type InventoryServerUpdate =
     | { kind: "snapshot"; slots: InventorySlotMessage[] }
     | { kind: "slot"; slot: InventorySlotMessage };
 
+/** Worn equipment container (OSRS inv 94). Slots use EquipmentDisplaySlot indices. */
+export type EquipmentServerUpdate = {
+    kind: "snapshot";
+    slots: InventorySlotMessage[];
+};
+
 export type BankSlotMessage = {
     slot: number;
     itemId: number;
@@ -420,6 +426,7 @@ export type ServerToClient =
           };
       }
     | { type: "inventory"; payload: InventoryServerUpdate }
+    | { type: "equipment"; payload: EquipmentServerUpdate }
     | { type: "skills"; payload: SkillsServerPayload }
     | { type: "combat"; payload: CombatStatePayload }
     | { type: "run_energy"; payload: RunEnergyPayload }
@@ -754,6 +761,12 @@ function encodeMessageToBinaryDirect(msg: ServerToClient): Uint8Array {
                 );
             }
             throw new Error(`Unknown inventory payload kind: ${payload.kind}`);
+
+        case "equipment":
+            if (payload.kind === "snapshot") {
+                return serverEncoder.encodeEquipmentSnapshot(payload.slots ?? []);
+            }
+            throw new Error(`Unknown equipment payload kind: ${payload.kind}`);
 
         case "skills":
             if (payload.kind === "snapshot") {

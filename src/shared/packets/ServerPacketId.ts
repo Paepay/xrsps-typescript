@@ -39,6 +39,8 @@ export const enum ServerPacketId {
     BANK_SLOT = 53,
     GROUND_ITEMS = 54,
     GROUND_ITEMS_DELTA = 55,
+    /** Worn equipment container (OSRS inv 94) snapshot */
+    EQUIPMENT_SNAPSHOT = 56,
 
     // ========================================
     // SKILLS (70-79)
@@ -159,6 +161,7 @@ export const SERVER_PACKET_LENGTHS: Record<ServerPacketId, number> = {
     [ServerPacketId.BANK_SLOT]: -1,
     [ServerPacketId.GROUND_ITEMS]: -2,
     [ServerPacketId.GROUND_ITEMS_DELTA]: -2,
+    [ServerPacketId.EQUIPMENT_SNAPSHOT]: -2,
 
     [ServerPacketId.SKILLS_SNAPSHOT]: -1,
     [ServerPacketId.SKILLS_DELTA]: -1,

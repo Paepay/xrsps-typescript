@@ -75,7 +75,7 @@ export class PlayerModelLoader {
 
         // Merge extra wearable object models (e.g., boots, helms)
         if (extraObjTypes && extraObjTypes.length > 0) {
-            const isFemale = appearance.gender === (1 as any);
+            const isFemale = appearance.gender === Gender.FEMALE;
             for (const obj of extraObjTypes) {
                 const ids: number[] = [];
                 const wearModel0 = isFemale ? obj.femaleModel : obj.maleModel;
@@ -100,22 +100,13 @@ export class PlayerModelLoader {
                             md.retexture(obj.retextureFrom[r], obj.retextureTo[r]);
                         }
                     }
-                    // Apply wearable offsets (male assumed for default appearance)
-                    try {
-                        const male = appearance.gender === (0 as any); // Gender.MALE = 0
-                        const ox = male
-                            ? (obj as any).manwearXOff | 0
-                            : (obj as any).womanwearXOff | 0;
-                        const oy = male
-                            ? (obj as any).manwearYOff | 0
-                            : (obj as any).womanwearYOff | 0;
-                        const oz = male
-                            ? (obj as any).manwearZOff | 0
-                            : (obj as any).womanwearZOff | 0;
-                        if (ox !== 0 || oy !== 0 || oz !== 0) {
-                            md.translate(ox, oy, oz);
-                        }
-                    } catch {}
+                    // OSRS parity: ItemComposition.getWearModelData translates by maleOffset /
+                    // femaleOffset (opcodes 23/25). manwear XYZ (opcodes 125/126) are not applied
+                    // when composing the worn player model.
+                    const wearYOff = isFemale ? (obj.femaleOffset | 0) : (obj.maleOffset | 0);
+                    if (wearYOff !== 0) {
+                        md.translate(0, wearYOff, 0);
+                    }
                     modelDatas.push(md);
                 }
             }

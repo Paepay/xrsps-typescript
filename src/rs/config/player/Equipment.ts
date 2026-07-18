@@ -172,7 +172,20 @@ export enum HeadCoverage {
 }
 
 export function getHeadCoverage(obj: ObjType | undefined): HeadCoverage {
-    const rawName = obj?.name;
+    if (!obj) return HeadCoverage.NONE;
+
+    // OSRS parity: wearPos2/wearPos3 (opcodes 14/27) clear PlayerComposition slots.
+    // Hair = composition slot 8, jaw = composition slot 11.
+    const wearPos2 = Number.isFinite(obj.op14) ? (obj.op14 | 0) : -1;
+    const wearPos3 = Number.isFinite(obj.op27) ? (obj.op27 | 0) : -1;
+    const clearsHair = wearPos2 === 8 || wearPos3 === 8;
+    const clearsJaw = wearPos2 === 11 || wearPos3 === 11;
+    if (clearsHair && clearsJaw) return HeadCoverage.HEAD_AND_JAW;
+    if (clearsHair) return HeadCoverage.HEAD;
+    if (clearsJaw) return HeadCoverage.HEAD;
+
+    // Fallback for defs that omit wearPos2/3: name heuristics.
+    const rawName = obj.name;
     if (typeof rawName !== "string") return HeadCoverage.NONE;
     const name = rawName.toLowerCase();
     if (matchesKeyword(name, HEAD_SHOW_KEYWORDS)) return HeadCoverage.NONE;

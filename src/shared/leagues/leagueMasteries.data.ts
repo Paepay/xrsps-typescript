@@ -69,7 +69,7 @@ export const LEAGUE_RELICS: LeagueRelicRow[] = [
         structId: 1125,
         name: "Dodgy Deals",
         description:
-            "You gain the following perks to <col=ffffff>Thieving</col>:<br><br>- Pickpocketing an NPC will also pickpocket all NPCs of similar type in a 11x11 square, granting extra loot for each NPC pickpocketed.<br><br>- 100% success rate on all Thieving checks.<br><br> - Automatically re-pickpocket an NPC or stall until you can no longer do so.<br><br>- Items obtained from pickpocketing are noted.<br><br>- Maximum coin pouch count increased by 3x.<br><br>- Stalls do not deplete when you steal from them.",
+            "You gain the following perks to <col=ffffff>Thieving</col>:<br><br>- Pickpocketing an NPC will also pickpocket all NPCs of similar type in a 11x11 square, granting extra loot for each NPC pickpocketed.<br><br>- 100% success rate on all Thieving checks.<br><br> - Automatically re-pickpocket an NPC or stall until you can no longer do so.<br><br>- Items obtained from pickpocketing are noted.<br><br>- Maximum coin pouch count increased by 3x.<br><br>- Stalls do not deplete when you steal from them.<br><br>Additionally, you unlock <col=ffffff>Thieving</col> skill guide teleports:<br><br>- Successfully pickpocketing an NPC, or stealing from a stall or chest, remembers that location.<br><br>- Click the matching icon in the Thieving skill guide to <col=ffffff>Teleport</col> back to it.",
         hasItem: false,
     },
     {

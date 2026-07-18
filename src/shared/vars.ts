@@ -325,6 +325,9 @@ export const TRANSMIT_VARPS: ReadonlySet<number> = new Set([
     // Attack option settings - transmit so server can persist them
     VARP_OPTION_ATTACK_PRIORITY_PLAYER, // Player attack options (0-4)
     VARP_OPTION_ATTACK_PRIORITY_NPC, // NPC attack options (0-3)
+    // Controls: shift-click drop (varbit 5542 in varp 117 bit 30).
+    // Literal avoids TDZ when circular imports touch this Set during module init.
+    117,
 ]);
 
 // ========== VARC (Client variables - not persisted) ==========
@@ -380,6 +383,17 @@ export const VARBIT_CLIENT_OF_KOUREND = 5619;
  * Controlled by settings modal toggle.
  */
 export const VARBIT_ROOF_REMOVAL = 12378; // OSRS hide roofs varbit
+
+// ========== CONTROLS SETTINGS ==========
+
+/**
+ * Shift-click to drop items (Controls settings).
+ * Varbit 5542 packs into varp 117 bit 30.
+ * 0 = disabled (default), 1 = enabled.
+ */
+export const VARBIT_SHIFT_CLICK_DROP = 5542;
+/** Base varp for {@link VARBIT_SHIFT_CLICK_DROP} (bit 30). */
+export const VARP_SHIFT_CLICK_DROP = 117;
 
 // ========== TELEPORT SPELL UNLOCK VARPS ==========
 

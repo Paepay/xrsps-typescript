@@ -25,6 +25,7 @@ import {
     subscribeCollectionLog,
     subscribeCombat,
     subscribeDisconnect,
+    subscribeEquipment,
     subscribeGroundItems,
     subscribeHandshake,
     subscribeHitsplats,
@@ -48,6 +49,7 @@ import {
 } from "../network/ServerConnection";
 import type {
     CollectionLogServerPayload,
+    EquipmentServerUpdate,
     HitsplatServerPayload,
     InventoryServerUpdate,
     NpcInfoPayload,
@@ -169,6 +171,8 @@ import {
     VARP_OPTION_RUN,
     VARP_SOUND_EFFECTS_VOLUME,
     VARBIT_ROOF_REMOVAL,
+    VARBIT_SHIFT_CLICK_DROP,
+    VARP_SHIFT_CLICK_DROP,
 } from "../shared/vars";
 import { ClickRegistry } from "../ui/gl/click-registry";
 import { cleanupInterfaceClickTargets } from "../ui/gl/widgets-gl";
@@ -472,7 +476,9 @@ export class OsrsClient {
         leftClickOpensMenu: boolean;
         tapToDrop: boolean;
     } = {
-        shiftClickEnabled: true,
+        // OSRS default: shift-click drop is off until enabled in Controls settings
+        // (varbit 5542). Keep this mirror in sync via syncShiftClickDropFromVarbit().
+        shiftClickEnabled: false,
         leftClickOpensMenu: false,
         tapToDrop: false,
     };
@@ -890,6 +896,29 @@ export class OsrsClient {
             // Force a re-render
             this.widgetManager?.invalidateAll();
         }
+    }
+
+    /**
+     * OSRS parity: Controls setting "Shift click to drop items" is varbit 5542.
+     * Also honor settings.shiftClickEnabled (SETSHIFTCLICKDROP mirror) so the
+     * feature works if CS2 updates the opcode without a separate SET_VARBIT.
+     */
+    isShiftClickDropEnabled(): boolean {
+        if (this.settings?.shiftClickEnabled) return true;
+        try {
+            if (this.varManager) {
+                return (this.varManager.getVarbit(VARBIT_SHIFT_CLICK_DROP) | 0) === 1;
+            }
+        } catch {}
+        return false;
+    }
+
+    /** Sync settings.shiftClickEnabled from varbit 5542 after login / varp updates. */
+    syncShiftClickDropFromVarbit(): void {
+        try {
+            const enabled = ((this.varManager?.getVarbit(VARBIT_SHIFT_CLICK_DROP) | 0) === 1);
+            this.settings.shiftClickEnabled = enabled;
+        } catch {}
     }
 
     private unsubscribeWidgetEvents?: () => void;
@@ -3180,6 +3209,13 @@ export class OsrsClient {
                     this.handleInventoryServerUpdate(update);
                 } catch (err) {
                     console.warn("inventory update dispatch failed", err);
+                }
+            });
+            subscribeEquipment((update) => {
+                try {
+                    this.handleEquipmentServerUpdate(update);
+                } catch (err) {
+                    console.warn("equipment update dispatch failed", err);
                 }
             });
             subscribeBank((update) => {
@@ -5852,7 +5888,7 @@ export class OsrsClient {
                 let shiftClickActionIndex: number | undefined;
                 if (
                     isShiftHeld &&
-                    this.settings.shiftClickEnabled &&
+                    this.isShiftClickDropEnabled() &&
                     (resolvedGroupId | 0) === 149 &&
                     typeof w?.itemId === "number" &&
                     (w.itemId | 0) > 0
@@ -5885,7 +5921,7 @@ export class OsrsClient {
                 // no spell/item selection is active.
                 if (
                     isShiftHeld &&
-                    this.settings.shiftClickEnabled &&
+                    this.isShiftClickDropEnabled() &&
                     !hasSelection &&
                     (resolvedGroupId | 0) === 149
                 ) {
@@ -7873,7 +7909,7 @@ export class OsrsClient {
         const appearance = data?.appearance;
         if (appearance && typeof appearance === "object") {
             // Sync equipment inventory only for local player
-            const isLocalPlayer = serverId === this.controlledPlayerServerId;
+            const isLocalPlayer = (serverId | 0) === (this.controlledPlayerServerId | 0);
             const pa = this.buildPlayerAppearanceFromPayload(appearance, isLocalPlayer);
             this.playerEcs.setAppearance(ecsIndex, pa);
             let team = 0;
@@ -8822,6 +8858,11 @@ export class OsrsClient {
         if (newState === GameState.CONNECTING) {
             this.loginState.setResponse("", "Connecting to server...", "", "");
 
+            // Allow a fresh MAP_DATA_LOADED signal for this login attempt
+            try {
+                this.renderer?.resetMapDataLoadedNotification();
+            } catch {}
+
             // Set up loading requirements BEFORE server responds
             // This prevents race condition where handshake arrives before onLoginSuccess
             this.loadingTracker.setRequirements([
@@ -9749,6 +9790,9 @@ export class OsrsClient {
                 } else if (varpId === VARP_OPTION_ATTACK_PRIORITY_NPC) {
                     ClientState.npcAttackOption = clamp(newValue | 0, 0, 3);
                 }
+                if (varpId === VARP_SHIFT_CLICK_DROP) {
+                    this.syncShiftClickDropFromVarbit();
+                }
                 // Check for roof varbit changes
                 // Varbit 12378 is stored in varp 12378's bits
                 // Since varbit changes trigger the underlying varp, we need to check the varbit value
@@ -9770,6 +9814,7 @@ export class OsrsClient {
             } catch (err) {
                 console.warn("[OsrsClient] Failed to init roof state", err);
             }
+            this.syncShiftClickDropFromVarbit();
             ClientState.playerAttackOption = clamp(
                 (this.varManager.getVarp(VARP_OPTION_ATTACK_PRIORITY_PLAYER) ?? 0) | 0,
                 0,
@@ -9926,6 +9971,23 @@ export class OsrsClient {
         // OSRS PARITY: Mark inv cycle with specific inventory ID - handlers fire during processWidgetTransmits()
         // Inventory ID 93 is the player inventory in OSRS
         markInvTransmit(93);
+    }
+
+    /**
+     * Handle worn equipment container updates from server (OSRS inv 94).
+     * Slots arrive as EquipmentDisplaySlot indices for CS2 INV_GETOBJ(94, slot).
+     */
+    private handleEquipmentServerUpdate(update: EquipmentServerUpdate): void {
+        if (!update || update.kind !== "snapshot") return;
+        const slots: InventorySlotInput[] = Array.isArray(update.slots)
+            ? update.slots.map((slot) => ({
+                  slot: Math.max(0, Math.min(13, slot.slot | 0)),
+                  itemId: slot.itemId | 0,
+                  quantity: typeof slot.quantity === "number" ? Math.max(0, slot.quantity | 0) : 0,
+              }))
+            : [];
+        this.equipment.setSnapshot(slots);
+        markInvTransmit(94);
     }
 
     /**

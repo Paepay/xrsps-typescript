@@ -1,14 +1,18 @@
-import type { SkillPickpocketActionData } from "../../actions/skillActionPayloads";
-import { type NpcInteractionEvent, type ScriptModule } from "../types";
+import type { SkillPickpocketActionData, SkillStallActionData, SkillChestActionData } from "../../actions/skillActionPayloads";
+import {
+    CLOTHES_STALL_LOC_IDS,
+    getStallByLocId,
+    getStallRespawnTicks,
+    MONKEY_GENERAL_STALL,
+    THIEVING_STALLS,
+} from "../../skills/thievingStalls";
+import { getChestByLocId, THIEVING_CHESTS } from "../../skills/thievingChests";
+import { type LocInteractionEvent, type NpcInteractionEvent, type ScriptModule } from "../types";
 
 // ---------------------------------------------------------------------------
 // Thieving System
 //
-// Data-driven thieving module. Currently supports NPC pickpocketing.
-// Each pickpocket definition specifies level, XP, loot table, stun
-// duration, and damage on failure. The module registers "pickpocket"
-// NPC interactions that queue a skill.pickpocket action through the
-// action scheduler.
+// Data-driven thieving: NPC pickpocketing, market stalls, and chests.
 // ---------------------------------------------------------------------------
 
 // -- Rarity weights (higher = more common) --
@@ -33,6 +37,8 @@ function loot(itemId: number, amount: number | [number, number], weight: number)
 
 // -- Pickpocket NPC definition --
 export interface PickpocketNpcDef {
+    /** Skill-guide activity id (pickpocket subsection). */
+    guideId: string;
     npcIds: number[];
     reqLevel: number;
     xp: number;
@@ -166,6 +172,7 @@ const Items = {
 // ---------------------------------------------------------------------------
 const PICKPOCKET_NPCS: PickpocketNpcDef[] = [
     {
+        guideId: "man",
         npcIds: [
             // Man (r237 cache-verified)
             3014, 3106, 3107, 3108, 3109, 3110, 3261, 3264, 3265, 3298, 3652, 6815, 6818,
@@ -183,6 +190,7 @@ const PICKPOCKET_NPCS: PickpocketNpcDef[] = [
     },
     {
         // Farmer (r237 cache-verified)
+        guideId: "farmer",
         npcIds: [3114, 3243, 3244, 11918, 11919, 11920, 11921, 13228, 13229, 13230, 13231,
             13232, 13233, 13234, 13235, 14751, 14752, 14753, 14754, 14773],
         reqLevel: 10,
@@ -199,6 +207,7 @@ const PICKPOCKET_NPCS: PickpocketNpcDef[] = [
     },
     {
         // HAM Female
+        guideId: "female_ham",
         npcIds: [2541],
         reqLevel: 15,
         xp: 18.5,
@@ -248,6 +257,7 @@ const PICKPOCKET_NPCS: PickpocketNpcDef[] = [
     },
     {
         // HAM Male
+        guideId: "male_ham",
         npcIds: [2540],
         reqLevel: 20,
         xp: 22.5,
@@ -297,6 +307,7 @@ const PICKPOCKET_NPCS: PickpocketNpcDef[] = [
     },
     {
         // Al-Kharid Warrior (r237 cache-verified)
+        guideId: "warrior",
         npcIds: [3292],
         reqLevel: 25,
         xp: 26,
@@ -308,6 +319,7 @@ const PICKPOCKET_NPCS: PickpocketNpcDef[] = [
     },
     {
         // Rogue (r237 cache-verified)
+        guideId: "rogue",
         npcIds: [526],
         reqLevel: 32,
         xp: 35.5,
@@ -326,6 +338,7 @@ const PICKPOCKET_NPCS: PickpocketNpcDef[] = [
     },
     {
         // Cave Goblin
+        guideId: "cave_goblin",
         npcIds: [
             2268, 2269, 2270, 2271, 2272, 2273, 2274, 2275, 2276, 2277, 2278, 2279, 2280, 2281,
             2282, 2283, 2284, 2285,
@@ -352,6 +365,7 @@ const PICKPOCKET_NPCS: PickpocketNpcDef[] = [
     },
     {
         // Master Farmer (r237 cache-verified)
+        guideId: "master_farmer",
         npcIds: [5730, 5731, 5832, 11940, 11941, 13236, 13237, 13238, 13239, 13240, 13241,
             13242, 13243, 14755, 14756, 14757, 14758],
         reqLevel: 38,
@@ -407,6 +421,7 @@ const PICKPOCKET_NPCS: PickpocketNpcDef[] = [
     },
     {
         // Guard (r237 cache-verified)
+        guideId: "guard",
         npcIds: [397, 398, 399, 400, 1546, 1547, 1548, 1549, 1550, 3010, 3011, 3254, 3269,
             3270, 3271, 3272, 3273, 3274, 3283, 4522, 4523, 4524, 4525, 4526, 5418, 11092,
             11094, 11096, 11098, 11100, 11102, 11104, 11106, 11911, 11912, 11913, 11914,
@@ -425,6 +440,7 @@ const PICKPOCKET_NPCS: PickpocketNpcDef[] = [
     },
     {
         // Fremennik Citizens (r237 cache-verified)
+        guideId: "fremennik",
         npcIds: [3937, 3938, 3939, 3940, 3941, 3943, 3944, 3945, 3946],
         reqLevel: 45,
         xp: 65,
@@ -437,6 +453,7 @@ const PICKPOCKET_NPCS: PickpocketNpcDef[] = [
     },
     {
         // Bearded Pollnivian Bandit
+        guideId: "bearded_bandit",
         npcIds: [736, 737],
         reqLevel: 45,
         xp: 65,
@@ -448,6 +465,7 @@ const PICKPOCKET_NPCS: PickpocketNpcDef[] = [
     },
     {
         // Desert Bandit
+        guideId: "desert_bandit",
         npcIds: [690, 695],
         reqLevel: 53,
         xp: 79.5,
@@ -463,6 +481,7 @@ const PICKPOCKET_NPCS: PickpocketNpcDef[] = [
     },
     {
         // Knight of Ardougne (r237 cache-verified)
+        guideId: "knight",
         npcIds: [3297, 3300, 8854, 11902, 11936],
         reqLevel: 55,
         xp: 84.3,
@@ -474,6 +493,7 @@ const PICKPOCKET_NPCS: PickpocketNpcDef[] = [
     },
     {
         // Pollnivian Bandit
+        guideId: "pollnivnian_bandit",
         npcIds: [734, 735],
         reqLevel: 55,
         xp: 84.3,
@@ -485,6 +505,7 @@ const PICKPOCKET_NPCS: PickpocketNpcDef[] = [
     },
     {
         // Yanille Watchman (r237 cache-verified)
+        guideId: "watchman",
         npcIds: [5420],
         reqLevel: 65,
         xp: 137.5,
@@ -499,6 +520,7 @@ const PICKPOCKET_NPCS: PickpocketNpcDef[] = [
     },
     {
         // Menaphite Thug
+        guideId: "menaphite_thug",
         npcIds: [3550],
         reqLevel: 65,
         xp: 137.5,
@@ -510,6 +532,7 @@ const PICKPOCKET_NPCS: PickpocketNpcDef[] = [
     },
     {
         // Paladin (r237 cache-verified)
+        guideId: "paladin",
         npcIds: [3293, 3294, 8853, 11901, 11930, 11931, 11932, 11933],
         reqLevel: 70,
         xp: 151.75,
@@ -524,6 +547,7 @@ const PICKPOCKET_NPCS: PickpocketNpcDef[] = [
     },
     {
         // Gnome
+        guideId: "gnome",
         npcIds: [5130, 6077, 6078, 6079, 6086, 6087, 6094, 6095, 6096],
         reqLevel: 75,
         xp: 198.5,
@@ -542,6 +566,7 @@ const PICKPOCKET_NPCS: PickpocketNpcDef[] = [
     },
     {
         // Hero (r237 cache-verified)
+        guideId: "hero",
         npcIds: [3295, 11934, 11935],
         reqLevel: 80,
         xp: 275,
@@ -561,6 +586,7 @@ const PICKPOCKET_NPCS: PickpocketNpcDef[] = [
     },
     {
         // TzHaar-Hur
+        guideId: "tzhaar_hur",
         npcIds: [7682, 7683, 7684, 7685, 7686, 7687],
         reqLevel: 90,
         xp: 103.5,
@@ -631,6 +657,7 @@ export const thievingModule: ScriptModule = {
                         const actionData: SkillPickpocketActionData = {
                             npcId: npc.id,
                             npcTypeId: npc.typeId,
+                            guideId: def.guideId,
                             reqLevel: def.reqLevel,
                             xp: def.xp,
                             lootTable: def.lootTable,
@@ -702,6 +729,178 @@ export const thievingModule: ScriptModule = {
 
             registry.registerItemAction(pouchId, (event) => openHandler(event, true), "open-all");
             registry.registerItemAction(pouchId, (event) => openHandler(event, false), "open");
+        }
+
+        // -------------------------------------------------------------------
+        // Stalls — Steal-from / Steal from
+        // -------------------------------------------------------------------
+        const stallActions = ["steal-from", "steal from"];
+        const requestStall = (event: LocInteractionEvent) => {
+            const binding = getStallByLocId(event.locId);
+            if (!binding) return;
+            const { stall, variant } = binding;
+            const actionData: SkillStallActionData = {
+                guideId: stall.guideId,
+                locId: variant.locId,
+                emptyLocId: variant.emptyLocId,
+                stallName: stall.stallName,
+                reqLevel: stall.reqLevel,
+                xp: stall.xp,
+                respawnTicks: getStallRespawnTicks(binding),
+                lootTable: stall.lootTable,
+                lootTotal: stall.lootTotal,
+                ownerNpcIds: stall.ownerNpcIds ?? [],
+                guardNpcIds: stall.guardNpcIds ?? [],
+                tile: { x: event.tile.x, y: event.tile.y },
+                level: event.level,
+            };
+            const result = event.services.requestAction(
+                event.player,
+                {
+                    kind: "skill.stall",
+                    data: actionData,
+                    delayTicks: 0,
+                    cooldownTicks: 0,
+                    groups: ["skill.stall"],
+                },
+                event.tick,
+            );
+            if (!result.ok) {
+                event.services.sendGameMessage(
+                    event.player,
+                    "You're too busy to do that right now.",
+                );
+            }
+        };
+
+        for (const action of stallActions) {
+            registry.registerLocAction(action, (event) => {
+                if (!getStallByLocId(event.locId)) return;
+                requestStall(event);
+            });
+        }
+
+        for (const stall of [...THIEVING_STALLS, MONKEY_GENERAL_STALL]) {
+            for (const variant of stall.locs) {
+                for (const action of stallActions) {
+                    registry.registerLocInteraction(variant.locId, requestStall, action);
+                }
+            }
+        }
+
+        for (const locId of CLOTHES_STALL_LOC_IDS) {
+            for (const action of stallActions) {
+                registry.registerLocInteraction(
+                    locId,
+                    (event) => {
+                        event.services.sendGameMessage(
+                            event.player,
+                            "You don't really see anything you'd want to steal from this stall.",
+                        );
+                    },
+                    action,
+                );
+            }
+        }
+
+        // -------------------------------------------------------------------
+        // Chests — Open / Search for traps / Pick-lock / lockpick use
+        // -------------------------------------------------------------------
+        const requestChest = (
+            player: LocInteractionEvent["player"],
+            services: LocInteractionEvent["services"],
+            tick: number,
+            locId: number,
+            tile: { x: number; y: number },
+            level: number,
+            phase: number,
+        ) => {
+            const chest = getChestByLocId(locId);
+            if (!chest) return;
+            const actionData: SkillChestActionData = {
+                guideId: chest.guideId,
+                locId,
+                emptyLocId: chest.emptyLocId,
+                openLocId: chest.openLocId,
+                openTicks: chest.openTicks,
+                reqLevel: chest.reqLevel,
+                xp: chest.xp,
+                respawnTicks: chest.respawnTicks,
+                lootTable: chest.lootTable,
+                lootTotal: chest.lootTotal,
+                trapped: chest.trapped,
+                requiresLockpick: chest.requiresLockpick,
+                trapDamage: chest.trapDamage,
+                teleCoord: chest.teleCoord,
+                tile,
+                level,
+                phase,
+            };
+            const result = services.requestAction(
+                player,
+                {
+                    kind: "skill.chest",
+                    data: actionData,
+                    delayTicks: 0,
+                    cooldownTicks: 0,
+                    groups: ["skill.chest"],
+                },
+                tick,
+            );
+            if (!result.ok) {
+                services.sendGameMessage(player, "You're too busy to do that right now.");
+            }
+        };
+
+        for (const chest of THIEVING_CHESTS) {
+            for (const locId of chest.locIds) {
+                registry.registerLocInteraction(
+                    locId,
+                    (event) =>
+                        requestChest(
+                            event.player,
+                            event.services,
+                            event.tick,
+                            event.locId,
+                            event.tile,
+                            event.level,
+                            0,
+                        ),
+                    "open",
+                );
+                for (const action of [
+                    "search for traps",
+                    "search-for-traps",
+                    "pick-lock",
+                    "picklock",
+                ]) {
+                    registry.registerLocInteraction(
+                        locId,
+                        (event) =>
+                            requestChest(
+                                event.player,
+                                event.services,
+                                event.tick,
+                                event.locId,
+                                event.tile,
+                                event.level,
+                                1,
+                            ),
+                        action,
+                    );
+                }
+                registry.registerItemOnLoc(1523, locId, (event) => {
+                    requestChest(
+                        event.player,
+                        event.services,
+                        event.tick,
+                        event.target.locId,
+                        event.target.tile,
+                        event.target.level,
+                        1,
+                    );
+                });
+            }
         }
     },
 };
