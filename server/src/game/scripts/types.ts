@@ -559,6 +559,7 @@ export interface ScriptServices {
             requireCanTeleport?: boolean;
             rejectIfPending?: boolean;
             replacePending?: boolean;
+            ignoreLeagueAreaLock?: boolean;
         },
     ) => { ok: boolean; reason?: string };
     /**

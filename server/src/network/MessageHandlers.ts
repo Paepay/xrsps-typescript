@@ -16,6 +16,10 @@ import { ALL_RUNE_ITEM_IDS, RUNE_IDS } from "../data/runes";
 import { getCollectionLogItems } from "../game/collectionlog";
 import type { NpcState } from "../game/npc";
 import type { PlayerState } from "../game/player";
+import {
+    LEAGUE_TASK_REGIONS,
+    resolveLeagueTaskRegionInput,
+} from "../../../src/shared/leagues/leagueTaskRegion";
 import { logger } from "../utils/logger";
 import type { MessageHandler, MessagePayload, MessageRouter } from "./MessageRouter";
 import type { IndexedMenuRequest } from "./managers/Cs2ModalManager";
@@ -67,6 +71,7 @@ interface TeleportActionRequest {
     requireCanTeleport?: boolean;
     rejectIfPending?: boolean;
     replacePending?: boolean;
+    ignoreLeagueAreaLock?: boolean;
 }
 
 /**
@@ -133,6 +138,25 @@ export interface MessageHandlerServices {
         changed: boolean;
         varpUpdates: Array<{ id: number; value: number }>;
         varbitUpdates: Array<{ id: number; value: number }>;
+    };
+    completeLeagueTasksForRegion: (
+        player: PlayerState,
+        region: (typeof LEAGUE_TASK_REGIONS)[number],
+    ) => {
+        changed: boolean;
+        varpUpdates: Array<{ id: number; value: number }>;
+        varbitUpdates: Array<{ id: number; value: number }>;
+        notification?: {
+            kind: "league_task";
+            title: string;
+            message: string;
+            durationMs: number;
+        };
+        region: (typeof LEAGUE_TASK_REGIONS)[number];
+        completedCount: number;
+        alreadyCompleteCount: number;
+        pointsAwarded: number;
+        totalInRegion: number;
     };
     teleportPlayer: (
         player: PlayerState,
@@ -1276,6 +1300,102 @@ function createChatHandler(services: MessageHandlerServices): MessageHandler<"ch
                         targetPlayerIds: [sender.id],
                     });
                     logger.info(`[cmd] ::resettasks - Reset league tasks for player ${sender.id}`);
+                    return;
+                }
+
+                if (root === "completetasks") {
+                    if (!services.canUseAdminTeleport(sender)) {
+                        services.queueChatMessage({
+                            messageType: "game",
+                            text: "Only admins can complete league tasks.",
+                            targetPlayerIds: [sender.id],
+                        });
+                        return;
+                    }
+
+                    const regionArg = parts.slice(1).join(" ").trim();
+                    if (!regionArg) {
+                        services.queueChatMessage({
+                            messageType: "game",
+                            text: `Usage: ::completetasks <region|areaId> — regions: ${LEAGUE_TASK_REGIONS.join(", ")}`,
+                            targetPlayerIds: [sender.id],
+                        });
+                        return;
+                    }
+
+                    const region = resolveLeagueTaskRegionInput(regionArg);
+                    if (!region) {
+                        services.queueChatMessage({
+                            messageType: "game",
+                            text: `Unknown region "${regionArg}". Regions: ${LEAGUE_TASK_REGIONS.join(", ")}`,
+                            targetPlayerIds: [sender.id],
+                        });
+                        return;
+                    }
+
+                    const result = services.completeLeagueTasksForRegion(sender, region);
+                    for (const update of result.varpUpdates) {
+                        services.queueVarp(sender.id, update.id, update.value);
+                    }
+                    for (const update of result.varbitUpdates) {
+                        services.queueVarbit(sender.id, update.id, update.value);
+                    }
+                    if (result.notification) {
+                        services.queueNotification(sender.id, result.notification);
+                    }
+                    services.queueChatMessage({
+                        messageType: "game",
+                        text: result.completedCount
+                            ? `Completed ${result.completedCount}/${result.totalInRegion} ${region} tasks (+${result.pointsAwarded} pts). ${result.alreadyCompleteCount} already done.`
+                            : `All ${result.totalInRegion} ${region} tasks are already complete.`,
+                        targetPlayerIds: [sender.id],
+                    });
+                    logger.info(
+                        `[cmd] ::completetasks - Player ${sender.id} completed ${result.completedCount} ${region} tasks (+${result.pointsAwarded} pts)`,
+                    );
+                    return;
+                }
+
+                if (root === "completetask") {
+                    if (!services.canUseAdminTeleport(sender)) {
+                        services.queueChatMessage({
+                            messageType: "game",
+                            text: "Only admins can complete league tasks.",
+                            targetPlayerIds: [sender.id],
+                        });
+                        return;
+                    }
+
+                    const taskId = Math.floor(Number.parseInt(parts[1] ?? "", 10));
+                    if (!Number.isFinite(taskId) || taskId <= 0) {
+                        services.queueChatMessage({
+                            messageType: "game",
+                            text: "Usage: ::completetask <taskId>",
+                            targetPlayerIds: [sender.id],
+                        });
+                        return;
+                    }
+
+                    const result = services.completeLeagueTask(sender, taskId);
+                    for (const update of result.varpUpdates ?? []) {
+                        services.queueVarp(sender.id, update.id, update.value);
+                    }
+                    for (const update of result.varbitUpdates ?? []) {
+                        services.queueVarbit(sender.id, update.id, update.value);
+                    }
+                    if (result.notification) {
+                        services.queueNotification(sender.id, result.notification);
+                    }
+                    services.queueChatMessage({
+                        messageType: "game",
+                        text: result.changed
+                            ? `Completed league task ${taskId}.`
+                            : `League task ${taskId} was already complete (or invalid).`,
+                        targetPlayerIds: [sender.id],
+                    });
+                    logger.info(
+                        `[cmd] ::completetask - Player ${sender.id} ${result.changed ? "completed" : "skipped"} task ${taskId}`,
+                    );
                     return;
                 }
 

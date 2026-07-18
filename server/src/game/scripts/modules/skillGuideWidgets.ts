@@ -213,6 +213,8 @@ function castStandardTeleport(
     if (!teleportResult.ok) {
         if (teleportResult.reason === "cooldown") {
             services.sendGameMessage?.(player, "You're already teleporting.");
+        } else if (teleportResult.reason === "league_area_locked") {
+            // Message already queued by requestTeleportAction.
         }
         return;
     }

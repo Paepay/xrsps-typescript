@@ -3,6 +3,7 @@ import {
     scrubAliasedLeagueTaskCompletionVarps,
 } from "../../../src/shared/leagues/leagueTaskVarps";
 import { syncLeagueTaskCompletionVarpsFromSet } from "./leagues/leagueTaskCompletionSet";
+import { truncatePathAtLeagueBarrier } from "./leagues/LeagueAreaAccess";
 import { EquipmentSlot } from "../../../src/rs/config/player/Equipment";
 import {
     PRAYER_HEAD_ICON_IDS,
@@ -1220,6 +1221,16 @@ export class PlayerState extends Actor {
         return this.hasCompletedLeagueTutorial();
     }
 
+    /** Set when a path was truncated by a locked league-area barrier. */
+    private _leagueBarrierHitPending = false;
+
+    /** Consume pending league-barrier chat (at most once per blocked path). */
+    public consumeLeagueBarrierHit(): boolean {
+        if (!this._leagueBarrierHitPending) return false;
+        this._leagueBarrierHitPending = false;
+        return true;
+    }
+
     public override setPath(steps: Tile[], run: boolean): void {
         if (!this.canMove()) {
             return;
@@ -1233,16 +1244,21 @@ export class PlayerState extends Actor {
         const normalized: Tile[] = Array.isArray(steps)
             ? steps.map((step) => ({ x: step.x, y: step.y }))
             : [];
+        const gated = truncatePathAtLeagueBarrier(this, normalized, this.tileX, this.tileY);
+        if (gated.blocked) {
+            this._leagueBarrierHitPending = true;
+        }
+        const pathSteps = gated.steps;
         let isSingleAdjacent = false;
-        if (normalized.length === 1) {
-            const first = normalized[0]!;
+        if (pathSteps.length === 1) {
+            const first = pathSteps[0]!;
             const sx = this.tileX;
             const sy = this.tileY;
             const dx = Math.abs(first.x - sx);
             const dy = Math.abs(first.y - sy);
             isSingleAdjacent = dx <= 1 && dy <= 1 && (dx !== 0 || dy !== 0);
         }
-        super.setPath(normalized, run);
+        super.setPath(pathSteps, run);
         if (!isSingleAdjacent) {
             this.markSingleStepRoutePending(false);
         }

@@ -1136,10 +1136,14 @@ function executeTeleport(
         requireCanTeleport: true,
         rejectIfPending: true,
         replacePending: false,
+        // POH is always accessible in leagues; destination tile is outside the house.
+        ignoreLeagueAreaLock: name === "Teleport to House",
     });
     if (!teleportResult.ok) {
         if (teleportResult.reason === "cannot_teleport") {
             services.sendGameMessage(player, "A magical force stops you from teleporting.");
+        } else if (teleportResult.reason === "league_area_locked") {
+            // Message already queued by requestTeleportAction.
         } else if (teleportResult.reason === "cooldown") {
             services.sendGameMessage(player, "You're already teleporting.");
         } else {

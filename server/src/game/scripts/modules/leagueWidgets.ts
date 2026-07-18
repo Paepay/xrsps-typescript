@@ -50,6 +50,10 @@ import {
     VARP_SIDE_JOURNAL_STATE,
 } from "../../../../../src/shared/vars";
 import { LeagueTaskService } from "../../leagues/LeagueTaskService";
+import {
+    isLeagueAreaUnlocked as isLeagueAreaUnlockedShared,
+    normalizeLeagueAreaId,
+} from "../../leagues/LeagueAreaAccess";
 import type { WidgetAction } from "../../../widgets/WidgetManager";
 import { getMainmodalUid, getViewportTrackerFrontUid } from "../../../widgets/viewport";
 import { syncLeagueGeneralVarp } from "../../leagues/leagueGeneral";
@@ -141,8 +145,16 @@ const PARAM_LEAGUE_AREA_TASKS_REQUIRED = 1010; // param_1010
 
 // region_data DB columns (cache authoritative)
 // Source: references/cs2-data/learned-db-columns.json
-const DB_COL_REGION_DATA_REGION_ID = 335872; // region_data:region_id
-const DB_COL_REGION_DATA_AREA_TELEPORT_COORD = 336048; // region_data:area_teleport_coord
+const DB_COL_REGION_DATA_REGION_ID = 335872; // region_data:region_id → table 82 col 0
+const DB_COL_REGION_DATA_AREA_TELEPORT_COORD = 336048; // region_data:area_teleport_coord → table 82 col 11
+
+/** Unpack CS2 db column packed id: (tableId << 12) | (columnId << 4). */
+function unpackDbColumnId(packed: number): { tableId: number; columnId: number } {
+    return {
+        tableId: (packed >> 12) & 0xffff,
+        columnId: (packed >> 4) & 0x7f,
+    };
+}
 
 // Widget child IDs (trailblazer_areas / group 512) used by server-driven view switch.
 // Verified via cache inspection and CS2 args for trailblazer_areas_init (3657).
@@ -518,8 +530,7 @@ const LEAGUE_AREAS: ReadonlyArray<{
 
 function normalizeLeagueAreaSelectionValue(regionId: number): number {
     // OSRS parity: script3681 normalizes legacy region ids 9/10 -> 20 (Kourend).
-    if (regionId === 9 || regionId === 10) return 20;
-    return regionId;
+    return normalizeLeagueAreaId(regionId);
 }
 
 function uidForTrailblazerAreas(childId: number): number {
@@ -548,15 +559,19 @@ function getLeagueAreaTeleportCoord(services: any, regionId: number): number | n
     if (cached !== undefined) return cached;
 
     const db = services?.getDbRepository?.();
-    if (!db?.findRows) return null;
+    if (!db?.getRows && !db?.findRows) return null;
     try {
-        const rows = db.findRows((row: any) => {
-            const col = row?.getColumn?.(DB_COL_REGION_DATA_REGION_ID);
+        const regionCol = unpackDbColumnId(DB_COL_REGION_DATA_REGION_ID).columnId;
+        const teleCol = unpackDbColumnId(DB_COL_REGION_DATA_AREA_TELEPORT_COORD).columnId;
+        const tableId = unpackDbColumnId(DB_COL_REGION_DATA_REGION_ID).tableId;
+        const rows: any[] = db.getRows?.(tableId) ?? db.findRows?.(() => true) ?? [];
+        const row = rows.find((r: any) => {
+            const col = r?.getColumn?.(regionCol);
             const value = Array.isArray(col?.values) ? col.values[0] : undefined;
             return value === normalized;
         });
-        const row = Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
-        const col = row?.getColumn?.(DB_COL_REGION_DATA_AREA_TELEPORT_COORD);
+        if (!row) return null;
+        const col = row?.getColumn?.(teleCol);
         const coord = (Array.isArray(col?.values) ? col.values[0] : undefined) as
             | number
             | undefined;
@@ -572,13 +587,7 @@ function isLeagueAreaUnlocked(
     player: { getVarbitValue?: (id: number) => number },
     regionId: number,
 ): boolean {
-    const normalized = normalizeLeagueAreaSelectionValue(regionId);
-    if (!(normalized > 0)) return false;
-    for (const varbit of AREA_SELECTION_VARBITS) {
-        const stored = normalizeLeagueAreaSelectionValue(player.getVarbitValue?.(varbit) ?? 0);
-        if (stored === normalized) return true;
-    }
-    return false;
+    return isLeagueAreaUnlockedShared(player, regionId);
 }
 
 function getLeagueTutorialCompleteStep(player: {

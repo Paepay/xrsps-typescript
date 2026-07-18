@@ -323,6 +323,11 @@ import {
 } from "../game/items/playerItemOwnership";
 import { LeagueTaskManager } from "../game/leagues/LeagueTaskManager";
 import { LeagueTaskService } from "../game/leagues/LeagueTaskService";
+import {
+    LEAGUE_BARRIER_BLOCK_MESSAGE,
+    LEAGUE_TELEPORT_BLOCK_MESSAGE,
+    canAccessLeagueTile,
+} from "../game/leagues/LeagueAreaAccess";
 import { syncLeagueGeneralVarp } from "../game/leagues/leagueGeneral";
 import { getLeaguePackedVarpsForPlayer } from "../game/leagues/leaguePackedVarps";
 import { getLeagueSkillXpMultiplier as getActiveLeagueSkillXpMultiplier } from "../game/leagues/leagueXp";
@@ -902,6 +907,11 @@ type TeleportActionRequest = {
     requireCanTeleport?: boolean;
     rejectIfPending?: boolean;
     replacePending?: boolean;
+    /**
+     * Skip league area destination lock (POH / Death's Office / essence, etc.).
+     * Prefer relying on always-accessible region ids when the destination tile maps correctly.
+     */
+    ignoreLeagueAreaLock?: boolean;
 };
 
 interface PlayerViewSnapshot {
@@ -3582,6 +3592,13 @@ export class WSServer {
         // OSRS parity: Player tick order is Queue → Timers → Area queue → Movement → Combat
         // Reference: docs/game-engine.md lines 31-42
         for (const { sock, player } of entries) {
+            if (player.consumeLeagueBarrierHit()) {
+                this.queueChatMessage({
+                    messageType: "game",
+                    text: LEAGUE_BARRIER_BLOCK_MESSAGE,
+                    targetPlayerIds: [player.id],
+                });
+            }
             players.applyInteractionFacing(sock, player, npcLookup, frame.tick);
 
             // 1. Process queued actions FIRST (before timers)
@@ -6061,6 +6078,18 @@ export class WSServer {
         const requireCanTeleport = request.requireCanTeleport !== false;
         if (requireCanTeleport && !player.canTeleport()) {
             return { ok: false, reason: "cannot_teleport" };
+        }
+
+        // League area lock: teleports/transports may not land in locked regions.
+        if (request.ignoreLeagueAreaLock !== true) {
+            if (!canAccessLeagueTile(player, request.x | 0, request.y | 0)) {
+                this.queueChatMessage({
+                    messageType: "game",
+                    text: LEAGUE_TELEPORT_BLOCK_MESSAGE,
+                    targetPlayerIds: [player.id],
+                });
+                return { ok: false, reason: "league_area_locked" };
+            }
         }
 
         const delayTicks = request.delayTicks !== undefined ? Math.max(0, request.delayTicks) : 0;
@@ -8715,6 +8744,8 @@ export class WSServer {
                 this.actionScheduler.clearActionsInGroup(playerId, group),
             canUseAdminTeleport: (player) => this.isAdminPlayer(player),
             resetLeagueTasks: (player) => LeagueTaskService.resetAllTasks(player),
+            completeLeagueTasksForRegion: (player, region) =>
+                LeagueTaskService.completeTasksForRegion(player, region),
             teleportPlayer: (player, x, y, level, forceRebuild = false) =>
                 this.teleportPlayer(player, x, y, level, forceRebuild),
             requestTeleportAction: (player, request) => this.requestTeleportAction(player, request),

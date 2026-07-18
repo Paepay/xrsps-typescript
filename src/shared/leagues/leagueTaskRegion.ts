@@ -55,6 +55,42 @@ export function parseLeagueTaskAreaLabel(label: string): LeagueTaskRegion | unde
     return undefined;
 }
 
+/**
+ * Resolve admin/UI region input: exact label, case-insensitive name, or numeric area id.
+ * e.g. "Misthalin", "misthalin", "1" → Misthalin.
+ */
+export function resolveLeagueTaskRegionInput(input: string): LeagueTaskRegion | undefined {
+    const trimmed = input.trim();
+    if (!trimmed) {
+        return undefined;
+    }
+
+    const exact = parseLeagueTaskAreaLabel(trimmed);
+    if (exact) {
+        return exact;
+    }
+
+    const asAreaId = Number.parseInt(trimmed, 10);
+    if (Number.isFinite(asAreaId) && String(asAreaId) === trimmed) {
+        return LEAGUE_TASK_AREA_ID_TO_REGION[asAreaId];
+    }
+
+    const lower = trimmed.toLowerCase();
+    return LEAGUE_TASK_REGIONS.find((region) => region.toLowerCase() === lower);
+}
+
 export function areaIdFromLeagueTaskRegion(region: LeagueTaskRegion): number {
     return LEAGUE_TASK_REGION_TO_AREA_ID[region] ?? 0;
+}
+
+/** True when a task row belongs to the given task-list region (area id or optional region string). */
+export function leagueTaskMatchesRegion(
+    task: { area?: number; region?: LeagueTaskRegion },
+    region: LeagueTaskRegion,
+): boolean {
+    if (task.region === region) {
+        return true;
+    }
+    const areaId = task.area ?? 0;
+    return LEAGUE_TASK_AREA_ID_TO_REGION[areaId] === region;
 }

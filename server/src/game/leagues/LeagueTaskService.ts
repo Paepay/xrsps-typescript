@@ -5,6 +5,10 @@ import {
 } from "../../../../src/shared/leagues/leagueTaskVarps";
 import { getLeagueTaskByTaskId } from "../../../../src/shared/leagues/leagueTasks";
 import { LEAGUE_TASKS } from "../../../../src/shared/leagues/leagueTasks.data";
+import {
+    leagueTaskMatchesRegion,
+    type LeagueTaskRegion,
+} from "../../../../src/shared/leagues/leagueTaskRegion";
 import { VARBIT_MASTERY_POINT_UNLOCK_BASE } from "../../../../src/shared/leagues/leagueTypes";
 import {
     migrateLeagueTasksCompletedFromLegacy,
@@ -110,6 +114,24 @@ export type LeagueTaskAwardResult = {
     varbitUpdates: Array<{ id: number; value: number }>;
     notification?: LeagueTaskNotification;
 };
+
+export type LeagueTaskBulkAwardResult = LeagueTaskAwardResult & {
+    region: LeagueTaskRegion;
+    completedCount: number;
+    alreadyCompleteCount: number;
+    pointsAwarded: number;
+    totalInRegion: number;
+};
+
+function dedupeVarUpdates(
+    updates: Array<{ id: number; value: number }>,
+): Array<{ id: number; value: number }> {
+    const byId = new Map<number, number>();
+    for (const update of updates) {
+        byId.set(update.id | 0, update.value | 0);
+    }
+    return [...byId.entries()].map(([id, value]) => ({ id, value }));
+}
 
 export type LeagueTaskPlayer = {
     getVarpValue: (id: number) => number;
@@ -476,5 +498,112 @@ export class LeagueTaskService {
         };
 
         return { changed: true, varpUpdates, varbitUpdates, notification };
+    }
+
+    /**
+     * Dev/admin: complete every incomplete league task for a task-list region in one pass.
+     * Awards points once and emits a single summary toast (not one per task).
+     */
+    static completeTasksForRegion(
+        player: LeagueTaskPlayer,
+        region: LeagueTaskRegion,
+    ): LeagueTaskBulkAwardResult {
+        const inRegion = LEAGUE_TASKS.filter((row) => leagueTaskMatchesRegion(row, region));
+        const toComplete: typeof LEAGUE_TASKS = [];
+        let alreadyCompleteCount = 0;
+        for (const row of inRegion) {
+            const { varpId, mask } = getLeagueTaskBitfield(row.taskId);
+            if (varpId < 0 || mask === 0) {
+                continue;
+            }
+            if (LeagueTaskService.isTaskComplete(player, row.taskId)) {
+                alreadyCompleteCount++;
+            } else {
+                toComplete.push(row);
+            }
+        }
+
+        if (toComplete.length === 0) {
+            return {
+                changed: false,
+                varpUpdates: [],
+                varbitUpdates: [],
+                region,
+                completedCount: 0,
+                alreadyCompleteCount,
+                pointsAwarded: 0,
+                totalInRegion: inRegion.length,
+            };
+        }
+
+        let pointsAwarded = 0;
+        const varpUpdates: Array<{ id: number; value: number }> = [];
+        const varbitUpdates: Array<{ id: number; value: number }> = [];
+        const useCompletionSet = typeof player.addLeagueTaskCompleted === "function";
+
+        for (const row of toComplete) {
+            pointsAwarded += row.points ?? 0;
+            if (useCompletionSet) {
+                player.addLeagueTaskCompleted!(row.taskId);
+            } else {
+                const { varpId, mask } = getLeagueTaskBitfield(row.taskId);
+                const prevMask = player.getVarpValue(varpId);
+                const nextMask = mergeLeagueTaskCompletionVarp(prevMask, mask);
+                if (nextMask !== ((prevMask | 0) >>> 0)) {
+                    player.setVarpValue(varpId, nextMask | 0);
+                    varpUpdates.push({ id: varpId, value: nextMask | 0 });
+                }
+            }
+        }
+
+        if (useCompletionSet && typeof player.syncLeagueTaskCompletionVarpsFromSet === "function") {
+            varpUpdates.push(...player.syncLeagueTaskCompletionVarpsFromSet());
+        }
+
+        const totalCompleted = countCompletedTasksForPlayer(player);
+        const prevTasks4Varp = player.getVarpValue(VARP_LEAGUE_GENERAL_TASKS_4);
+        const prevTotalCount = prevTasks4Varp & VARP_LEAGUE_GENERAL_TASKS_4_COUNT_MASK;
+        const nextTasks4Varp = packTotalTasksIntoGeneralTasks4Varp(prevTasks4Varp, totalCompleted);
+        player.setVarpValue(VARP_LEAGUE_GENERAL_TASKS_4, nextTasks4Varp);
+        varpUpdates.push({ id: VARP_LEAGUE_GENERAL_TASKS_4, value: nextTasks4Varp });
+        if (prevTotalCount !== totalCompleted) {
+            varbitUpdates.push({
+                id: VARBIT_LEAGUE_TOTAL_TASKS_COMPLETED,
+                value: totalCompleted,
+            });
+        }
+
+        if (pointsAwarded > 0) {
+            const nextClaimed = player.getVarpValue(VARP_LEAGUE_POINTS_CLAIMED) + pointsAwarded;
+            const nextCompleted = player.getVarpValue(VARP_LEAGUE_POINTS_COMPLETED) + pointsAwarded;
+            const nextCurrency = player.getVarpValue(VARP_LEAGUE_POINTS_CURRENCY) + pointsAwarded;
+            player.setVarpValue(VARP_LEAGUE_POINTS_CLAIMED, nextClaimed);
+            player.setVarpValue(VARP_LEAGUE_POINTS_COMPLETED, nextCompleted);
+            player.setVarpValue(VARP_LEAGUE_POINTS_CURRENCY, nextCurrency);
+            varpUpdates.push({ id: VARP_LEAGUE_POINTS_CLAIMED, value: nextClaimed });
+            varpUpdates.push({ id: VARP_LEAGUE_POINTS_COMPLETED, value: nextCompleted });
+            varpUpdates.push({ id: VARP_LEAGUE_POINTS_CURRENCY, value: nextCurrency });
+        }
+
+        const notification: LeagueTaskNotification = {
+            kind: "league_task",
+            title: "League Tasks Completed",
+            message:
+                `${region}: ${toComplete.length} task${toComplete.length === 1 ? "" : "s"}` +
+                `<br><br><col=ffffff>+${pointsAwarded} League Points</col>`,
+            durationMs: 4000,
+        };
+
+        return {
+            changed: true,
+            varpUpdates: dedupeVarUpdates(varpUpdates),
+            varbitUpdates: dedupeVarUpdates(varbitUpdates),
+            notification,
+            region,
+            completedCount: toComplete.length,
+            alreadyCompleteCount,
+            pointsAwarded,
+            totalInRegion: inRegion.length,
+        };
     }
 }
