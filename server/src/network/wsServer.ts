@@ -130,6 +130,7 @@ import {
     VARP_OPTION_ATTACK_PRIORITY_NPC,
     VARP_OPTION_ATTACK_PRIORITY_PLAYER,
     VARP_OPTION_RUN,
+    VARP_SHIFT_CLICK_DROP,
     VARP_PLAGUE_CITY,
     VARP_SIDE_JOURNAL_STATE,
     VARP_SOUND_EFFECTS_VOLUME,
@@ -322,6 +323,10 @@ import {
     findOwnedItemLocation as findOwnedItemLocationInSnapshot,
 } from "../game/items/playerItemOwnership";
 import { LeagueTaskManager } from "../game/leagues/LeagueTaskManager";
+import {
+    RegionalFavourService,
+    bindRegionalFavourService,
+} from "../game/regionalFavours";
 import { LeagueTaskService } from "../game/leagues/LeagueTaskService";
 import {
     LEAGUE_BARRIER_BLOCK_MESSAGE,
@@ -1078,6 +1083,7 @@ interface TickFrame {
     npcViews: Map<number, NpcViewSnapshot>;
     widgetEvents: WidgetEvent[];
     notifications: Array<{ playerId: number; payload: any }>;
+    regionalFavourHuds: Array<{ playerId: number; payload: any }>;
     shopMessages: Array<{ playerId: number; payload: ShopServerPayload }>;
     smithingMessages: Array<{ playerId: number; payload: SmithingServerPayload }>;
     tradeMessages: Array<{ playerId: number; payload: TradeServerPayload }>;
@@ -1287,6 +1293,7 @@ export class WSServer {
     private enumTypeLoader?: EnumTypeLoader;
     private structTypeLoader?: any;
     private leagueTaskManager?: LeagueTaskManager;
+    private regionalFavourService?: RegionalFavourService;
     private cacheEnv?: CacheEnv;
     private huffman?: Huffman;
     private healthBarDefLoader?: ArchiveHealthBarDefinitionLoader;
@@ -1345,6 +1352,7 @@ export class WSServer {
     }
 
     private pendingWidgetEvents: WidgetEvent[] = [];
+    private pendingRegionalFavourHuds: Array<{ playerId: number; payload: any }> = [];
     private pendingShopMessages: Array<{ playerId: number; payload: ShopServerPayload }> = [];
     private pendingSmithingMessages: Array<{ playerId: number; payload: SmithingServerPayload }> =
         [];
@@ -2495,6 +2503,48 @@ export class WSServer {
             } catch (err) {
                 logger.warn("[leagues] failed to initialize task manager", err);
             }
+
+            try {
+                this.regionalFavourService = new RegionalFavourService({
+                    getPlayer: (playerId) => this.players?.getById(playerId),
+                    queueChat: (playerId, text) =>
+                        this.queueChatMessage({
+                            messageType: "game",
+                            text,
+                            targetPlayerIds: [playerId],
+                        }),
+                    queueHud: (playerId, payload) => this.queueRegionalFavourHud(playerId, payload),
+                    addItem: (player, itemId, qty) => {
+                        try {
+                            const result = this.addItemToInventory(player, itemId, qty);
+                            return { added: result.added };
+                        } catch (err) {
+                            logger.warn("[regional-tasks] addItem failed", { itemId, qty, err });
+                            return { added: 0 };
+                        }
+                    },
+                    removeItem: (player, itemId, qty) => {
+                        const result = player.removeItem(itemId, qty, {
+                            assureFullRemoval: false,
+                        });
+                        return result.completed;
+                    },
+                    hasItem: (player, itemId, qty = 1) => player.hasItem(itemId, qty),
+                    getItemCount: (player, itemId) => player.getItemCount(itemId),
+                    snapshotInventory: (player) => {
+                        try {
+                            const sock = this.players?.getSocketByPlayerId(player.id);
+                            if (sock) this.sendInventorySnapshot(sock, player);
+                        } catch {}
+                    },
+                    addSkillXp: (player, skillId, xp) => this.awardSkillXp(player, skillId, xp),
+                });
+                bindRegionalFavourService(this.regionalFavourService);
+                // Scripts capture ScriptServices at boot; keep a live handle for NPC talk.
+                (this.scriptRuntime as any).services.regionalFavourService = this.regionalFavourService;
+            } catch (err) {
+                logger.warn("[regional-tasks] failed to initialize", err);
+            }
         }
 
         // Derive default player sequences from BAS (player base animations), not an NPC
@@ -2891,6 +2941,11 @@ export class WSServer {
         if (frame.widgetEvents.length > 0) {
             this.pendingWidgetEvents = frame.widgetEvents.concat(this.pendingWidgetEvents);
         }
+        if (frame.regionalFavourHuds && frame.regionalFavourHuds.length > 0) {
+            this.pendingRegionalFavourHuds = frame.regionalFavourHuds.concat(
+                this.pendingRegionalFavourHuds,
+            );
+        }
         if (frame.notifications.length > 0) {
             this.broadcastScheduler.restoreNotifications(frame.notifications);
         }
@@ -3196,6 +3251,7 @@ export class WSServer {
     private createTickFrame(data: TickEvent): TickFrame {
         const npcUpdates = this.pendingNpcUpdates;
         const widgetEvents = this.pendingWidgetEvents;
+        const regionalFavourHuds = this.pendingRegionalFavourHuds;
         const notifications = this.broadcastScheduler.drainNotifications();
         const shopMessages = this.pendingShopMessages;
         const smithingMessages = this.pendingSmithingMessages;
@@ -3220,6 +3276,7 @@ export class WSServer {
         const varbits = this.broadcastScheduler.drainVarbits();
         const clientScripts = this.broadcastScheduler.drainClientScripts();
         this.pendingWidgetEvents = [];
+        this.pendingRegionalFavourHuds = [];
         this.pendingShopMessages = [];
         this.pendingSmithingMessages = [];
         this.pendingTradeMessages = [];
@@ -3251,6 +3308,7 @@ export class WSServer {
             npcViews: new Map<number, NpcViewSnapshot>(),
             widgetEvents,
             notifications,
+            regionalFavourHuds,
             shopMessages,
             smithingMessages,
             tradeMessages,
@@ -4053,6 +4111,14 @@ export class WSServer {
     private runScriptPhase(frame: TickFrame): void {
         this.scriptRuntime.queueTick(frame.tick);
         this.scriptScheduler.process(frame.tick);
+        // Visit-location favours
+        if (this.regionalFavourService && this.players) {
+            this.players.forEach((_sock, player) => {
+                try {
+                    this.regionalFavourService?.onPlayerLocation(player.id);
+                } catch {}
+            });
+        }
     }
 
     private runDeathPhase(frame: TickFrame): void {
@@ -4652,6 +4718,22 @@ export class WSServer {
                     this.syncPostWidgetOpenState(evt.playerId, evt.action);
                 }
             }
+            // After chatbox widget updates so favour assign chains clear "Please wait..." first.
+            if (frame.regionalFavourHuds && frame.regionalFavourHuds.length > 0 && this.players) {
+                for (const evt of frame.regionalFavourHuds) {
+                    const sock = this.players.getSocketByPlayerId(evt.playerId);
+                    if (!sock) continue;
+                    try {
+                        this.sendWithGuard(
+                            sock,
+                            encodeMessage({ type: "regional_favour_hud", payload: evt.payload }),
+                            "regional_favour_hud",
+                        );
+                    } catch (err) {
+                        logger.warn("[regional-favours] failed to send HUD", err);
+                    }
+                }
+            }
             if (frame.notifications.length > 0 && this.players) {
                 for (const evt of frame.notifications) {
                     const sock = this.players.getSocketByPlayerId(evt.playerId);
@@ -5109,6 +5191,20 @@ export class WSServer {
 
     private queueNotification(playerId: number, payload: any): void {
         this.broadcastScheduler.queueNotification(playerId, payload);
+    }
+
+    private queueRegionalFavourHud(playerId: number, payload: any): void {
+        // Tick-queue like widget events so HUD never outruns a chained chatbox dialog
+        // (immediate HUD was leaving the client stuck on "Please wait...").
+        const event = { playerId, payload };
+        if (this.activeFrame && !this.isBroadcastPhase) {
+            if (!this.activeFrame.regionalFavourHuds) {
+                this.activeFrame.regionalFavourHuds = [];
+            }
+            this.activeFrame.regionalFavourHuds.push(event);
+            return;
+        }
+        this.pendingRegionalFavourHuds.push(event);
     }
 
     private queueWidgetEvent(playerId: number, action: WidgetAction): void {
@@ -6668,7 +6764,8 @@ export class WSServer {
 
     /**
      * Send saved transmit varps to the client on login/reconnect.
-     * This restores persisted varp state (combat toggles, XP drops setup, audio, attack options).
+     * This restores persisted varp state (combat toggles, XP drops setup, audio,
+     * attack options, controls settings such as shift-click drop).
      */
     private sendSavedTransmitVarps(sock: WebSocket, player: PlayerState): void {
         // Send each transmit varp that has a non-zero value
@@ -6776,6 +6873,25 @@ export class WSServer {
         ];
         for (const varpId of attackOptionVarps) {
             const value = player.getVarpValue(varpId);
+            this.withDirectSendBypass("varp", () =>
+                this.sendWithGuard(
+                    sock,
+                    encodeMessage({
+                        type: "varp",
+                        payload: { varpId, value },
+                    }),
+                    "varp",
+                ),
+            );
+        }
+
+        // Controls settings authored by the client (CS2 SET_VARBIT / SETSHIFTCLICKDROP)
+        // and persisted via varp_transmit. Replay non-zero values so toggles survive relog.
+        // Shift-click drop: varbit 5542 packs into varp 117 bit 30.
+        const controlsVarps = [VARP_SHIFT_CLICK_DROP];
+        for (const varpId of controlsVarps) {
+            const value = player.getVarpValue(varpId);
+            if (value === 0) continue;
             this.withDirectSendBypass("varp", () =>
                 this.sendWithGuard(
                     sock,
@@ -7699,6 +7815,7 @@ export class WSServer {
             // --- League Tasks ---
             onNpcKill: (playerId, npcId) => {
                 this.leagueTaskManager?.onNpcKill(playerId, npcId);
+                this.regionalFavourService?.onNpcKill(playerId, npcId);
             },
         };
         return new CombatActionHandler(services);
@@ -8744,6 +8861,22 @@ export class WSServer {
                 this.actionScheduler.clearActionsInGroup(playerId, group),
             canUseAdminTeleport: (player) => this.isAdminPlayer(player),
             resetLeagueTasks: (player) => LeagueTaskService.resetAllTasks(player),
+            regionalFavourStatus: (player) => this.regionalFavourService?.toggleHud(player),
+            regionalFavourShowHud: (player) => {
+                this.regionalFavourService?.showHud(player);
+            },
+            regionalFavourHideHud: (player) => {
+                this.regionalFavourService?.hideHud(player);
+            },
+            regionalFavourAbandon: (player) => {
+                this.regionalFavourService?.abandonFavour(player);
+            },
+            regionalFavourSkip: (player) => {
+                this.regionalFavourService?.skipFavour(player);
+            },
+            regionalFavourReclaim: (player) => {
+                this.regionalFavourService?.reclaimDeliveryItem(player);
+            },
             completeLeagueTasksForRegion: (player, region) =>
                 LeagueTaskService.completeTasksForRegion(player, region),
             teleportPlayer: (player, x, y, level, forceRebuild = false) =>
@@ -9498,6 +9631,7 @@ export class WSServer {
 
         const killerId = eligibility?.primaryLooter?.id ?? player.id;
         this.leagueTaskManager?.onNpcKill(killerId, npc.typeId);
+        this.regionalFavourService?.onNpcKill(killerId, npc.typeId);
     }
 
     private ensureEquipArray(p: PlayerState): number[] {
@@ -10136,6 +10270,9 @@ export class WSServer {
         if (result.completed === 0 || result.slots.length === 0) {
             return { slot: -1, added: 0 };
         }
+        try {
+            this.regionalFavourService?.onItemObtained(p.id, itemId, result.completed);
+        } catch {}
         return { slot: result.slots[0].slot, added: result.completed };
     }
 
@@ -13515,6 +13652,12 @@ export class WSServer {
                             text: "Welcome to Old School Runescape!",
                             targetPlayerIds: [p.id],
                         });
+
+                        try {
+                            if (p.getRegionalFavourState()?.hudVisible) {
+                                this.regionalFavourService?.syncHud(p);
+                            }
+                        } catch {}
 
                         if (this.npcManager && p) {
                             const player = p;

@@ -1514,6 +1514,32 @@ export class ServerBinaryEncoder {
         return this.buffer.toPacket(ServerPacketId.NOTIFICATION);
     }
 
+    encodeRegionalFavourHud(payload: {
+        visible: boolean;
+        regionName?: string;
+        objective?: string;
+        progress?: number;
+        required?: number;
+        turnInName?: string;
+        instruction?: string;
+        complete?: boolean;
+        hasActiveFavour?: boolean;
+        rewardPreview?: string;
+    }): Uint8Array {
+        this.buffer.reset();
+        this.buffer.writeByte(payload.visible ? 1 : 0);
+        this.buffer.writeString(payload.regionName ?? "");
+        this.buffer.writeString(payload.objective ?? "");
+        this.buffer.writeShort(Math.max(0, Math.min(65535, payload.progress ?? 0)));
+        this.buffer.writeShort(Math.max(0, Math.min(65535, payload.required ?? 0)));
+        this.buffer.writeString(payload.turnInName ?? "");
+        this.buffer.writeString(payload.instruction ?? "");
+        this.buffer.writeByte(payload.complete ? 1 : 0);
+        this.buffer.writeByte(payload.hasActiveFavour ? 1 : 0);
+        this.buffer.writeString(payload.rewardPreview ?? "");
+        return this.buffer.toPacket(ServerPacketId.REGIONAL_FAVOUR_HUD);
+    }
+
     // ========================================
     // DEBUG
     // ========================================

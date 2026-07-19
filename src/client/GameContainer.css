@@ -143,6 +143,150 @@
     line-height: 1.2;
 }
 
+/* Sit above OSRS chatbox (~165px) and league relic strip (~40px). */
+.hud.left-bottom.regional-favour-hud-anchor {
+    bottom: 210px;
+    pointer-events: none;
+}
+
+.game-viewport-mobile .hud.left-bottom.regional-favour-hud-anchor {
+    bottom: calc(210px + var(--mobile-safe-bottom));
+}
+
+.regional-favour-hud {
+    background: rgba(0, 0, 0, 0.55);
+    border: 1px solid rgba(255, 215, 106, 0.35);
+    padding: 8px 10px;
+    border-radius: 4px;
+    max-width: 300px;
+    pointer-events: none;
+    line-height: 1.35;
+}
+
+.regional-favour-hud-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.regional-favour-hud-header .label {
+    margin-bottom: 0;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.regional-favour-hud-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex: 0 0 auto;
+    pointer-events: auto;
+    margin-top: -2px;
+}
+
+.regional-favour-hud-btn {
+    appearance: none;
+    box-sizing: border-box;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    margin: 0;
+    border: 1px solid rgba(255, 215, 106, 0.45);
+    border-radius: 2px;
+    background: rgba(20, 18, 12, 0.85);
+    color: #ffd76a;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 16px;
+    text-align: center;
+    cursor: pointer;
+    pointer-events: auto;
+}
+
+.regional-favour-hud-btn:hover:not(:disabled) {
+    background: rgba(255, 215, 106, 0.18);
+    border-color: rgba(255, 215, 106, 0.75);
+}
+
+.regional-favour-hud-btn.active {
+    background: rgba(255, 215, 106, 0.22);
+    border-color: rgba(255, 215, 106, 0.85);
+}
+
+.regional-favour-hud-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.regional-favour-hud-btn-cancel {
+    color: #ff9a9a;
+    border-color: rgba(255, 154, 154, 0.45);
+}
+
+.regional-favour-hud-btn-cancel:hover:not(:disabled) {
+    background: rgba(255, 100, 100, 0.18);
+    border-color: rgba(255, 154, 154, 0.75);
+}
+
+.regional-favour-hud-minimized {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    max-width: none;
+    color: #ffd76a;
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    pointer-events: auto;
+}
+
+.regional-favour-hud-minimized:hover {
+    background: rgba(255, 215, 106, 0.18);
+    border-color: rgba(255, 215, 106, 0.75);
+}
+
+.regional-favour-hud .label {
+    font-weight: 700;
+    color: #ffd76a;
+    margin-bottom: 4px;
+    font-size: 13px;
+}
+
+.regional-favour-hud .objective {
+    color: #fff;
+    font-size: 12px;
+    margin-bottom: 3px;
+}
+
+.regional-favour-hud .progress {
+    color: #b8e0ff;
+    font-size: 12px;
+    margin-bottom: 3px;
+}
+
+.regional-favour-hud .turn-in {
+    color: #9dffb0;
+    font-size: 12px;
+    margin-bottom: 3px;
+}
+
+.regional-favour-hud .reward {
+    color: #ffe08a;
+    font-size: 12px;
+    margin-bottom: 3px;
+}
+
+.regional-favour-hud .detail {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 11px;
+}
+
 /* Place Leva controls panel on the left instead of the default right */
 .leva-left > div {
     left: 10px !important;

@@ -291,14 +291,7 @@ export class WidgetDialogHandler {
             payload.title = trimmedTitle && trimmedTitle.length > 0 ? trimmedTitle : undefined;
         }
 
-        // Ensure any prior chatbox modal is cleared before opening a new one.
-        this.closeDialog(player, undefined, true);
-
         const playerId = player.id;
-
-        // Open chatbox modal - handles mounting, visibility, and varbit
-        // RSMod parity: itemMessageBox (sprite dialog) does NOT call script 2379 or set chatmodal_unclamp.
-        // Other dialog types (NPC, player, double_sprite) DO call script 2379.
         const isSpriteDialog = request.kind === "sprite";
         const isNpcDialog = request.kind === "npc";
         const isPlayerDialog = request.kind === "player";
@@ -307,46 +300,66 @@ export class WidgetDialogHandler {
             : isPlayerDialog
             ? DIALOG_GROUP_PLAYER
             : -1;
-        const dialogPreScripts = isSpriteDialog
-            ? undefined
-            : [{ scriptId: 2379, args: [] as (number | string)[] }];
-        const dialogPostScripts =
-            chatDialogGroupForScript55 >= 0
-                ? [
-                      {
-                          // script 55 installs key/click listeners onto the mounted chat dialog
-                          // widgets, so it must run after the interface exists client-side.
-                          scriptId: 55,
-                          args: [
-                              (chatDialogGroupForScript55 << 16) | CHAT_DIALOG_CONTINUE_COMPONENT,
-                              (chatDialogGroupForScript55 << 16) | CHAT_DIALOG_INNER_COMPONENT,
-                              83,
-                              "",
-                              "",
-                              255,
-                          ],
-                      },
-                      {
-                          // script 600 sets the body text widget alignment/line-height. Running it
-                          // before the first set_text avoids the first-open reflow jump.
-                          scriptId: 600,
-                          args: [
-                              1,
-                              1,
-                              16,
-                              (chatDialogGroupForScript55 << 16) | CHAT_DIALOG_TEXT_COMPONENT,
-                          ],
-                      },
-                  ]
-                : undefined;
-        this.interfaceService.openChatboxModal(
-            player,
-            groupId,
-            { dialogId, ...payload },
-            isSpriteDialog
-                ? { skipChatmodalUnclamp: true }
-                : { preScripts: dialogPreScripts, postScripts: dialogPostScripts },
-        );
+
+        // Chain same-group chatbox dialogs in place (NPC→NPC after click-to-continue).
+        // Close+reopen mid-"Please wait..." can leave the client hung with stale text while
+        // other immediate packets (e.g. favour HUD) still apply.
+        const currentChatboxModal = this.interfaceService.getCurrentChatboxModal(player);
+        const reuseExistingChatbox = currentChatboxModal === groupId;
+        if (!reuseExistingChatbox) {
+            // Ensure any prior chatbox modal is cleared before opening a different one.
+            this.closeDialog(player, undefined, true);
+
+            // Open chatbox modal - handles mounting, visibility, and varbit
+            // RSMod parity: itemMessageBox (sprite dialog) does NOT call script 2379 or set chatmodal_unclamp.
+            // Other dialog types (NPC, player, double_sprite) DO call script 2379.
+            const dialogPreScripts = isSpriteDialog
+                ? undefined
+                : [{ scriptId: 2379, args: [] as (number | string)[] }];
+            const dialogPostScripts =
+                chatDialogGroupForScript55 >= 0
+                    ? [
+                          {
+                              // script 55 installs key/click listeners onto the mounted chat dialog
+                              // widgets, so it must run after the interface exists client-side.
+                              scriptId: 55,
+                              args: [
+                                  (chatDialogGroupForScript55 << 16) | CHAT_DIALOG_CONTINUE_COMPONENT,
+                                  (chatDialogGroupForScript55 << 16) | CHAT_DIALOG_INNER_COMPONENT,
+                                  83,
+                                  "",
+                                  "",
+                                  255,
+                              ],
+                          },
+                          {
+                              // script 600 sets the body text widget alignment/line-height. Running it
+                              // before the first set_text avoids the first-open reflow jump.
+                              scriptId: 600,
+                              args: [
+                                  1,
+                                  1,
+                                  16,
+                                  (chatDialogGroupForScript55 << 16) | CHAT_DIALOG_TEXT_COMPONENT,
+                              ],
+                          },
+                      ]
+                    : undefined;
+            this.interfaceService.openChatboxModal(
+                player,
+                groupId,
+                { dialogId, ...payload },
+                isSpriteDialog
+                    ? { skipChatmodalUnclamp: true }
+                    : { preScripts: dialogPreScripts, postScripts: dialogPostScripts },
+            );
+        } else {
+            // Keep InterfaceService modal data in sync with the chained dialog id.
+            const scoped = player.widgets.getByScope("chatbox_modal");
+            if (scoped) {
+                scoped.data = { dialogId, ...payload };
+            }
+        }
 
         let resumeWidgetId: number | undefined;
         let resumeChildIndex: number | undefined;

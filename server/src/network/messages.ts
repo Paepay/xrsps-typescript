@@ -935,6 +935,9 @@ function encodeMessageToBinaryDirect(msg: ServerToClient): Uint8Array {
                 payload.durationMs,
             );
 
+        case "regional_favour_hud":
+            return serverEncoder.encodeRegionalFavourHud(payload ?? {});
+
         case "smithing":
             return encodeSmithingToBinary(payload);
 

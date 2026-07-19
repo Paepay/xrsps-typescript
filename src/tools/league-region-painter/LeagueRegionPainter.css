@@ -1,0 +1,206 @@
+.lrp-root {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+    background: #0f1218;
+    color: #e8ecf1;
+    font-family: "Segoe UI", system-ui, sans-serif;
+    font-size: 13px;
+}
+
+.lrp-sidebar {
+    width: 300px;
+    flex-shrink: 0;
+    padding: 14px 14px 24px;
+    overflow-y: auto;
+    border-right: 1px solid #2a3140;
+    background: #151a22;
+}
+
+.lrp-sidebar h1 {
+    margin: 0 0 8px;
+    font-size: 16px;
+    font-weight: 650;
+}
+
+.lrp-hint,
+.lrp-footer,
+.lrp-status {
+    color: #9aa3b2;
+    line-height: 1.4;
+    margin: 0 0 12px;
+}
+
+.lrp-footer code {
+    color: #7dd3fc;
+}
+
+.lrp-status {
+    color: #86efac;
+}
+
+.lrp-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 12px;
+}
+
+.lrp-field input[type="text"],
+.lrp-field input:not([type]) {
+    background: #0f1218;
+    border: 1px solid #2a3140;
+    color: #e8ecf1;
+    border-radius: 4px;
+    padding: 6px 8px;
+}
+
+.lrp-modes {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 12px;
+}
+
+.lrp-modes button,
+.lrp-actions button {
+    background: #1e2633;
+    border: 1px solid #2a3140;
+    color: #e8ecf1;
+    border-radius: 4px;
+    padding: 6px 10px;
+    cursor: pointer;
+}
+
+.lrp-modes button.active {
+    border-color: #38bdf8;
+    background: #0c4a6e;
+}
+
+.lrp-brushes {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin-bottom: 12px;
+}
+
+.lrp-brush {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-align: left;
+    background: #1a2030;
+    border: 1px solid transparent;
+    color: #e8ecf1;
+    border-radius: 4px;
+    padding: 5px 8px;
+    cursor: pointer;
+}
+
+.lrp-brush.active {
+    border-color: #f8fafc;
+    background: #243044;
+}
+
+.lrp-swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    flex-shrink: 0;
+    border: 1px solid rgba(0, 0, 0, 0.35);
+}
+
+.lrp-swatch.eraser {
+    background: repeating-conic-gradient(#444 0% 25%, #222 0% 50%) 50% / 8px 8px;
+}
+
+.lrp-count {
+    margin-left: auto;
+    color: #7b8494;
+    font-variant-numeric: tabular-nums;
+}
+
+.lrp-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.lrp-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.lrp-actions button.danger {
+    border-color: #7f1d1d;
+    color: #fecaca;
+}
+
+.lrp-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.lrp-hud {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 12px;
+    background: #10151d;
+    border-bottom: 1px solid #2a3140;
+    font-variant-numeric: tabular-nums;
+}
+
+.lrp-map {
+    position: relative;
+    flex: 1;
+    overflow: hidden;
+    background: #07090d;
+}
+
+.lrp-tile {
+    position: absolute;
+    overflow: hidden;
+}
+
+.lrp-tile img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    image-rendering: pixelated;
+    pointer-events: none;
+    user-select: none;
+}
+
+.lrp-overlay-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 2;
+    image-rendering: pixelated;
+}
+
+.lrp-drag {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+}
+
+.lrp-drag.mode-paint {
+    cursor: crosshair;
+}
+
+.lrp-drag.mode-pan {
+    cursor: grab;
+}
+
+.lrp-drag.mode-eyedropper {
+    cursor: copy;
+}

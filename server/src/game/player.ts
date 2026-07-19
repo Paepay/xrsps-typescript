@@ -4,6 +4,11 @@ import {
 } from "../../../src/shared/leagues/leagueTaskVarps";
 import { syncLeagueTaskCompletionVarpsFromSet } from "./leagues/leagueTaskCompletionSet";
 import { truncatePathAtLeagueBarrier } from "./leagues/LeagueAreaAccess";
+import {
+    cloneRegionalFavourState,
+    emptyRegionalFavourPlayerState,
+    type RegionalFavourPlayerState,
+} from "./regionalFavours";
 import { EquipmentSlot } from "../../../src/rs/config/player/Equipment";
 import {
     PRAYER_HEAD_ICON_IDS,
@@ -385,6 +390,10 @@ export interface PlayerPersistentVars {
     leagueTaskProgress?: Record<number, number>;
     /** Server-authoritative completed league task ids (varp bitfields are derived from this). */
     leagueTasksCompleted?: number[];
+    /** Misthalin favour (repeatable favours) progress. */
+    regionalFavourState?: RegionalFavourPlayerState;
+    /** @deprecated Legacy save key — migrated into regionalFavourState on load. */
+    regionalTaskState?: RegionalFavourPlayerState;
     /** Server-only onboarding progression (project-specific). */
     accountStage?: number;
     accountCreationTimeMs?: number;
@@ -605,6 +614,7 @@ export class PlayerState extends Actor {
     private varbitValues: Map<number, number> = new Map();
     private leagueTaskProgress: Map<number, number> = new Map();
     private leagueTasksCompletedIds: Set<number> = new Set();
+    private regionalFavourState: RegionalFavourPlayerState = emptyRegionalFavourPlayerState();
 
     // Music region tracking for area-based music
     private lastMusicRegionId: number = -1;
@@ -1786,6 +1796,14 @@ export class PlayerState extends Actor {
         }
     }
 
+    getRegionalFavourState(): RegionalFavourPlayerState {
+        return this.regionalFavourState;
+    }
+
+    setRegionalFavourState(state: RegionalFavourPlayerState): void {
+        this.regionalFavourState = cloneRegionalFavourState(state);
+    }
+
     syncLeagueTaskCompletionVarpsFromSet(): Array<{ id: number; value: number }> {
         return syncLeagueTaskCompletionVarpsFromSet(this);
     }
@@ -2945,6 +2963,7 @@ export class PlayerState extends Actor {
             leagueTasksCompleted.sort((a, b) => a - b);
             snapshot.leagueTasksCompleted = leagueTasksCompleted;
         }
+        snapshot.regionalFavourState = cloneRegionalFavourState(this.regionalFavourState);
         // Persist character design (gender/body kits/colors). Equipment is stored separately.
         snapshot.accountStage = Number.isFinite(this.accountStage) ? this.accountStage : 1;
         if (this.appearance) {
@@ -3149,6 +3168,13 @@ export class PlayerState extends Actor {
             this.syncLeagueTaskCompletionVarpsFromSet();
         } else {
             LeagueTaskService.migrateCompletedTasksFromLegacy(this);
+        }
+        if (state.regionalFavourState || (state as any).regionalTaskState) {
+            this.regionalFavourState = cloneRegionalFavourState(
+                state.regionalFavourState ?? (state as any).regionalTaskState,
+            );
+        } else {
+            this.regionalFavourState = emptyRegionalFavourPlayerState();
         }
         try {
             LeagueTaskService.reconcileLeagueTaskState(this);

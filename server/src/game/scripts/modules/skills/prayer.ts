@@ -1,4 +1,5 @@
 import { SkillId } from "../../../../../../src/rs/skill/skills";
+import { getBoundRegionalFavourService } from "../../../regionalFavours";
 import { type ScriptModule } from "../../types";
 import { readPositiveEnvInteger } from "../../utils/env";
 import { BURIABLE_BONES_XP } from "./prayerData";
@@ -35,6 +36,7 @@ export const prayerModule: ScriptModule = {
                 if (job.at <= tick) {
                     try {
                         svc?.addSkillXp?.(job.player, SkillId.Prayer, job.xp);
+                        getBoundRegionalFavourService()?.onBoneBury(job.player.id, job.itemId);
                         // OSRS message mentions the specific bone type if known
                         const text = job.message ?? formatBuryMessage();
                         svc.sendGameMessage(job.player, text);

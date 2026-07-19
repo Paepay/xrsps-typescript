@@ -102,6 +102,11 @@ export const SCRIPT_MANIFEST: ScriptManifestEntry[] = [
         watch: [path.resolve(MODULE_DIR, "modules/romeo.ts")],
     },
     {
+        id: "content.regional-favours",
+        load: loadModule("modules/regionalFavours", "regionalFavoursModule"),
+        watch: [path.resolve(MODULE_DIR, "modules/regionalFavours.ts")],
+    },
+    {
         id: "content.al-kharid-border",
         load: loadModule("modules/alKharidBorder", "alKharidBorderModule"),
         watch: [path.resolve(MODULE_DIR, "modules/alKharidBorder.ts")],

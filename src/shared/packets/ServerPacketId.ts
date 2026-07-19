@@ -124,6 +124,8 @@ export const enum ServerPacketId {
     // NOTIFICATIONS (200-209)
     // ========================================
     NOTIFICATION = 200,
+    /** Sticky regional favour objective HUD (show/hide + text fields). */
+    REGIONAL_FAVOUR_HUD = 201,
 
     // ========================================
     // DEBUG (250-255)
@@ -217,6 +219,7 @@ export const SERVER_PACKET_LENGTHS: Record<ServerPacketId, number> = {
     [ServerPacketId.COLLECTION_LOG_SNAPSHOT]: -2, // count(2) + slots(var)
 
     [ServerPacketId.NOTIFICATION]: -1, // kind(1) + title(var) + message(var) + itemId(2) + quantity(4) + durationMs(2)
+    [ServerPacketId.REGIONAL_FAVOUR_HUD]: -1, // visible(1) + strings/ints (var)
 
     [ServerPacketId.DEBUG]: -2,
 };

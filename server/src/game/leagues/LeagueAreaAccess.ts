@@ -1,5 +1,7 @@
 /**
  * League area access: unlock state, map-square membership, teleport/walk/clue gates.
+ *
+ * Tile membership = per-tile painter overrides (if any) over map-square seed.
  */
 import {
     LEAGUE_ALWAYS_ACCESSIBLE_AREA_IDS,
@@ -17,7 +19,8 @@ import {
     VARBIT_LEAGUE_AREA_SELECTION_4,
     VARBIT_LEAGUE_AREA_SELECTION_5,
 } from "../../../../src/shared/vars";
-import { LEAGUE_MAP_SQUARE_TO_AREA_ID } from "./leagueMapSquares.data";
+import { LEAGUE_MAP_SQUARE_TO_AREA_ID } from "../../../../src/shared/leagues/leagueMapSquares.data";
+import { getLeagueTileAreaOverride } from "../../../../src/shared/leagues/leagueRegionTiles";
 
 export { normalizeLeagueAreaId };
 
@@ -51,10 +54,17 @@ export function getMapSquareId(tileX: number, tileY: number): number {
 }
 
 /**
- * League area for a world tile via map-square membership.
- * Returns null when the square is unmapped (treated as accessible / neutral).
+ * League area for a world tile.
+ * 1) Painter per-tile override (area 0 = explicit neutral)
+ * 2) Else map-square seed table
+ * Returns null when unmapped / neutral (treated as accessible).
  */
 export function getLeagueAreaIdForTile(tileX: number, tileY: number): number | null {
+    const override = getLeagueTileAreaOverride(tileX | 0, tileY | 0);
+    if (override !== undefined) {
+        if (!(override > 0)) return null;
+        return normalizeLeagueAreaId(override);
+    }
     const squareId = getMapSquareId(tileX, tileY);
     const areaId = LEAGUE_MAP_SQUARE_TO_AREA_ID[squareId];
     if (areaId === undefined) return null;

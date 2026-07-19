@@ -2426,9 +2426,17 @@ export class OsrsClient {
                         this.syncItemSpawnerSearchWidgets();
                         this.refreshItemSpawnerSearchResults(true);
                     } else {
+                        // OSRS parity: server-driven text replace on the pause button clears
+                        // "Please wait..." so chained chatbox dialogs can advance in-place.
+                        if (
+                            this.widgetManager &&
+                            this.widgetManager.meslayerContinueWidget === w
+                        ) {
+                            this.widgetManager.meslayerContinueWidget = null;
+                        }
                         w.text = text;
                         markWidgetInteractionDirty(w);
-                        this.widgetManager.invalidateWidgetRender(w);
+                        this.widgetManager?.invalidateWidgetRender(w);
                     }
                 }
             } else if (payload?.action === "set_hidden") {

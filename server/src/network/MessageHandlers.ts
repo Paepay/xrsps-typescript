@@ -139,6 +139,12 @@ export interface MessageHandlerServices {
         varpUpdates: Array<{ id: number; value: number }>;
         varbitUpdates: Array<{ id: number; value: number }>;
     };
+    regionalFavourStatus: (player: PlayerState) => void;
+    regionalFavourShowHud: (player: PlayerState) => void;
+    regionalFavourHideHud: (player: PlayerState) => void;
+    regionalFavourAbandon: (player: PlayerState) => void;
+    regionalFavourSkip: (player: PlayerState) => void;
+    regionalFavourReclaim: (player: PlayerState) => void;
     completeLeagueTasksForRegion: (
         player: PlayerState,
         region: (typeof LEAGUE_TASK_REGIONS)[number],
@@ -1300,6 +1306,36 @@ function createChatHandler(services: MessageHandlerServices): MessageHandler<"ch
                         targetPlayerIds: [sender.id],
                     });
                     logger.info(`[cmd] ::resettasks - Reset league tasks for player ${sender.id}`);
+                    return;
+                }
+
+                if (
+                    root === "favour" ||
+                    root === "rfavour" ||
+                    root === "rtask" ||
+                    root === "regionaltask" ||
+                    root === "regionalfavour"
+                ) {
+                    const sub = parts[1] ?? "status";
+                    if (sub === "status" || sub === "view") {
+                        services.regionalFavourStatus(sender);
+                    } else if (sub === "show" || sub === "open") {
+                        services.regionalFavourShowHud(sender);
+                    } else if (sub === "hide" || sub === "close") {
+                        services.regionalFavourHideHud(sender);
+                    } else if (sub === "abandon" || sub === "cancel") {
+                        services.regionalFavourAbandon(sender);
+                    } else if (sub === "skip") {
+                        services.regionalFavourSkip(sender);
+                    } else if (sub === "reclaim") {
+                        services.regionalFavourReclaim(sender);
+                    } else {
+                        services.queueChatMessage({
+                            messageType: "game",
+                            text: "Usage: ::favour [status|show|hide|abandon|skip|reclaim] — status toggles the HUD",
+                            targetPlayerIds: [sender.id],
+                        });
+                    }
                     return;
                 }
 

@@ -1454,6 +1454,34 @@ export function decodeServerPacket(data: Uint8Array | ArrayBuffer): DecodedServe
             };
         }
 
+        case ServerPacketId.REGIONAL_FAVOUR_HUD: {
+            const visible = reader.readByte() === 1;
+            const regionName = reader.readString();
+            const objective = reader.readString();
+            const progress = reader.readShort();
+            const required = reader.readShort();
+            const turnInName = reader.readString();
+            const instruction = reader.readString();
+            const complete = reader.readByte() === 1;
+            const hasActiveFavour = reader.readByte() === 1;
+            const rewardPreview = reader.readString();
+            return {
+                type: "regional_favour_hud",
+                payload: {
+                    visible,
+                    regionName,
+                    objective,
+                    progress,
+                    required,
+                    turnInName,
+                    instruction,
+                    complete,
+                    hasActiveFavour,
+                    rewardPreview,
+                },
+            };
+        }
+
         // ========================================
         // DEBUG
         // ========================================

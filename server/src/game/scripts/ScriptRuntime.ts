@@ -91,9 +91,21 @@ export class ScriptRuntime {
             handler = this.registry.findNpcInteractionDirect(npcTypeId, scriptEvent.option);
             if (handler) handlerSource = "type";
         }
+        // Empty / missing option: treat as Talk-to (shop NPCs and some clients omit the string).
+        const optNorm = String(scriptEvent.option ?? "")
+            .trim()
+            .toLowerCase();
+        if (!handler && !optNorm) {
+            handler = this.registry.findNpcInteractionDirect(npcTypeId, "talk-to");
+            if (handler) handlerSource = "type-talk-to";
+        }
         if (!handler) {
             handler = this.registry.findNpcAction(scriptEvent.option);
             if (handler) handlerSource = "action";
+        }
+        if (!handler && !optNorm) {
+            handler = this.registry.findNpcAction("talk-to");
+            if (handler) handlerSource = "action-talk-to";
         }
         if (!handler) {
             this.logger.info(

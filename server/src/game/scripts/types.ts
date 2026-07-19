@@ -315,6 +315,8 @@ export interface ScriptServices {
         debug: (...args: unknown[]) => void;
     };
     hotReloadEnabled?: boolean;
+    /** Misthalin favour service (optional until host wires it). */
+    regionalFavourService?: import("../regionalFavours").RegionalFavourService;
     // Host helpers exposed by the runtime.
     getObjType?: (id: number) => any;
     getLocDefinition?: (locId: number) => any;

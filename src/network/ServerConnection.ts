@@ -261,6 +261,19 @@ export type NotificationEvent = {
     durationMs?: number;
 };
 
+export type RegionalFavourHudEvent = {
+    visible: boolean;
+    regionName: string;
+    objective: string;
+    progress: number;
+    required: number;
+    turnInName: string;
+    instruction: string;
+    complete: boolean;
+    hasActiveFavour: boolean;
+    rewardPreview: string;
+};
+
 export type PlayerAnimPayload = {
     idle?: number;
     walk?: number;
@@ -690,6 +703,7 @@ const shopListeners = new Set<(state: ShopWindowState) => void>();
 const tradeListeners = new Set<(state: TradeWindowState) => void>();
 const chatMessageListeners = new Set<(msg: ChatMessageEvent) => void>();
 const notificationListeners = new Set<(event: NotificationEvent) => void>();
+const regionalFavourHudListeners = new Set<(event: RegionalFavourHudEvent) => void>();
 const groundItemListeners = new Set<(payload: GroundItemsServerPayload) => void>();
 const playerSyncListeners = new Set<(frame: PlayerSyncFrame) => void>();
 const disconnectListeners = new Set<
@@ -2044,6 +2058,15 @@ function processServerMessage(msg: any): void {
     } else if (msg.type === "notification") {
         const payload = msg.payload as NotificationEvent;
         for (const cb of notificationListeners) cb(payload);
+    } else if (msg.type === "regional_favour_hud") {
+        const payload = msg.payload as RegionalFavourHudEvent;
+        for (const cb of regionalFavourHudListeners) {
+            try {
+                cb(payload);
+            } catch (err) {
+                console.warn("regional_favour_hud listener error", err);
+            }
+        }
     } else if (msg.type === "loc_change") {
         const payload = msg.payload;
         try {
@@ -3436,6 +3459,11 @@ export function subscribeChatMessages(cb: (msg: ChatMessageEvent) => void): () =
 export function subscribeNotifications(cb: (event: NotificationEvent) => void): () => void {
     notificationListeners.add(cb);
     return () => notificationListeners.delete(cb);
+}
+
+export function subscribeRegionalFavourHud(cb: (event: RegionalFavourHudEvent) => void): () => void {
+    regionalFavourHudListeners.add(cb);
+    return () => regionalFavourHudListeners.delete(cb);
 }
 
 /**

@@ -16,6 +16,7 @@ import {
     PlayerState,
     normalizeSkillXpValue,
 } from "../player";
+import { cloneRegionalFavourState } from "../regionalFavours";
 
 const DEFAULT_DATA_DIR = path.resolve(__dirname, "../../../data");
 const MAX_TILE_COORD = 32767;
@@ -600,6 +601,20 @@ function mergeStates(
         if (sanitizedDegradation.length > 0) {
             result.degradationCharges = sanitizedDegradation;
         }
+    }
+
+    // Regional favours — prefer new key, migrate legacy regionalTaskState.
+    const favourSource =
+        (overrides && Object.prototype.hasOwnProperty.call(overrides, "regionalFavourState")
+            ? overrides.regionalFavourState
+            : undefined) ??
+        (overrides && Object.prototype.hasOwnProperty.call(overrides, "regionalTaskState")
+            ? overrides.regionalTaskState
+            : undefined) ??
+        defaults?.regionalFavourState ??
+        defaults?.regionalTaskState;
+    if (favourSource) {
+        result.regionalFavourState = cloneRegionalFavourState(favourSource);
     }
 
     return result;

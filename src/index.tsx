@@ -1,6 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter } from "react-router-dom";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
 
 import OsrsClientApp from "./client/OsrsClientApp";
 import "./index.css";
@@ -11,12 +11,18 @@ import { Gzip } from "./rs/compression/Gzip";
 import { registerServiceWorker } from "./serviceWorkerRegistration";
 // Register custom items (shared between client/server) - must be before OsrsClientApp
 import "./shared/custom-items";
+import { LeagueRegionPainterPage } from "./tools/league-region-painter/LeagueRegionPainter";
 import { installUiDiagnostic } from "./ui/UiScaleDiagnostic";
 
 declare const module: any; // HMR typing
 
-Bzip2.initWasm();
-Gzip.initWasm();
+const isLeagueRegionTool =
+    typeof window !== "undefined" && window.location.pathname.startsWith("/tools/league-regions");
+
+if (!isLeagueRegionTool) {
+    Bzip2.initWasm();
+    Gzip.initWasm();
+}
 
 // Opt-in URL flag to enable verbose resize debugging
 try {
@@ -30,7 +36,9 @@ try {
 
 // UI scale diagnostic kit — available via __uiDiag in browser console
 // Auto-dumps diagnostics on login. Also callable manually anytime.
-installUiDiagnostic();
+if (!isLeagueRegionTool) {
+    installUiDiagnostic();
+}
 
 // NOTE: Server connection is initialized in OsrsClientApp after widget manager is ready
 
@@ -38,7 +46,10 @@ const root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement)
 root.render(
     // <React.StrictMode>
     <BrowserRouter>
-        <OsrsClientApp />
+        <Routes>
+            <Route path="/tools/league-regions" element={<LeagueRegionPainterPage />} />
+            <Route path="*" element={<OsrsClientApp />} />
+        </Routes>
     </BrowserRouter>,
     // </React.StrictMode>,
 );
@@ -48,22 +59,26 @@ root.render(
 // or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
 reportWebVitals();
 
-registerServiceWorker();
+if (!isLeagueRegionTool) {
+    registerServiceWorker();
+}
 
 // During Fast Refresh/HMR, close app-level sockets before applying updates
-try {
-    if (typeof module !== "undefined" && module?.hot) {
-        // React Fast Refresh lifecycle: prepare -> apply -> idle
-        module.hot.addStatusHandler((status: string) => {
-            if (status === "prepare") {
-                try {
-                    disposeServerConnection("hmr prepare");
-                } catch {}
-            } else if (status === "idle") {
-                try {
-                    initServerConnection();
-                } catch {}
-            }
-        });
-    }
-} catch {}
+if (!isLeagueRegionTool) {
+    try {
+        if (typeof module !== "undefined" && module?.hot) {
+            // React Fast Refresh lifecycle: prepare -> apply -> idle
+            module.hot.addStatusHandler((status: string) => {
+                if (status === "prepare") {
+                    try {
+                        disposeServerConnection("hmr prepare");
+                    } catch {}
+                } else if (status === "idle") {
+                    try {
+                        initServerConnection();
+                    } catch {}
+                }
+            });
+        }
+    } catch {}
+}
