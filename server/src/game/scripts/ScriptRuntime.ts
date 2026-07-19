@@ -84,29 +84,39 @@ export class ScriptRuntime {
         const npcTypeId = scriptEvent.npc.typeId;
         const playerId = scriptEvent.player.id;
         const tick = scriptEvent.tick;
-        let handlerSource = "";
-        let handler = this.registry.findNpcInteractionDirect(npcId, scriptEvent.option);
-        if (handler) handlerSource = "instance";
-        if (!handler) {
-            handler = this.registry.findNpcInteractionDirect(npcTypeId, scriptEvent.option);
-            if (handler) handlerSource = "type";
-        }
-        // Empty / missing option: treat as Talk-to (shop NPCs and some clients omit the string).
         const optNorm = String(scriptEvent.option ?? "")
             .trim()
             .toLowerCase();
-        if (!handler && !optNorm) {
-            handler = this.registry.findNpcInteractionDirect(npcTypeId, "talk-to");
-            if (handler) handlerSource = "type-talk-to";
+        let handlerSource = "";
+        let handler: ReturnType<typeof this.registry.findNpcInteractionDirect>;
+
+        if (optNorm) {
+            // Named options (Trade, Teleport, Bank, …): exact NPC handler, then global action.
+            // Never fall through to Talk-to — that made shop Trade open favour dialogue.
+            handler = this.registry.findNpcInteractionDirect(npcId, scriptEvent.option);
+            if (handler) handlerSource = "instance";
+            if (!handler) {
+                handler = this.registry.findNpcInteractionDirect(npcTypeId, scriptEvent.option);
+                if (handler) handlerSource = "type";
+            }
+            if (!handler) {
+                handler = this.registry.findNpcAction(scriptEvent.option);
+                if (handler) handlerSource = "action";
+            }
+        } else {
+            // Empty option = left-click default → Talk-to only (no bare npcId# catch-all).
+            handler = this.registry.findNpcInteractionDirect(npcId, "talk-to");
+            if (handler) handlerSource = "instance-talk-to";
+            if (!handler) {
+                handler = this.registry.findNpcInteractionDirect(npcTypeId, "talk-to");
+                if (handler) handlerSource = "type-talk-to";
+            }
+            if (!handler) {
+                handler = this.registry.findNpcAction("talk-to");
+                if (handler) handlerSource = "action-talk-to";
+            }
         }
-        if (!handler) {
-            handler = this.registry.findNpcAction(scriptEvent.option);
-            if (handler) handlerSource = "action";
-        }
-        if (!handler && !optNorm) {
-            handler = this.registry.findNpcAction("talk-to");
-            if (handler) handlerSource = "action-talk-to";
-        }
+
         if (!handler) {
             this.logger.info(
                 `[script] no NPC handler for id=${npcId} type=${npcTypeId} option=${

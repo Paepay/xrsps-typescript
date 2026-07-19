@@ -82,6 +82,10 @@ export const enum ServerPacketId {
     // CHAT/MESSAGES (120-129)
     // ========================================
     CHAT_MESSAGE = 120,
+    /** Full friends-chat channel snapshot (empty payload = left channel). */
+    FRIENDS_CHAT_UPDATE = 121,
+    /** Incremental friends-chat member add/update/remove. */
+    FRIENDS_CHAT_UPDATE_INCREMENTAL = 122,
 
     // ========================================
     // WORLD UPDATES (130-149)
@@ -199,6 +203,8 @@ export const SERVER_PACKET_LENGTHS: Record<ServerPacketId, number> = {
     [ServerPacketId.WIDGET_SET_PLAYER_HEAD]: 4, // uid(4)
 
     [ServerPacketId.CHAT_MESSAGE]: -1,
+    [ServerPacketId.FRIENDS_CHAT_UPDATE]: -2, // empty = leave; else full snapshot
+    [ServerPacketId.FRIENDS_CHAT_UPDATE_INCREMENTAL]: -1, // name + world + rank
 
     [ServerPacketId.LOC_CHANGE]: -1,
     [ServerPacketId.SOUND]: -1,

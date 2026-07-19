@@ -103,7 +103,7 @@ export class DoorStateManager {
 
     /**
      * Toggle a door and return the result including collision updates.
-     * Uses explicit door definitions and runtime tile mappings only.
+     * Uses explicit door definitions, runtime tile mappings, then adjacent-ID inference.
      */
     toggleDoor(params: DoorToggleParams): DoorToggleResult | undefined {
         const currentId = params.currentId;
@@ -135,7 +135,11 @@ export class DoorStateManager {
         if (this.doorDefLoader) {
             const gateDef = this.doorDefLoader.getGateDef(currentId);
             if (gateDef) {
-                return this.handleGate(fullParams, gateDef);
+                const gateResult = this.handleGate(fullParams, gateDef);
+                if (gateResult) {
+                    return gateResult;
+                }
+                // Partner missing — fall through to single/runtime/inference.
             }
         }
 
@@ -143,7 +147,11 @@ export class DoorStateManager {
         if (this.doorDefLoader) {
             const doubleDef = this.doorDefLoader.getDoubleDoorDef(currentId);
             if (doubleDef) {
-                return this.handleDoubleDoor(fullParams, doubleDef, key);
+                const doubleResult = this.handleDoubleDoor(fullParams, doubleDef, key);
+                if (doubleResult) {
+                    return doubleResult;
+                }
+                // Partner missing — fall through to single/runtime/inference.
             }
         }
 
@@ -163,6 +171,13 @@ export class DoorStateManager {
         );
         if (runtimeSingleDef) {
             return this.handleSingleDoorExplicit(fullParams, runtimeSingleDef, key);
+        }
+
+        // Cache-adjacent fallback: many OSRS single doors are closed/opened ID pairs
+        // within a small distance that share name/size and opposite Open/Close actions.
+        const inferredSingleDef = this.inferAdjacentIdSingleDoorPair(currentId);
+        if (inferredSingleDef) {
+            return this.handleSingleDoorExplicit(fullParams, inferredSingleDef, key);
         }
 
         return undefined;
@@ -729,22 +744,32 @@ export class DoorStateManager {
         rotation: number,
         openCw: boolean = true,
     ): { x: number; y: number } {
+        // See DoorOpenDir docs in DoorDefinitions.ts for CW vs CCW shift table.
         if (openCw) {
             switch (rotation & 3) {
-                case 0: return { x: x - 1, y };
-                case 1: return { x, y: y + 1 };
-                case 2: return { x: x + 1, y };
-                case 3: return { x, y: y - 1 };
-                default: return { x, y };
+                case 0:
+                    return { x: x - 1, y }; // West
+                case 1:
+                    return { x, y: y + 1 }; // North
+                case 2:
+                    return { x: x + 1, y }; // East
+                case 3:
+                    return { x, y: y - 1 }; // South
+                default:
+                    return { x, y };
             }
-        } else {
-            switch (rotation & 3) {
-                case 0: return { x: x + 1, y };
-                case 1: return { x, y: y + 1 };   // ← changed
-                case 2: return { x: x - 1, y };
-                case 3: return { x, y: y + 1 };
-                default: return { x, y };
-            }
+        }
+        switch (rotation & 3) {
+            case 0:
+                return { x, y: y - 1 }; // South
+            case 1:
+                return { x: x - 1, y }; // West
+            case 2:
+                return { x, y: y + 1 }; // North
+            case 3:
+                return { x: x + 1, y }; // East
+            default:
+                return { x, y };
         }
     }
 
@@ -761,21 +786,30 @@ export class DoorStateManager {
         if (openCw) {
             const closedRotation = (openedRotation - 1 + 4) & 3;
             switch (closedRotation) {
-                case 0: return { x: x + 1, y };
-                case 1: return { x, y: y - 1 };
-                case 2: return { x: x - 1, y };
-                case 3: return { x, y: y + 1 };
-                default: return { x, y };
+                case 0:
+                    return { x: x + 1, y };
+                case 1:
+                    return { x, y: y - 1 };
+                case 2:
+                    return { x: x - 1, y };
+                case 3:
+                    return { x, y: y + 1 };
+                default:
+                    return { x, y };
             }
-        } else {
-            const closedRotation = (openedRotation + 1) & 3;
-            switch (closedRotation) {
-                case 0: return { x: x - 1, y };
-                case 1: return { x, y: y + 1 };
-                case 2: return { x, y: y - 1 };   // ← changed
-                case 3: return { x, y: y - 1 };
-                default: return { x, y };
-            }
+        }
+        const closedRotation = (openedRotation + 1) & 3;
+        switch (closedRotation) {
+            case 0:
+                return { x, y: y + 1 };
+            case 1:
+                return { x: x + 1, y };
+            case 2:
+                return { x, y: y - 1 };
+            case 3:
+                return { x: x - 1, y };
+            default:
+                return { x, y };
         }
     }
 
@@ -1482,6 +1516,77 @@ export class DoorStateManager {
         return openCloseOpposite;
     }
 
+    /**
+     * Infer a single-door closed/opened pair from nearby LocType IDs.
+     * OSRS often stores door states as consecutive IDs with opposite Open/Close actions.
+     * Restricted to distance 1 to avoid colliding with gate/double-door ID clusters.
+     */
+    private inferAdjacentIdSingleDoorPair(
+        currentId: number,
+    ): { closed: number; opened: number } | undefined {
+        if (!(currentId > 0) || !this.locTypeLoader?.load) {
+            return undefined;
+        }
+
+        // Never invent single-door pairs for IDs that already belong to multi-piece defs.
+        if (
+            this.doorDefLoader?.getGateDef(currentId) ||
+            this.doorDefLoader?.getDoubleDoorDef(currentId)
+        ) {
+            return undefined;
+        }
+
+        const currentLoc = this.safeLoadLoc(currentId);
+        if (!currentLoc || !this.isWallDoorCandidate(currentLoc)) {
+            return undefined;
+        }
+
+        const currentHasOpen = this.hasAction(currentLoc, "open");
+        const currentHasClose = this.hasAction(currentLoc, "close");
+        if (currentHasOpen === currentHasClose) {
+            // Ambiguous (both or neither) — refuse to guess without catalog data.
+            return undefined;
+        }
+
+        const candidates = [currentId + 1, currentId - 1];
+        for (const otherId of candidates) {
+            if (!(otherId > 0)) continue;
+            if (
+                this.doorDefLoader?.getGateDef(otherId) ||
+                this.doorDefLoader?.getDoubleDoorDef(otherId)
+            ) {
+                continue;
+            }
+            const otherLoc = this.safeLoadLoc(otherId);
+            if (!otherLoc || !this.isWallDoorCandidate(otherLoc)) continue;
+            if (!this.isDoorPair(currentLoc, otherLoc)) continue;
+
+            const classified = this.classifyObservedDoorPair(currentId, otherId);
+            if (classified) {
+                return classified;
+            }
+        }
+
+        return undefined;
+    }
+
+    private isWallDoorCandidate(loc: any): boolean {
+        if (!this.isDoorCandidate(loc)) {
+            return false;
+        }
+        const name = this.normalizeName(loc);
+        const hasDoorName =
+            name.length > 0 && DOOR_NAME_KEYWORDS.some((keyword) => name.includes(keyword));
+        if (!hasDoorName) {
+            return false;
+        }
+        const types: number[] = Array.isArray(loc?.types) ? loc.types : [];
+        if (types.length === 0) {
+            return true;
+        }
+        return types.some((type) => this.isSupportedDoorLocType(type));
+    }
+
     private classifyObservedDoorPair(
         oldId: number,
         newId: number,
@@ -1636,18 +1741,22 @@ export class DoorStateManager {
      * Returns list of doors that were auto-closed (for broadcasting loc updates).
      */
     tick(currentTick: number): Array<{
+        oldLocId: number;
+        newLocId: number;
         x: number;
         y: number;
         level: number;
-        newLocId: number;
+        oldRotation: number;
         newRotation: number;
         newTile: { x: number; y: number };
     }> {
         const closedDoors: Array<{
+            oldLocId: number;
+            newLocId: number;
             x: number;
             y: number;
             level: number;
-            newLocId: number;
+            oldRotation: number;
             newRotation: number;
             newTile: { x: number; y: number };
         }> = [];
@@ -1656,8 +1765,8 @@ export class DoorStateManager {
             if (currentTick - entry.openedAtTick >= DOOR_AUTO_CLOSE_TICKS) {
                 // Auto-close this door
                 const newRotation = entry.openCw
-                    ? (entry.rotation - 1 + 4) & 3  // CW open → CCW close
-                    : (entry.rotation + 1) & 3;     // CCW open → CW close
+                    ? (entry.rotation - 1 + 4) & 3 // CW open → CCW close
+                    : (entry.rotation + 1) & 3; // CCW open → CW close
                 const newTile = { x: entry.closedX, y: entry.closedY }; // Closing returns to original position
                 this.transitionLocCollision(
                     {
@@ -1678,11 +1787,22 @@ export class DoorStateManager {
                     },
                 );
 
+                this.stateByTile.delete(key);
+                this.stateByTile.set(this.makeKey(newTile.x, newTile.y, entry.level), {
+                    closedId: entry.closedId,
+                    openedId: entry.openedId,
+                    currentId: entry.closedId,
+                    rotation: newRotation,
+                    locType: entry.locType,
+                });
+
                 closedDoors.push({
+                    oldLocId: entry.openedId,
+                    newLocId: entry.closedId,
                     x: entry.currentX,
                     y: entry.currentY,
                     level: entry.level,
-                    newLocId: entry.closedId,
+                    oldRotation: entry.rotation,
                     newRotation,
                     newTile,
                 });
@@ -1720,11 +1840,25 @@ export class DoorStateManager {
                             },
                         );
 
+                        this.stateByTile.delete(entry.partnerKey);
+                        this.stateByTile.set(
+                            this.makeKey(partnerNewTile.x, partnerNewTile.y, partnerEntry.level),
+                            {
+                                closedId: partnerEntry.closedId,
+                                openedId: partnerEntry.openedId,
+                                currentId: partnerEntry.closedId,
+                                rotation: partnerNewRotation,
+                                locType: partnerEntry.locType,
+                            },
+                        );
+
                         closedDoors.push({
+                            oldLocId: partnerEntry.openedId,
+                            newLocId: partnerEntry.closedId,
                             x: partnerEntry.currentX,
                             y: partnerEntry.currentY,
                             level: partnerEntry.level,
-                            newLocId: partnerEntry.closedId,
+                            oldRotation: partnerEntry.rotation,
                             newRotation: partnerNewRotation,
                             newTile: partnerNewTile,
                         });

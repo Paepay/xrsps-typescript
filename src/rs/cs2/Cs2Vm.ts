@@ -194,6 +194,7 @@ export interface Cs2Context {
     clanName?: string;
     clanOwner?: string;
     clanRank?: number;
+    clanMinKick?: number;
 
     // Stats/skills (indices 0-22 for OSRS skills)
     getStatLevel?: (skillId: number) => number;
@@ -848,6 +849,9 @@ export class Cs2Vm {
             },
             get clanRank() {
                 return vm.context.clanRank ?? 0;
+            },
+            get clanMinKick() {
+                return vm.context.clanMinKick ?? 0;
             },
 
             // Event context (for magic argument substitution)

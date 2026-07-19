@@ -31,6 +31,7 @@ export class GatheringSystemManager {
     readonly miningTracker = new MiningNodeTracker();
     readonly firemakingTracker = new FiremakingTracker();
     readonly flaxTracker = new FlaxPatchTracker();
+    readonly fieldCropTracker = new FlaxPatchTracker();
     readonly thievingStallTracker = new ThievingStallTracker();
     readonly thievingChestTracker = new ThievingChestTracker();
 
@@ -47,6 +48,7 @@ export class GatheringSystemManager {
         this.processWoodcuttingRespawns(tick);
         this.processMiningRespawns(tick);
         this.processFlaxRespawns(tick);
+        this.processFieldCropRespawns(tick);
         this.processFiremakingExpirations(tick);
         this.processThievingStallRespawns(tick);
         this.processThievingChestRespawns(tick);
@@ -66,6 +68,12 @@ export class GatheringSystemManager {
 
     private processFlaxRespawns(tick: number): void {
         this.flaxTracker.processRespawns(tick, (state) =>
+            this.services.emitLocChange(0, state.locId, state.tile, state.level),
+        );
+    }
+
+    private processFieldCropRespawns(tick: number): void {
+        this.fieldCropTracker.processRespawns(tick, (state) =>
             this.services.emitLocChange(0, state.locId, state.tile, state.level),
         );
     }
@@ -171,6 +179,20 @@ export class GatheringSystemManager {
         respawnTicks: number;
     }, tick: number): void {
         this.flaxTracker.markDepleted({
+            tile: info.tile,
+            level: info.level,
+            locId: info.locId,
+            respawnTick: tick + info.respawnTicks,
+        });
+    }
+
+    markFieldCropDepleted(info: {
+        tile: { x: number; y: number };
+        level: number;
+        locId: number;
+        respawnTicks: number;
+    }, tick: number): void {
+        this.fieldCropTracker.markDepleted({
             tile: info.tile,
             level: info.level,
             locId: info.locId,

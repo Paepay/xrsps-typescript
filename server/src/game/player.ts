@@ -470,6 +470,15 @@ export interface PlayerPersistentVars {
      * Used by the thieving skill-guide teleport feature.
      */
     thievingLocations?: Record<string, PlayerLocationSnapshot>;
+    /** Friends chat (chat-channel) owner settings + last joined channel. */
+    friendsChat?: {
+        channelName?: string;
+        enterRank?: number;
+        talkRank?: number;
+        kickRank?: number;
+        lastJoined?: string | null;
+        channelRanks?: Record<string, number>;
+    };
 }
 
 export class PlayerState extends Actor {
@@ -477,6 +486,13 @@ export class PlayerState extends Actor {
 
     __leagueRelicPendingSelection?: unknown;
     __leagueMasteryPendingSelection?: unknown;
+    /**
+     * Wall-clock ms when this session started, used to approximate CS2 clientclock
+     * (20ms cycles since client boot) for home-teleport cooldown varp 892.
+     */
+    __clientClockBaseMs?: number;
+    /** Wall-clock ms of last successful home teleport (session cooldown). */
+    lastHomeTeleportMs?: number;
 
     override readonly isPlayer = true;
     widgets: PlayerWidgetManager;
@@ -497,6 +513,15 @@ export class PlayerState extends Actor {
     private hunterCatchLocations: Map<string, PlayerLocationSnapshot> = new Map();
     /** Last standing tile per Thieving skill-guide activity id. */
     private thievingLocations: Map<string, PlayerLocationSnapshot> = new Map();
+    /** Friends chat owner settings (persisted). */
+    friendsChatSettings?: {
+        channelName?: string;
+        enterRank?: number;
+        talkRank?: number;
+        kickRank?: number;
+        lastJoined?: string | null;
+        channelRanks?: Record<string, number>;
+    };
     readonly skills: PlayerSkillState[];
     skillTotal: number;
     combatLevel: number;
@@ -3099,6 +3124,21 @@ export class PlayerState extends Actor {
             }
             snapshot.thievingLocations = thievingLocations;
         }
+        if (this.friendsChatSettings) {
+            const fc = this.friendsChatSettings;
+            const channelRanks =
+                fc.channelRanks && Object.keys(fc.channelRanks).length > 0
+                    ? { ...fc.channelRanks }
+                    : undefined;
+            snapshot.friendsChat = {
+                channelName: fc.channelName,
+                enterRank: fc.enterRank,
+                talkRank: fc.talkRank,
+                kickRank: fc.kickRank,
+                lastJoined: fc.lastJoined ?? null,
+                ...(channelRanks ? { channelRanks } : {}),
+            };
+        }
         snapshot.accountCreationTimeMs = Math.max(
             0,
             Number.isFinite(this.accountCreationTimeMs)
@@ -3306,6 +3346,20 @@ export class PlayerState extends Actor {
         this.loadFishingCatchLocations(state.fishingCatchLocations);
         this.loadHunterCatchLocations(state.hunterCatchLocations);
         this.loadThievingLocations(state.thievingLocations);
+        if (state.friendsChat) {
+            this.friendsChatSettings = {
+                channelName: state.friendsChat.channelName,
+                enterRank: state.friendsChat.enterRank,
+                talkRank: state.friendsChat.talkRank,
+                kickRank: state.friendsChat.kickRank,
+                lastJoined: state.friendsChat.lastJoined ?? null,
+                channelRanks: state.friendsChat.channelRanks
+                    ? { ...state.friendsChat.channelRanks }
+                    : {},
+            };
+        } else {
+            this.friendsChatSettings = undefined;
+        }
     }
 
     getFollowerState(): PlayerFollowerPersistentEntry | undefined {
@@ -4067,6 +4121,12 @@ export class PlayerManager implements PlayerRepository {
         this.interactionSystem.setGameMessageCallback(callback);
     }
 
+    setResolveNpcOptionCallback(
+        callback: (npc: NpcState, opNum: number) => string | undefined,
+    ): void {
+        this.interactionSystem.setResolveNpcOptionCallback(callback);
+    }
+
     /**
      * OSRS parity: Set callback for interrupting skill actions.
      * Called when player walks, starts new interaction, teleports, etc.
@@ -4615,8 +4675,15 @@ export class PlayerManager implements PlayerRepository {
         npc: NpcState,
         option?: string,
         modifierFlags?: number,
+        opNum?: number,
     ): { ok: boolean; message?: string } {
-        return this.interactionSystem.startNpcInteraction(ws, npc, option, modifierFlags);
+        return this.interactionSystem.startNpcInteraction(
+            ws,
+            npc,
+            option,
+            modifierFlags,
+            opNum,
+        );
     }
 
     startNpcAttack(

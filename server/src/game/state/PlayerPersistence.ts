@@ -300,6 +300,58 @@ function sanitizeCollectionLogSnapshot(
     return result;
 }
 
+function sanitizeFriendsChatSnapshot(
+    source: PlayerPersistentVars["friendsChat"] | undefined,
+): PlayerPersistentVars["friendsChat"] | undefined {
+    if (!source || typeof source !== "object") return undefined;
+    const result: NonNullable<PlayerPersistentVars["friendsChat"]> = {};
+    if (typeof source.channelName === "string") {
+        const name = source.channelName.trim().slice(0, 12);
+        if (name.length > 0) result.channelName = name;
+    }
+    const clampRank = (value: unknown): number | undefined => {
+        if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
+        const n = value | 0;
+        if (n < -2 || n > 7) return undefined;
+        return n;
+    };
+    const enterRank = clampRank(source.enterRank);
+    if (enterRank !== undefined) result.enterRank = enterRank;
+    const talkRank = clampRank(source.talkRank);
+    if (talkRank !== undefined) result.talkRank = talkRank;
+    const kickRank = clampRank(source.kickRank);
+    if (kickRank !== undefined) result.kickRank = kickRank;
+    if (source.lastJoined === null) {
+        result.lastJoined = null;
+    } else if (typeof source.lastJoined === "string") {
+        const last = source.lastJoined.trim();
+        result.lastJoined = last.length > 0 ? last : null;
+    }
+    if (source.channelRanks && typeof source.channelRanks === "object") {
+        const ranks: Record<string, number> = {};
+        for (const [rawName, rawRank] of Object.entries(source.channelRanks)) {
+            const key = rawName.trim().toLowerCase();
+            const rank = clampRank(rawRank);
+            if (!key || rank === undefined || rank <= -1) continue;
+            ranks[key] = rank;
+        }
+        if (Object.keys(ranks).length > 0) {
+            result.channelRanks = ranks;
+        }
+    }
+    if (
+        result.channelName === undefined &&
+        result.enterRank === undefined &&
+        result.talkRank === undefined &&
+        result.kickRank === undefined &&
+        result.lastJoined === undefined &&
+        result.channelRanks === undefined
+    ) {
+        return undefined;
+    }
+    return result;
+}
+
 function mergeStates(
     defaults?: PlayerPersistentVars,
     overrides?: PlayerPersistentVars,
@@ -617,6 +669,15 @@ function mergeStates(
         result.regionalFavourState = cloneRegionalFavourState(favourSource);
     }
 
+    const friendsChatSource =
+        (overrides && Object.prototype.hasOwnProperty.call(overrides, "friendsChat")
+            ? overrides.friendsChat
+            : undefined) ?? defaults?.friendsChat;
+    const sanitizedFriendsChat = sanitizeFriendsChatSnapshot(friendsChatSource);
+    if (sanitizedFriendsChat) {
+        result.friendsChat = sanitizedFriendsChat;
+    }
+
     return result;
 }
 
@@ -657,6 +718,17 @@ export class PlayerPersistence {
 
     hasKey(key: string): boolean {
         return this.store.has(key);
+    }
+
+    /**
+     * Read friends-chat owner settings for an account (online or offline).
+     * Used when seeding a channel whose owner is not currently logged in.
+     */
+    getFriendsChatSettings(accountName: string): PlayerPersistentVars["friendsChat"] | undefined {
+        const key = (accountName ?? "").trim().toLowerCase();
+        if (!key) return undefined;
+        const snapshot = mergeStates(this.defaults, this.store.get(key));
+        return snapshot?.friendsChat;
     }
 
     saveSnapshot(key: string, player: PlayerState): void {

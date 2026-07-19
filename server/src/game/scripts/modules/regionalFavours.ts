@@ -111,9 +111,25 @@ export const regionalFavoursModule: ScriptModule = {
 
         const activeConvos = new Set<number>();
         const convoStartedAt = new Map<number, number>();
-        const CONVO_STALE_MS = 20_000;
+        // Short window: blocks same-click double-fire / mid-dialog re-entry.
+        // Refresh on each dialog step so long favour chains stay locked; recover quickly if
+        // click-to-continue skips onClose (previously 20s of silent ignored Talk-to clicks).
+        const CONVO_STALE_MS = 3_000;
 
         const handleTalk = (event: any) => {
+            const opt = String(event?.option ?? "")
+                .trim()
+                .toLowerCase();
+            // Defence: Trade must never open favour dialogue (shopkeepers share these NPCs).
+            if (opt === "trade" || opt === "trade-with") {
+                if (services.openShop) {
+                    services.openShop(event.player, { npcTypeId: event.npc?.typeId });
+                } else {
+                    services.sendGameMessage?.(event.player, "Nothing interesting happens.");
+                }
+                return;
+            }
+
             const api = getApi();
             if (!api) return;
 
@@ -123,6 +139,11 @@ export const regionalFavoursModule: ScriptModule = {
             const npcId = normalizeRegionalNpcId(rawNpcId);
             const name = npcName(npcId);
 
+            const touchConvo = () => {
+                activeConvos.add(pid);
+                convoStartedAt.set(pid, Date.now());
+            };
+
             // Prevent double-firing (talk-to + default option) and mid-dialog re-entry.
             // Recover if a prior dialog never cleared the lock (click-to-continue skips onClose).
             if (activeConvos.has(pid)) {
@@ -130,8 +151,7 @@ export const regionalFavoursModule: ScriptModule = {
                 if (Date.now() - started < CONVO_STALE_MS) return;
                 activeConvos.delete(pid);
             }
-            activeConvos.add(pid);
-            convoStartedAt.set(pid, Date.now());
+            touchConvo();
 
             const releaseConvo = () => {
                 activeConvos.delete(pid);
@@ -143,6 +163,7 @@ export const regionalFavoursModule: ScriptModule = {
                     releaseConvo();
                     return;
                 }
+                touchConvo();
                 // Romeo parity: when chaining, do NOT close on continue — the next openDialog
                 // replaces the chatbox. Closing first leaves the client on "Please wait...".
                 services.openDialog(player, {
@@ -156,7 +177,7 @@ export const regionalFavoursModule: ScriptModule = {
                     onContinue: onContinue
                         ? () => {
                               try {
-                                  activeConvos.add(pid);
+                                  touchConvo();
                                   onContinue();
                               } catch (err) {
                                   console.log("[regional-favours] dialog continue failed", err);
@@ -200,7 +221,7 @@ export const regionalFavoursModule: ScriptModule = {
                 : undefined;
 
             const showAssignedFavour = (assigned: any, dialogSuffix = "assign") => {
-                activeConvos.add(pid);
+                touchConvo();
                 const newDef = getRegionalFavourDefinition(assigned.favourId);
                 const assignLines =
                     newDef?.assignmentDialog?.length
@@ -454,7 +475,7 @@ export const regionalFavoursModule: ScriptModule = {
                         closeOnContinue: false,
                         onClose: releaseConvo,
                         onContinue: () => {
-                            activeConvos.add(pid);
+                            touchConvo();
                             if (choice === 0) {
                                 if (api.reclaimDeliveryItemForNpc) {
                                     api.reclaimDeliveryItemForNpc(player, npcId);
@@ -502,7 +523,7 @@ export const regionalFavoursModule: ScriptModule = {
                         closeOnContinue: false,
                         onClose: releaseConvo,
                         onContinue: () => {
-                            activeConvos.add(pid);
+                            touchConvo();
                             if (choice === 0) {
                                 api.sendStatus(player);
                                 openNpc(`${convoId}_status`, ["Off you go then."]);
@@ -573,7 +594,7 @@ export const regionalFavoursModule: ScriptModule = {
                                 closeOnContinue: false,
                                 onClose: releaseConvo,
                                 onContinue: () => {
-                                    activeConvos.add(pid);
+                                    touchConvo();
                                     openNpc(`${convoId}_decline`, ["Another time, then."]);
                                 },
                             });
@@ -591,7 +612,7 @@ export const regionalFavoursModule: ScriptModule = {
                             closeOnContinue: false,
                             onClose: releaseConvo,
                             onContinue: () => {
-                                activeConvos.add(pid);
+                                touchConvo();
                                 if (!assigned) {
                                     openNpc(`${convoId}_fail`, assignFailLines(reason, blocking));
                                     return;
@@ -610,18 +631,40 @@ export const regionalFavoursModule: ScriptModule = {
         }
 
         for (const npcId of npcIds) {
-            // talk-to + bare option: shop NPCs / some clients omit or vary the option string.
-            // activeConvos lock prevents double-fire if both keys somehow match one click.
+            // Only Talk-to — never register a bare/empty option. Empty option handlers steal
+            // Trade/Teleport when opNum resolution fails or a second packet arrives without a label.
+            // ScriptRuntime already maps empty left-clicks to talk-to.
             registry.registerNpcScript({ npcId, option: "talk-to", handler: handleTalk });
-            registry.registerNpcScript({ npcId, option: undefined, handler: handleTalk });
         }
 
         // Combat lamp rub
         const rubLamp = (event: any) => {
             const api = getApi();
-            if (!api) return;
             const player = event.player;
             const pid = player.id;
+            if (!api) {
+                services.sendGameMessage?.(
+                    player,
+                    "The lamp flickers, but nothing happens right now.",
+                );
+                return;
+            }
+
+            // Favour talk locks can stick when click-to-continue skips onClose.
+            // Recover the same way talk-to does — never silently ignore Rub forever.
+            if (activeConvos.has(pid)) {
+                const started = convoStartedAt.get(pid) ?? 0;
+                if (Date.now() - started < CONVO_STALE_MS) {
+                    services.sendGameMessage?.(
+                        player,
+                        "Finish your conversation before rubbing the lamp.",
+                    );
+                    return;
+                }
+                activeConvos.delete(pid);
+                convoStartedAt.delete(pid);
+            }
+
             const pending = api.getPendingCombatLampXp(player);
             if (pending === undefined) {
                 services.openDialog?.(player, {
@@ -635,49 +678,97 @@ export const regionalFavoursModule: ScriptModule = {
                 return;
             }
 
-            if (activeConvos.has(pid)) return;
+            if (!services.openDialogOptions) {
+                services.sendGameMessage?.(player, "You rub the lamp, but nothing happens.");
+                return;
+            }
+
             activeConvos.add(pid);
-            const onClose = () => activeConvos.delete(pid);
+            convoStartedAt.set(pid, Date.now());
+            const release = () => {
+                activeConvos.delete(pid);
+                convoStartedAt.delete(pid);
+            };
 
-            const skillOptions = COMBAT_LAMP_SKILLS.map(
-                (id) => `${getSkillName(id)} (${pending} XP)`,
-            );
-            skillOptions.push("Cancel");
+            /** Chat options only support 5 choices — page combat skills. */
+            const openSkillPage = (page: 0 | 1) => {
+                convoStartedAt.set(pid, Date.now());
+                const pageSkills =
+                    page === 0
+                        ? COMBAT_LAMP_SKILLS.slice(0, 3)
+                        : COMBAT_LAMP_SKILLS.slice(3);
+                const options = pageSkills.map((id) => `${getSkillName(id)} (${pending} XP)`);
+                if (page === 0) {
+                    options.push("Other combat skills...");
+                    options.push("Cancel");
+                } else {
+                    options.push("Back...");
+                    options.push("Cancel");
+                }
 
-            services.openDialogOptions?.(player, {
-                id: `rfavour_lamp_${pid}`,
-                title: "Combat XP Lamp",
-                options: skillOptions,
-                onClose,
-                onSelect: (choice) => {
-                    activeConvos.delete(pid);
-                    if (choice < 0 || choice >= COMBAT_LAMP_SKILLS.length) return;
-                    const skillId = COMBAT_LAMP_SKILLS[choice];
-                    services.openDialogOptions?.(player, {
-                        id: `rfavour_lamp_confirm_${pid}`,
-                        title: "Confirm",
-                        options: [
-                            `Yes — ${pending} ${getSkillName(skillId)} XP`,
-                            "No",
-                        ],
-                        onClose,
-                        onSelect: (confirm) => {
-                            if (confirm !== 0) return;
-                            const result = api.tryRedeemCombatLamp(player, skillId);
-                            if (!result.ok) {
-                                services.openDialog?.(player, {
-                                    kind: "player",
-                                    id: `rfavour_lamp_fail_${pid}`,
-                                    playerName: player.name ?? "You",
-                                    lines: [result.reason],
-                                    clickToContinue: true,
-                                    closeOnContinue: true,
-                                });
+                services.openDialogOptions!(player, {
+                    id: `rfavour_lamp_${pid}_p${page}`,
+                    title: "Combat XP Lamp",
+                    options,
+                    onClose: release,
+                    onSelect: (choice) => {
+                        if (page === 0) {
+                            if (choice === 3) {
+                                // Keep lock while paging.
+                                activeConvos.add(pid);
+                                convoStartedAt.set(pid, Date.now());
+                                openSkillPage(1);
+                                return;
                             }
-                        },
-                    });
-                },
-            });
+                            if (choice < 0 || choice >= pageSkills.length) {
+                                release();
+                                return;
+                            }
+                        } else {
+                            if (choice === pageSkills.length) {
+                                activeConvos.add(pid);
+                                convoStartedAt.set(pid, Date.now());
+                                openSkillPage(0);
+                                return;
+                            }
+                            if (choice < 0 || choice >= pageSkills.length) {
+                                release();
+                                return;
+                            }
+                        }
+
+                        const skillId = pageSkills[choice];
+                        activeConvos.add(pid);
+                        convoStartedAt.set(pid, Date.now());
+                        services.openDialogOptions!(player, {
+                            id: `rfavour_lamp_confirm_${pid}`,
+                            title: "Confirm",
+                            options: [
+                                `Yes — ${pending} ${getSkillName(skillId)} XP`,
+                                "No",
+                            ],
+                            onClose: release,
+                            onSelect: (confirm) => {
+                                release();
+                                if (confirm !== 0) return;
+                                const result = api.tryRedeemCombatLamp(player, skillId);
+                                if (!result.ok) {
+                                    services.openDialog?.(player, {
+                                        kind: "player",
+                                        id: `rfavour_lamp_fail_${pid}`,
+                                        playerName: player.name ?? "You",
+                                        lines: [result.reason],
+                                        clickToContinue: true,
+                                        closeOnContinue: true,
+                                    });
+                                }
+                            },
+                        });
+                    },
+                });
+            };
+
+            openSkillPage(0);
         };
 
         for (const opt of ["rub", "Rub", undefined]) {

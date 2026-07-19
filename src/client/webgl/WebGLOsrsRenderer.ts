@@ -12373,6 +12373,8 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                         mapX: localX,
                         mapY: localY,
                         actionIndex: actionIdx,
+                        // Explicit OPNPC opcode so Trade never collapses to Talk-to (op1).
+                        opcode: MenuOpcode.NpcFirstOption + actionIdx,
                         deprioritized: followerDeprioritized,
                         onClick: () => {
                             try {

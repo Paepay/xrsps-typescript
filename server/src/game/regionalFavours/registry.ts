@@ -35,6 +35,9 @@ function indexSeekOnly(defs: readonly RegionalFavourDefinition[]): void {
 index(MISTHALIN_FAVOUR_DEFINITIONS);
 indexSeekOnly(buildSeekContactDefinitions());
 
+// Hint coverage is asserted after gatherHints are derived from world data
+// (see initRegionalFavourHints / wsServer bootstrap).
+
 export function getRegionalFavourDefinition(favourId: string): RegionalFavourDefinition | undefined {
     return byId.get(favourId);
 }

@@ -1,5 +1,9 @@
 import { ScriptVarTypeId } from "../../../../../src/rs/config/db/ScriptVarType";
 import { BaseComponentUids } from "../../../widgets/viewport/ViewportEnumService";
+import {
+    findQuestCompletionByDisplayName,
+    isQuestCompleteForPlayer,
+} from "../../quests/questCompletions";
 import type { PlayerState } from "../../player";
 import type { ScriptModule, ScriptServices } from "../types";
 
@@ -128,35 +132,13 @@ function buildQuestMap(services: ScriptServices): Map<number, QuestEntry> {
  * progress varp against its completion value to determine basic status.
  */
 function buildJournalLines(player: PlayerState, quest: QuestEntry): string[] {
-    // Check if quest was completed via ::quest command by checking known quest varps
-    const completionEntry = QUEST_COMPLETION_DATA.get(quest.displayName.toLowerCase());
-    if (completionEntry) {
-        const currentValue = completionEntry.varpId >= 0
-            ? player.getVarpValue(completionEntry.varpId)
-            : 0;
-
-        // Check varbit entries too
-        let allVarbitsComplete = true;
-        if (completionEntry.varbitEntries) {
-            for (const { varbitId, value } of completionEntry.varbitEntries) {
-                if (player.getVarbitValue(varbitId) < value) {
-                    allVarbitsComplete = false;
-                    break;
-                }
-            }
-        }
-
-        const isComplete =
-            (completionEntry.varpId >= 0 && currentValue >= completionEntry.completionValue) ||
-            (completionEntry.varpId < 0 && allVarbitsComplete);
-
-        if (isComplete) {
-            return [
-                "<str>I have completed this quest.",
-                "",
-                "<col=ff0000>QUEST COMPLETE!",
-            ];
-        }
+    const completionEntry = findQuestCompletionByDisplayName(quest.displayName);
+    if (completionEntry && isQuestCompleteForPlayer(player, completionEntry)) {
+        return [
+            "<str>I have completed this quest.",
+            "",
+            "<col=ff0000>QUEST COMPLETE!",
+        ];
     }
 
     // Not started (default state)
@@ -166,60 +148,6 @@ function buildJournalLines(player: PlayerState, quest: QuestEntry): string[] {
         "this quest.",
     ];
 }
-
-// ============================================================================
-// Known quest completion data (mirrors QUEST_DATA from MessageHandlers.ts)
-// Maps lowercase display name → varp/varbit completion info
-// ============================================================================
-
-interface QuestCompletionInfo {
-    varpId: number;
-    completionValue: number;
-    varbitEntries?: Array<{ varbitId: number; value: number }>;
-}
-
-const QUEST_COMPLETION_DATA = new Map<string, QuestCompletionInfo>([
-    ["desert treasure", { varpId: 440, completionValue: 15 }],
-    ["lunar diplomacy", { varpId: 823, completionValue: 190 }],
-    ["legend's quest", { varpId: 139, completionValue: 180 }],
-    ["underground pass", { varpId: 161, completionValue: 110 }],
-    ["mage arena", { varpId: 267, completionValue: 8 }],
-    [
-        "mage arena ii",
-        { varpId: -1, completionValue: 0, varbitEntries: [{ varbitId: 6067, value: 6 }] },
-    ],
-    ["eadgar's ruse", { varpId: 335, completionValue: 110 }],
-    ["watchtower", { varpId: 212, completionValue: 13 }],
-    ["plague city", { varpId: 165, completionValue: 29 }],
-    ["biohazard", { varpId: 68, completionValue: 16 }],
-    [
-        "client of kourend",
-        { varpId: -1, completionValue: 0, varbitEntries: [{ varbitId: 5619, value: 9 }] },
-    ],
-    [
-        "dream mentor",
-        { varpId: -1, completionValue: 0, varbitEntries: [{ varbitId: 3618, value: 28 }] },
-    ],
-    // Free quests with known varps from quest_progress_get
-    ["cook's assistant", { varpId: 29, completionValue: 2 }],
-    ["demon slayer", { varpId: 2561, completionValue: 3 }],
-    ["doric's quest", { varpId: 31, completionValue: 100 }],
-    ["dragon slayer i", { varpId: 176, completionValue: 10 }],
-    ["ernest the chicken", { varpId: 32, completionValue: 3 }],
-    ["goblin diplomacy", { varpId: 2378, completionValue: 6 }],
-    ["imp catcher", { varpId: 160, completionValue: 2 }],
-    ["the knight's sword", { varpId: 122, completionValue: 7 }],
-    ["pirate's treasure", { varpId: 71, completionValue: 4 }],
-    ["prince ali rescue", { varpId: 273, completionValue: 110 }],
-    ["the restless ghost", { varpId: 107, completionValue: 5 }],
-    ["romeo & juliet", { varpId: 144, completionValue: 100 }],
-    ["rune mysteries", { varpId: 63, completionValue: 6 }],
-    ["sheep shearer", { varpId: 179, completionValue: 21 }],
-    ["shield of arrav", { varpId: 145, completionValue: 7 }],
-    ["vampyre slayer", { varpId: 178, completionValue: 3 }],
-    ["witch's potion", { varpId: 67, completionValue: 3 }],
-    ["black knights' fortress", { varpId: 130, completionValue: 4 }],
-]);
 
 // ============================================================================
 // Module

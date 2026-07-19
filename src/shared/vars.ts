@@ -27,9 +27,9 @@ export const VARP_AUTO_RETALIATE = 172;
 export const VARP_ATTACK_STYLE = 43;
 
 /**
- * Last home teleport timestamp (in client ticks since login).
- * Used by CS2 to enforce 30-minute cooldown. Server initializes to large negative
- * value so spell appears available immediately on login.
+ * Last home teleport timestamp for CS2 cooldown checks.
+ * CS2 compares: clientclock - varp(892) >= 90000 (90000 × 20ms = 30 minutes).
+ * Server must write a clientclock-compatible value, not game ticks.
  */
 export const VARP_LAST_HOME_TELEPORT = 892;
 

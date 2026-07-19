@@ -226,6 +226,8 @@ export interface HandlerContext {
     clanName: string;
     clanOwner: string;
     clanRank: number;
+    /** Minimum rank required to kick in the current friends chat channel. */
+    clanMinKick?: number;
 
     // Modern Clan system (ACTIVECLANSETTINGS_* / ACTIVECLANCHANNEL_* opcodes)
     // Optional - if not provided, clan ops return default values (empty/0/-1)

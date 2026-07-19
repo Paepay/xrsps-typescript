@@ -156,6 +156,7 @@ export class PlayerInteractionSystem {
         interaction: GroundItemInteractionState,
     ) => void;
     private onGameMessage?: (player: PlayerState, text: string) => void;
+    private onResolveNpcOption?: (npc: NpcState, opNum: number) => string | undefined;
     /**
      * OSRS parity: Callback to interrupt/cancel all queued skill actions for a player.
      * Called when player walks, starts a new interaction, teleports, etc.
@@ -233,6 +234,12 @@ export class PlayerInteractionSystem {
 
     setGameMessageCallback(callback: (player: PlayerState, text: string) => void): void {
         this.onGameMessage = callback;
+    }
+
+    setResolveNpcOptionCallback(
+        callback: (npc: NpcState, opNum: number) => string | undefined,
+    ): void {
+        this.onResolveNpcOption = callback;
     }
 
     /**
@@ -428,6 +435,7 @@ export class PlayerInteractionSystem {
         npc: NpcState,
         option?: string,
         modifierFlags?: number,
+        opNum?: number,
     ): { ok: boolean; message?: string } {
         const me = this.players.get(ws);
         if (!me) return { ok: false, message: "player not found" };
@@ -450,11 +458,11 @@ export class PlayerInteractionSystem {
         this.replaceInteractionState(ws, me);
 
         logger.info?.(
-            `[npc] start interaction player=${me.id} opt=${option ?? "Talk-to"} npc=${
-                npc.id
-            } type=${npc.typeId} playerPos=(${me.tileX},${me.tileY},${me.level}) npcPos=(${
-                npc.tileX
-            },${npc.tileY},${npc.level})`,
+            `[npc] start interaction player=${me.id} opt=${option ?? "Talk-to"} opNum=${
+                opNum ?? "-"
+            } npc=${npc.id} type=${npc.typeId} playerPos=(${me.tileX},${me.tileY},${
+                me.level
+            }) npcPos=(${npc.tileX},${npc.tileY},${npc.level})`,
         );
 
         const existing = this.interactions.get(ws);
@@ -472,6 +480,7 @@ export class PlayerInteractionSystem {
             kind: "npcInteract",
             npcId: npc.id,
             option,
+            opNum: opNum !== undefined && opNum > 0 ? (opNum | 0) : undefined,
             modifierFlags: this.normalizeModifierFlags(modifierFlags),
             lastRouteTick: Number.MIN_SAFE_INTEGER,
             lastNpcTileX: npc.tileX,
@@ -508,6 +517,12 @@ export class PlayerInteractionSystem {
             return { ok: true };
         }
 
+        // OSRS parity: failed approach must not leave a zombie npcInteract that silently
+        // retries until the NPC wanders into a reachable tile (felt like "spam clicks").
+        this.interactions.delete(ws);
+        me.clearInteraction();
+        me.clearPath();
+        this.onGameMessage?.(me, "I can't reach that.");
         logger.info?.(
             `[npc] interaction routing failed player=${me.id} npc=${npc.id} reason=no_path`,
         );
@@ -1167,11 +1182,24 @@ export class PlayerInteractionSystem {
                     );
                     if (routed) {
                         state.lastRouteTick = tick;
+                        state.unreachableSinceTick = undefined;
+                    } else if (!me.hasPath()) {
+                        if (state.unreachableSinceTick === undefined) {
+                            state.unreachableSinceTick = tick;
+                        } else if (tick - state.unreachableSinceTick >= 1) {
+                            this.onGameMessage?.(me, "I can't reach that.");
+                            this.interactions.delete(ws);
+                            me.clearInteraction();
+                            me.clearPath();
+                            return;
+                        }
                     }
                 }
                 state.completedAt = undefined;
                 return;
             }
+
+            state.unreachableSinceTick = undefined;
 
             // hasArrived() already verified no wall blocks - player can interact
             npc.clearPath();
@@ -1188,16 +1216,19 @@ export class PlayerInteractionSystem {
                 logger.info?.(
                     `[npc] arrived interaction player=${me.id} opt=${
                         state.option ?? "Talk-to"
-                    } npc=${npc.id} type=${npc.typeId} playerPos=(${me.tileX},${me.tileY},${
-                        me.level
-                    }) npcPos=(${npc.tileX},${npc.tileY},${npc.level})`,
+                    } opNum=${state.opNum ?? "-"} npc=${npc.id} type=${npc.typeId} playerPos=(${
+                        me.tileX
+                    },${me.tileY},${me.level}) npcPos=(${npc.tileX},${npc.tileY},${npc.level})`,
                 );
-                // Provide minimal payload; ScriptRuntime will attach services internally
+                let option = state.option;
+                if (!(option && String(option).trim()) && state.opNum && state.opNum > 0) {
+                    option = this.onResolveNpcOption?.(npc, state.opNum) ?? option;
+                }
                 this.scriptRuntime?.queueNpcInteraction({
                     tick: tick,
                     player: me,
                     npc,
-                    option: state.option,
+                    option,
                 });
                 return;
             }

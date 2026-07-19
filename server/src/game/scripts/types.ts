@@ -516,6 +516,23 @@ export interface ScriptServices {
      * Triggers onOpen hooks (IF_SETEVENTS, sidemodals, init scripts, etc.).
      */
     openModal?: (player: PlayerState, interfaceId: number, data?: unknown) => void;
+    /** Friends chat (chat-channel) settings accessors for setup UI (interface 94). */
+    friendsChatGetSettings?: (player: PlayerState) => {
+        channelName?: string;
+        enterRank?: number;
+        talkRank?: number;
+        kickRank?: number;
+    };
+    friendsChatUpdateSettings?: (
+        player: PlayerState,
+        opts: {
+            channelName: string;
+            enterRank: number;
+            talkRank: number;
+            kickRank: number;
+        },
+    ) => void;
+    friendsChatBeginPrefixEdit?: (player: PlayerState) => void;
     /**
      * Teleport a player to a new location with proper OSRS parity.
      * Clears actions, updates playerViews, and syncs appearance.

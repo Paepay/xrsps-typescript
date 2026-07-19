@@ -155,10 +155,42 @@ const CATHERBY_RANGE_SHOP: ShopDefinition = {
     ],
 };
 
+/** Aubury's Rune Shop. — SE Varrock (wiki stock / prices). */
+const AUBURYS_RUNE_SHOP: ShopDefinition = {
+    id: "auburys_rune_shop",
+    name: "Aubury's Rune Shop.",
+    // 2886 = cache spawn; 11434/11435 = modern OSRS aliases (REGIONAL_NPC_ALIASES).
+    npcIds: [2886, 11434, 11435],
+    currencyItemId: 995,
+    capacity: 40,
+    generalStore: false,
+    restockTicks: 10,
+    buyPriceMultiplier: 1,
+    sellPriceMultiplier: 0.6,
+    // Prices = wiki "sold at" (sellmultiplier 100% / buyPriceMultiplier 1).
+    stock: [
+        { itemId: 556, quantity: 5000, restockTicks: 10, price: 4 }, // Air rune
+        { itemId: 554, quantity: 5000, restockTicks: 10, price: 4 }, // Fire rune
+        { itemId: 555, quantity: 5000, restockTicks: 10, price: 4 }, // Water rune
+        { itemId: 557, quantity: 5000, restockTicks: 10, price: 4 }, // Earth rune
+        { itemId: 558, quantity: 5000, restockTicks: 10, price: 3 }, // Mind rune
+        { itemId: 559, quantity: 5000, restockTicks: 10, price: 3 }, // Body rune
+        { itemId: 562, quantity: 250, restockTicks: 10, price: 90 }, // Chaos rune
+        { itemId: 560, quantity: 250, restockTicks: 15, price: 180 }, // Death rune
+        { itemId: 12734, quantity: 80, restockTicks: 10, price: 430 }, // Fire rune pack
+        { itemId: 12730, quantity: 80, restockTicks: 10, price: 430 }, // Water rune pack
+        { itemId: 12728, quantity: 80, restockTicks: 10, price: 430 }, // Air rune pack
+        { itemId: 12732, quantity: 80, restockTicks: 10, price: 430 }, // Earth rune pack
+        { itemId: 12736, quantity: 40, restockTicks: 10, price: 330 }, // Mind rune pack
+        { itemId: 12738, quantity: 35, restockTicks: 10, price: 9950 }, // Chaos rune pack
+    ],
+};
+
 const SHOP_DEFINITIONS: ShopDefinition[] = [
     VARROCK_GENERAL_STORE,
     TEST_WEAPONS_SHOP,
     CATHERBY_RANGE_SHOP,
+    AUBURYS_RUNE_SHOP,
 ];
 
 export function getShopDefinitionById(id: string): ShopDefinition | undefined {

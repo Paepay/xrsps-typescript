@@ -45,6 +45,8 @@ const MESSAGE_TYPE_MAP: Record<string, number> = {
     private: 3,
     trade: 4,
     clan: 7,
+    /** OSRS friends chat / chat-channel player messages */
+    channel: 9,
     broadcast: 0,
 };
 

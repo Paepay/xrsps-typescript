@@ -67,6 +67,7 @@ export const ITEM_EARTH_RUNE = 557;
 export const ITEM_FIRE_RUNE = 554;
 export const ITEM_BODY_RUNE = 559;
 export const ITEM_RUNE_ESSENCE = 1436;
+/** Pure essence (item 7936). */
 export const ITEM_PURE_ESSENCE = 7936;
 export const ITEM_EYE_OF_NEWT = 221;
 export const ITEM_SWAMP_TAR = 1939;
@@ -258,25 +259,59 @@ export const NPC_DISPLAY_NAMES: Readonly<Record<number, string>> = {
 export const MistCombat = {
     Goblins: [3030, 3031, 3029, 3032, 3033, 3034, 3051, 3036],
     GiantRats: [2856, 2859, 2860, 2861, 2862, 2863, 2864],
+    Rats: [2854, 2855],
     Skeletons: [3565],
     Ghosts: [473, 474, 505, 506, 507],
     DarkWizards: [512, 5086, 5087, 5088, 5089],
     Highwaymen: [518, 519],
+    Cows: [2790, 2791, 2793],
+    Chickens: [1173, 1174, 2831],
+    Frogs: [8702],
+    GiantFrogs: [8700],
+    Spiders: [3019],
+    GiantSpiders: [3017],
+    Imps: [5007],
+    Muggers: [513],
+    /** Lumbridge / sheep farm rams. */
+    Rams: [1262, 1263, 1264],
+    /** Wizards' Tower top floor lesser demon (league overlap). */
+    LesserDemonTower: [2005],
+    /** Varrock sewers. */
+    Zombies: [39, 41, 55, 56, 57, 58],
 } as const;
 
 export const MistAreas = {
     LumbridgeCastle: { minX: 3205, maxX: 3225, minY: 3210, maxY: 3230 },
+    /** Castle kitchen / range for cook favours. */
+    LumbridgeKitchen: { minX: 3206, maxX: 3212, minY: 3212, maxY: 3218 },
     LumbridgeGraveyard: { minX: 3240, maxX: 3255, minY: 3190, maxY: 3205 },
     LumbridgeSwamp: { minX: 3160, maxX: 3230, minY: 3140, maxY: 3195 },
-    FredFarm: { minX: 3184, maxX: 3198, minY: 3270, maxY: 3285 },
+    /** Includes the onion patch south of Fred's house (~3188–3191, 3266–3268). */
+    FredFarm: { minX: 3184, maxX: 3198, minY: 3264, maxY: 3285 },
     WizardsTower: { minX: 3102, maxX: 3118, minY: 3150, maxY: 3170 },
     DraynorVillage: { minX: 3075, maxX: 3105, minY: 3240, maxY: 3270 },
     DraynorManor: { minX: 3090, maxX: 3125, minY: 3325, maxY: 3365 },
+    /** Draynor rooftop agility course start / rooftops. */
+    DraynorAgility: { minX: 3080, maxX: 3115, minY: 3245, maxY: 3285 },
     VarrockSquare: { minX: 3205, maxX: 3228, minY: 3420, maxY: 3445 },
+    /** Aubury's Rune Shop — SE Varrock, south of the eastern bank (~3253, 3402). */
+    AuburyRuneShop: { minX: 3251, maxX: 3255, minY: 3399, maxY: 3404 },
+    /** Broad Varrock surface for guard pickpocket league overlap. */
+    Varrock: { minX: 3185, maxX: 3290, minY: 3375, maxY: 3515 },
     VarrockPalace: { minX: 3200, maxX: 3228, minY: 3455, maxY: 3500 },
     VarrockMuseum: { minX: 3250, maxX: 3270, minY: 3440, maxY: 3460 },
     VarrockChapel: { minX: 3250, maxX: 3260, minY: 3480, maxY: 3490 },
     VarrockSewersEntrance: { minX: 3230, maxX: 3245, minY: 3460, maxY: 3475 },
+    /** East Varrock tea stall (league: Steal From the Varrock Tea Stall). */
+    VarrockTeaStall: { minX: 3267, maxX: 3274, minY: 3408, maxY: 3415 },
+    /** Cabbage patch south of Varrock (league: Pick a Cabbage in Varrock). */
+    VarrockCabbage: { minX: 3225, maxX: 3235, minY: 3295, maxY: 3305 },
+    /** Cooks' Guild west of Varrock. */
+    CooksGuild: { minX: 3138, maxX: 3148, minY: 3440, maxY: 3455 },
+    /** H.A.M. hideout (Misthalin underground). */
+    HamHideout: { minX: 3138, maxX: 3185, minY: 9608, maxY: 9660 },
+    /** Varrock rooftop agility course. */
+    VarrockAgility: { minX: 3215, maxX: 3245, minY: 3408, maxY: 3425 },
     AirAltar: { minX: 2840, maxX: 2855, minY: 4825, maxY: 4840 }, // excluded — not Misthalin overworld
 } as const;
 

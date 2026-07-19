@@ -600,11 +600,48 @@ export function decodeClientPacket(data: Uint8Array | ArrayBuffer): DecodedClien
 
         case ClientPacketId.CHAT: {
             const messageTypeVal = reader.readByte();
-            const messageType = messageTypeVal === 1 ? "game" : "public";
+            const messageType =
+                messageTypeVal === 1 ? "game" : messageTypeVal === 2 ? "channel" : "public";
             const text = reader.readString();
             return {
                 type: "chat",
                 payload: { text, messageType },
+            };
+        }
+
+        case ClientPacketId.FRIENDS_CHAT_JOIN_LEAVE: {
+            const channelName = reader.remaining > 0 ? reader.readString() : "";
+            return {
+                type: "friends_chat_join_leave",
+                payload: { channelName },
+            };
+        }
+
+        case ClientPacketId.FRIENDS_CHAT_KICK: {
+            return {
+                type: "friends_chat_kick",
+                payload: { name: reader.readString() },
+            };
+        }
+
+        case ClientPacketId.FRIENDS_CHAT_SET_RANK: {
+            const rank = reader.readSignedByte();
+            const name = reader.readString();
+            return {
+                type: "friends_chat_set_rank",
+                payload: { rank, name },
+            };
+        }
+
+        case ClientPacketId.FRIENDS_CHAT_SETTINGS: {
+            return {
+                type: "friends_chat_settings",
+                payload: {
+                    channelName: reader.readString(),
+                    enterRank: reader.readSignedByte(),
+                    talkRank: reader.readSignedByte(),
+                    kickRank: reader.readSignedByte(),
+                },
             };
         }
 

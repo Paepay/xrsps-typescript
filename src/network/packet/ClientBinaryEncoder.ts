@@ -479,11 +479,46 @@ export class ClientBinaryEncoder {
     // CHAT/VARPS
     // ========================================
 
-    encodeChat(text: string, messageType?: "public" | "game"): Uint8Array {
+    encodeChat(text: string, messageType?: "public" | "game" | "channel"): Uint8Array {
         this.buffer.reset();
-        this.buffer.writeByte(messageType === "game" ? 1 : 0);
+        const typeByte =
+            messageType === "game" ? 1 : messageType === "channel" ? 2 : 0;
+        this.buffer.writeByte(typeByte);
         this.buffer.writeString(text);
         return this.buffer.toPacket(ClientPacketId.CHAT);
+    }
+
+    encodeFriendsChatJoinLeave(channelName?: string): Uint8Array {
+        this.buffer.reset();
+        this.buffer.writeString(channelName ?? "");
+        return this.buffer.toPacket(ClientPacketId.FRIENDS_CHAT_JOIN_LEAVE);
+    }
+
+    encodeFriendsChatKick(memberName: string): Uint8Array {
+        this.buffer.reset();
+        this.buffer.writeString(memberName);
+        return this.buffer.toPacket(ClientPacketId.FRIENDS_CHAT_KICK);
+    }
+
+    encodeFriendsChatSetRank(rank: number, name: string): Uint8Array {
+        this.buffer.reset();
+        this.buffer.writeByte(rank | 0);
+        this.buffer.writeString(name);
+        return this.buffer.toPacket(ClientPacketId.FRIENDS_CHAT_SET_RANK);
+    }
+
+    encodeFriendsChatSettings(payload: {
+        channelName: string;
+        enterRank: number;
+        talkRank: number;
+        kickRank: number;
+    }): Uint8Array {
+        this.buffer.reset();
+        this.buffer.writeString(payload.channelName ?? "");
+        this.buffer.writeByte(payload.enterRank | 0);
+        this.buffer.writeByte(payload.talkRank | 0);
+        this.buffer.writeByte(payload.kickRank | 0);
+        return this.buffer.toPacket(ClientPacketId.FRIENDS_CHAT_SETTINGS);
     }
 
     encodeVarpTransmit(varpId: number, value: number): Uint8Array {
@@ -625,6 +660,18 @@ export function encodeClientMessage(msg: { type: string; payload: any }): Uint8A
 
         case "chat":
             return clientEncoder.encodeChat(payload.text, payload.messageType);
+
+        case "friends_chat_join_leave":
+            return clientEncoder.encodeFriendsChatJoinLeave(payload.channelName);
+
+        case "friends_chat_kick":
+            return clientEncoder.encodeFriendsChatKick(payload.name);
+
+        case "friends_chat_set_rank":
+            return clientEncoder.encodeFriendsChatSetRank(payload.rank, payload.name);
+
+        case "friends_chat_settings":
+            return clientEncoder.encodeFriendsChatSettings(payload);
 
         case "varp_transmit":
             return clientEncoder.encodeVarpTransmit(payload.varpId, payload.value);

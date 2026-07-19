@@ -198,6 +198,9 @@ export function worldEntriesToSimple(
                     ? e.playerServerId
                     : (e.spellCast?.playerServerId as number | undefined) ?? undefined,
             onClick: (gx?: number, gy?: number, ctx?: MenuClickContext) => {
+                // MenuState.invoke sets worldMenuStateDispatch so packet dispatch stays in
+                // menuAction while entry onClick still runs client side-effects (red/yellow X).
+                // performWorldEntryAction skips orig packet handlers when that flag is set.
                 const evt = typeof toEvt === "function" ? toEvt(gx, gy) : undefined;
                 try {
                     e.onClick?.(e as any, evt, ctx as any);

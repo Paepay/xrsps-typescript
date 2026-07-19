@@ -244,6 +244,28 @@ export type ChatMessageEvent = {
     playerId?: number;
 };
 
+export type FriendsChatMemberEvent = {
+    name: string;
+    world: number;
+    rank: number;
+};
+
+export type FriendsChatServerPayload =
+    | { kind: "leave" }
+    | {
+          kind: "full";
+          owner: string;
+          channelName: string;
+          minKick: number;
+          members: FriendsChatMemberEvent[];
+      }
+    | {
+          kind: "incremental";
+          name: string;
+          world: number;
+          rank: number;
+      };
+
 export type NotificationEvent = {
     kind:
         | "loot"
@@ -702,6 +724,7 @@ const bankListeners = new Set<(payload: BankServerUpdate) => void>();
 const shopListeners = new Set<(state: ShopWindowState) => void>();
 const tradeListeners = new Set<(state: TradeWindowState) => void>();
 const chatMessageListeners = new Set<(msg: ChatMessageEvent) => void>();
+const friendsChatListeners = new Set<(payload: FriendsChatServerPayload) => void>();
 const notificationListeners = new Set<(event: NotificationEvent) => void>();
 const regionalFavourHudListeners = new Set<(event: RegionalFavourHudEvent) => void>();
 const groundItemListeners = new Set<(payload: GroundItemsServerPayload) => void>();
@@ -967,15 +990,22 @@ const clampShopMode = (mode: number | undefined): number => {
 
 function sanitizeShopStockEntryMessage(raw: any): ShopStockEntryMessage {
     const slot = Number(raw?.slot);
-    const itemId = Number(raw?.itemId);
+    let itemId = Number(raw?.itemId);
     const quantity = Number(raw?.quantity);
     const defaultQuantity = Number(raw?.defaultQuantity);
     const priceEach = Number(raw?.priceEach);
     const sellPrice = Number(raw?.sellPrice);
+    // Empty slots use -1; reject unsigned-short wrap of -1 (65535) and other junk ids.
+    if (!Number.isFinite(itemId) || itemId <= 0 || itemId >= 65535) {
+        itemId = -1;
+    } else {
+        itemId = itemId | 0;
+    }
     const normalized: ShopStockEntryMessage = {
         slot: Number.isFinite(slot) ? Math.max(0, slot | 0) : 0,
-        itemId: Number.isFinite(itemId) ? itemId | 0 : -1,
-        quantity: Number.isFinite(quantity) ? Math.max(0, quantity | 0) : 0,
+        itemId,
+        quantity:
+            itemId > 0 && Number.isFinite(quantity) ? Math.max(0, quantity | 0) : 0,
     };
     if (Number.isFinite(defaultQuantity)) {
         normalized.defaultQuantity = Math.max(0, (defaultQuantity as number) | 0);
@@ -1985,6 +2015,15 @@ function processServerMessage(msg: any): void {
         handleSmithingPayload(msg.payload as SmithingServerPayload);
     } else if (msg.type === "trade") {
         handleTradePayload(msg.payload as TradeServerPayload);
+    } else if (msg.type === "friends_chat") {
+        const payload = msg.payload as FriendsChatServerPayload;
+        for (const cb of friendsChatListeners) {
+            try {
+                cb(payload);
+            } catch (err) {
+                console.warn("friends_chat listener error", err);
+            }
+        }
     } else if (msg.type === "skills") {
         emitSkills(msg.payload as SkillsServerPayload);
     } else if (msg.type === "combat") {
@@ -2744,11 +2783,12 @@ export function sendNpcAttack(npcId: number): void {
     send({ type: "npc_attack", payload: { npcId: npcId | 0 } } as any);
 }
 
-export function sendNpcInteract(npcId: number, option?: string): void {
+export function sendNpcInteract(npcId: number, option?: string, opNum?: number): void {
     if (!socket || socket.readyState !== WebSocket.OPEN) return;
     if (npcId == null) return;
     const payload: any = { npcId: npcId | 0 };
     if (option) payload.option = option;
+    if (opNum !== undefined && opNum > 0) payload.opNum = opNum | 0;
     send({ type: "npc_interact", payload } as any);
 }
 
@@ -3341,7 +3381,7 @@ export function sendGroundItemAction(payload: GroundItemActionPayload): void {
 
 export function sendChat(
     text: string,
-    messageType: "public" | "game" = "public",
+    messageType: "public" | "game" | "channel" = "public",
     chatType: number = 0,
 ): void {
     console.log(`[sendChat] Attempting to send: "${text}"`);
@@ -3352,6 +3392,20 @@ export function sendChat(
     const filtered = sanitizeChatText(String(text ?? ""));
     if (!filtered) {
         console.log("[sendChat] Filtered text is empty");
+        return;
+    }
+
+    // Channel messages skip public-chat color/effect formatting prefixes.
+    if (messageType === "channel") {
+        console.log(`[sendChat] Sending channel message: "${filtered}"`);
+        send({
+            type: "chat",
+            payload: {
+                text: filtered,
+                messageType: "channel",
+                chatType: chatType | 0,
+            },
+        } as any);
         return;
     }
 
@@ -3373,6 +3427,39 @@ export function sendChat(
             effectId: formatting.effectId | 0,
             pattern: formatting.pattern ? Array.from(formatting.pattern) : undefined,
         },
+    } as any);
+}
+
+export function sendFriendsChatJoinLeave(channelName?: string): void {
+    send({
+        type: "friends_chat_join_leave",
+        payload: { channelName: channelName ?? "" },
+    } as any);
+}
+
+export function sendFriendsChatKick(name: string): void {
+    send({
+        type: "friends_chat_kick",
+        payload: { name },
+    } as any);
+}
+
+export function sendFriendsChatSetRank(rank: number, name: string): void {
+    send({
+        type: "friends_chat_set_rank",
+        payload: { rank: rank | 0, name },
+    } as any);
+}
+
+export function sendFriendsChatSettings(opts: {
+    channelName: string;
+    enterRank: number;
+    talkRank: number;
+    kickRank: number;
+}): void {
+    send({
+        type: "friends_chat_settings",
+        payload: opts,
     } as any);
 }
 
@@ -3490,6 +3577,11 @@ export function subscribeGroundItems(cb: (payload: GroundItemsServerPayload) => 
 export function subscribeChatMessages(cb: (msg: ChatMessageEvent) => void): () => void {
     chatMessageListeners.add(cb);
     return () => chatMessageListeners.delete(cb);
+}
+
+export function subscribeFriendsChat(cb: (payload: FriendsChatServerPayload) => void): () => void {
+    friendsChatListeners.add(cb);
+    return () => friendsChatListeners.delete(cb);
 }
 
 export function subscribeNotifications(cb: (event: NotificationEvent) => void): () => void {

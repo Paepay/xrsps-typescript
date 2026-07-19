@@ -1,0 +1,1068 @@
+{
+  "cache": "osrs-237_2026-03-25",
+  "sourceScriptId": 4024,
+  "note": "Progress var IDs only — completion thresholds live in per-quest CS2 / status scripts, not this dump.",
+  "count": 212,
+  "quests": [
+    {
+      "questId": 0,
+      "kind": "varbit",
+      "id": 3185
+    },
+    {
+      "questId": 1,
+      "kind": "varbit",
+      "id": 3550
+    },
+    {
+      "questId": 3,
+      "kind": "varbit",
+      "id": 7856
+    },
+    {
+      "questId": 4,
+      "kind": "varbit",
+      "id": 13714
+    },
+    {
+      "questId": 5,
+      "kind": "varbit",
+      "id": 5078
+    },
+    {
+      "questId": 6,
+      "kind": "varbit",
+      "id": 12063
+    },
+    {
+      "questId": 7,
+      "kind": "varbit",
+      "id": 299
+    },
+    {
+      "questId": 8,
+      "kind": "varp",
+      "id": 293
+    },
+    {
+      "questId": 9,
+      "kind": "varp",
+      "id": 68
+    },
+    {
+      "questId": 10,
+      "kind": "varp",
+      "id": 130
+    },
+    {
+      "questId": 11,
+      "kind": "varbit",
+      "id": 5795
+    },
+    {
+      "questId": 12,
+      "kind": "varp",
+      "id": 655
+    },
+    {
+      "questId": 13,
+      "kind": "varbit",
+      "id": 5619
+    },
+    {
+      "questId": 14,
+      "kind": "varp",
+      "id": 10
+    },
+    {
+      "questId": 15,
+      "kind": "varbit",
+      "id": 3293
+    },
+    {
+      "questId": 16,
+      "kind": "varbit",
+      "id": 3274
+    },
+    {
+      "questId": 17,
+      "kind": "varp",
+      "id": 29
+    },
+    {
+      "questId": 18,
+      "kind": "varbit",
+      "id": 6071
+    },
+    {
+      "questId": 19,
+      "kind": "varbit",
+      "id": 13715
+    },
+    {
+      "questId": 20,
+      "kind": "varbit",
+      "id": 13713
+    },
+    {
+      "questId": 21,
+      "kind": "varbit",
+      "id": 10570
+    },
+    {
+      "questId": 22,
+      "kind": "varbit",
+      "id": 2573
+    },
+    {
+      "questId": 23,
+      "kind": "varp",
+      "id": 314
+    },
+    {
+      "questId": 24,
+      "kind": "varbit",
+      "id": 2258
+    },
+    {
+      "questId": 25,
+      "kind": "varbit",
+      "id": 2561
+    },
+    {
+      "questId": 26,
+      "kind": "varbit",
+      "id": 6027
+    },
+    {
+      "questId": 27,
+      "kind": "varbit",
+      "id": 358
+    },
+    {
+      "questId": 28,
+      "kind": "varbit",
+      "id": 1465
+    },
+    {
+      "questId": 29,
+      "kind": "varp",
+      "id": 131
+    },
+    {
+      "questId": 30,
+      "kind": "varp",
+      "id": 31
+    },
+    {
+      "questId": 31,
+      "kind": "varp",
+      "id": 176
+    },
+    {
+      "questId": 32,
+      "kind": "varbit",
+      "id": 6104
+    },
+    {
+      "questId": 33,
+      "kind": "varbit",
+      "id": 3618
+    },
+    {
+      "questId": 34,
+      "kind": "varp",
+      "id": 80
+    },
+    {
+      "questId": 35,
+      "kind": "varp",
+      "id": 0
+    },
+    {
+      "questId": 36,
+      "kind": "varp",
+      "id": 335
+    },
+    {
+      "questId": 37,
+      "kind": "varbit",
+      "id": 2780
+    },
+    {
+      "questId": 38,
+      "kind": "varbit",
+      "id": 13718
+    },
+    {
+      "questId": 39,
+      "kind": "varbit",
+      "id": 2639
+    },
+    {
+      "questId": 40,
+      "kind": "varbit",
+      "id": 1560
+    },
+    {
+      "questId": 41,
+      "kind": "varbit",
+      "id": 13717
+    },
+    {
+      "questId": 42,
+      "kind": "varbit",
+      "id": 2866
+    },
+    {
+      "questId": 43,
+      "kind": "varp",
+      "id": 492
+    },
+    {
+      "questId": 44,
+      "kind": "varp",
+      "id": 32
+    },
+    {
+      "questId": 45,
+      "kind": "varbit",
+      "id": 2497
+    },
+    {
+      "questId": 46,
+      "kind": "varbit",
+      "id": 1803
+    },
+    {
+      "questId": 47,
+      "kind": "varbit",
+      "id": 2326
+    },
+    {
+      "questId": 48,
+      "kind": "varp",
+      "id": 148
+    },
+    {
+      "questId": 49,
+      "kind": "varbit",
+      "id": 5347
+    },
+    {
+      "questId": 50,
+      "kind": "varbit",
+      "id": 334
+    },
+    {
+      "questId": 51,
+      "kind": "varp",
+      "id": 17
+    },
+    {
+      "questId": 52,
+      "kind": "varp",
+      "id": 11
+    },
+    {
+      "questId": 53,
+      "kind": "varbit",
+      "id": 822
+    },
+    {
+      "questId": 54,
+      "kind": "varbit",
+      "id": 7796
+    },
+    {
+      "questId": 55,
+      "kind": "varbit",
+      "id": 9459
+    },
+    {
+      "questId": 56,
+      "kind": "varbit",
+      "id": 3311
+    },
+    {
+      "questId": 57,
+      "kind": "varp",
+      "id": 347
+    },
+    {
+      "questId": 58,
+      "kind": "varbit",
+      "id": 961
+    },
+    {
+      "questId": 59,
+      "kind": "varbit",
+      "id": 3330
+    },
+    {
+      "questId": 60,
+      "kind": "varp",
+      "id": 180
+    },
+    {
+      "questId": 61,
+      "kind": "varbit",
+      "id": 693
+    },
+    {
+      "questId": 62,
+      "kind": "varbit",
+      "id": 217
+    },
+    {
+      "questId": 63,
+      "kind": "varbit",
+      "id": 571
+    },
+    {
+      "questId": 64,
+      "kind": "varbit",
+      "id": 2378
+    },
+    {
+      "questId": 65,
+      "kind": "varbit",
+      "id": 346
+    },
+    {
+      "questId": 66,
+      "kind": "varp",
+      "id": 150
+    },
+    {
+      "questId": 67,
+      "kind": "varp",
+      "id": 980
+    },
+    {
+      "questId": 68,
+      "kind": "varbit",
+      "id": 2783
+    },
+    {
+      "questId": 69,
+      "kind": "varbit",
+      "id": 1527
+    },
+    {
+      "questId": 70,
+      "kind": "varp",
+      "id": 382
+    },
+    {
+      "questId": 71,
+      "kind": "varp",
+      "id": 223
+    },
+    {
+      "questId": 72,
+      "kind": "varp",
+      "id": 188
+    },
+    {
+      "questId": 73,
+      "kind": "varp",
+      "id": 5
+    },
+    {
+      "questId": 74,
+      "kind": "varbit",
+      "id": 34
+    },
+    {
+      "questId": 75,
+      "kind": "varbit",
+      "id": 418
+    },
+    {
+      "questId": 76,
+      "kind": "varp",
+      "id": 160
+    },
+    {
+      "questId": 77,
+      "kind": "varbit",
+      "id": 1990
+    },
+    {
+      "questId": 78,
+      "kind": "varbit",
+      "id": 8403
+    },
+    {
+      "questId": 79,
+      "kind": "varp",
+      "id": 387
+    },
+    {
+      "questId": 80,
+      "kind": "varp",
+      "id": 175
+    },
+    {
+      "questId": 81,
+      "kind": "varbit",
+      "id": 12296
+    },
+    {
+      "questId": 82,
+      "kind": "varbit",
+      "id": 3888
+    },
+    {
+      "questId": 83,
+      "kind": "varp",
+      "id": 122
+    },
+    {
+      "questId": 84,
+      "kind": "varbit",
+      "id": 3290
+    },
+    {
+      "questId": 85,
+      "kind": "varp",
+      "id": 139
+    },
+    {
+      "questId": 86,
+      "kind": "varp",
+      "id": 147
+    },
+    {
+      "questId": 87,
+      "kind": "varbit",
+      "id": 532
+    },
+    {
+      "questId": 88,
+      "kind": "varbit",
+      "id": 2448
+    },
+    {
+      "questId": 89,
+      "kind": "varp",
+      "id": 267
+    },
+    {
+      "questId": 90,
+      "kind": "varbit",
+      "id": 6067
+    },
+    {
+      "questId": 91,
+      "kind": "varbit",
+      "id": 6528
+    },
+    {
+      "questId": 92,
+      "kind": "varbit",
+      "id": 1383
+    },
+    {
+      "questId": 93,
+      "kind": "varp",
+      "id": 14
+    },
+    {
+      "questId": 94,
+      "kind": "varbit",
+      "id": 3468
+    },
+    {
+      "questId": 95,
+      "kind": "varp",
+      "id": 365
+    },
+    {
+      "questId": 96,
+      "kind": "varbit",
+      "id": 5027
+    },
+    {
+      "questId": 97,
+      "kind": "varp",
+      "id": 30
+    },
+    {
+      "questId": 98,
+      "kind": "varbit",
+      "id": 260
+    },
+    {
+      "questId": 99,
+      "kind": "varp",
+      "id": 517
+    },
+    {
+      "questId": 100,
+      "kind": "varbit",
+      "id": 1103
+    },
+    {
+      "questId": 101,
+      "kind": "varp",
+      "id": 192
+    },
+    {
+      "questId": 102,
+      "kind": "varbit",
+      "id": 2790
+    },
+    {
+      "questId": 103,
+      "kind": "varp",
+      "id": 307
+    },
+    {
+      "questId": 104,
+      "kind": "varbit",
+      "id": 12276
+    },
+    {
+      "questId": 105,
+      "kind": "varp",
+      "id": 112
+    },
+    {
+      "questId": 106,
+      "kind": "varbit",
+      "id": 3534
+    },
+    {
+      "questId": 107,
+      "kind": "varp",
+      "id": 416
+    },
+    {
+      "questId": 108,
+      "kind": "varp",
+      "id": 71
+    },
+    {
+      "questId": 109,
+      "kind": "varp",
+      "id": 165
+    },
+    {
+      "questId": 110,
+      "kind": "varbit",
+      "id": 10582
+    },
+    {
+      "questId": 111,
+      "kind": "varp",
+      "id": 302
+    },
+    {
+      "questId": 112,
+      "kind": "varp",
+      "id": 273
+    },
+    {
+      "questId": 113,
+      "kind": "varbit",
+      "id": 6037
+    },
+    {
+      "questId": 114,
+      "kind": "varp",
+      "id": 714
+    },
+    {
+      "questId": 115,
+      "kind": "varp",
+      "id": 714
+    },
+    {
+      "questId": 116,
+      "kind": "varbit",
+      "id": 1404
+    },
+    {
+      "questId": 117,
+      "kind": "varbit",
+      "id": 1850
+    },
+    {
+      "questId": 118,
+      "kind": "varbit",
+      "id": 657
+    },
+    {
+      "questId": 119,
+      "kind": "varp",
+      "id": 328
+    },
+    {
+      "questId": 120,
+      "kind": "varp",
+      "id": 107
+    },
+    {
+      "questId": 121,
+      "kind": "varp",
+      "id": 144
+    },
+    {
+      "questId": 122,
+      "kind": "varp",
+      "id": 402
+    },
+    {
+      "questId": 123,
+      "kind": "varbit",
+      "id": 2140
+    },
+    {
+      "questId": 124,
+      "kind": "varp",
+      "id": 600
+    },
+    {
+      "questId": 125,
+      "kind": "varp",
+      "id": 63
+    },
+    {
+      "questId": 126,
+      "kind": "varp",
+      "id": 76
+    },
+    {
+      "questId": 127,
+      "kind": "varp",
+      "id": 159
+    },
+    {
+      "questId": 128,
+      "kind": "varp",
+      "id": 339
+    },
+    {
+      "questId": 129,
+      "kind": "varbit",
+      "id": 1372
+    },
+    {
+      "questId": 130,
+      "kind": "varp",
+      "id": 60
+    },
+    {
+      "questId": 131,
+      "kind": "varp",
+      "id": 179
+    },
+    {
+      "questId": 132,
+      "kind": "varbit",
+      "id": 13716
+    },
+    {
+      "questId": 133,
+      "kind": "varp",
+      "id": 116
+    },
+    {
+      "questId": 134,
+      "kind": "varbit",
+      "id": 7255
+    },
+    {
+      "questId": 135,
+      "kind": "varbit",
+      "id": 1344
+    },
+    {
+      "questId": 136,
+      "kind": "varbit",
+      "id": 2610
+    },
+    {
+      "questId": 137,
+      "kind": "varbit",
+      "id": 9016
+    },
+    {
+      "questId": 138,
+      "kind": "varbit",
+      "id": 2011
+    },
+    {
+      "questId": 139,
+      "kind": "varbit",
+      "id": 1444
+    },
+    {
+      "questId": 140,
+      "kind": "varbit",
+      "id": 2098
+    },
+    {
+      "questId": 141,
+      "kind": "varp",
+      "id": 320
+    },
+    {
+      "questId": 142,
+      "kind": "varbit",
+      "id": 1028
+    },
+    {
+      "questId": 143,
+      "kind": "varbit",
+      "id": 6358
+    },
+    {
+      "questId": 144,
+      "kind": "varbit",
+      "id": 6396
+    },
+    {
+      "questId": 145,
+      "kind": "varbit",
+      "id": 451
+    },
+    {
+      "questId": 146,
+      "kind": "varp",
+      "id": 26
+    },
+    {
+      "questId": 147,
+      "kind": "varp",
+      "id": 359
+    },
+    {
+      "questId": 148,
+      "kind": "varp",
+      "id": 197
+    },
+    {
+      "questId": 149,
+      "kind": "varbit",
+      "id": 3337
+    },
+    {
+      "questId": 150,
+      "kind": "varp",
+      "id": 111
+    },
+    {
+      "questId": 151,
+      "kind": "varp",
+      "id": 200
+    },
+    {
+      "questId": 152,
+      "kind": "varp",
+      "id": 385
+    },
+    {
+      "questId": 153,
+      "kind": "varp",
+      "id": 317
+    },
+    {
+      "questId": 154,
+      "kind": "varp",
+      "id": 161
+    },
+    {
+      "questId": 155,
+      "kind": "varp",
+      "id": 178
+    },
+    {
+      "questId": 156,
+      "kind": "varbit",
+      "id": 1051
+    },
+    {
+      "questId": 157,
+      "kind": "varp",
+      "id": 212
+    },
+    {
+      "questId": 158,
+      "kind": "varp",
+      "id": 65
+    },
+    {
+      "questId": 159,
+      "kind": "varbit",
+      "id": 3523
+    },
+    {
+      "questId": 160,
+      "kind": "varp",
+      "id": 226
+    },
+    {
+      "questId": 161,
+      "kind": "varp",
+      "id": 67
+    },
+    {
+      "questId": 162,
+      "kind": "varbit",
+      "id": 8063
+    },
+    {
+      "questId": 163,
+      "kind": "varbit",
+      "id": 487
+    },
+    {
+      "questId": 164,
+      "kind": "varbit",
+      "id": 13175
+    },
+    {
+      "questId": 165,
+      "kind": "varbit",
+      "id": 13599
+    },
+    {
+      "questId": 166,
+      "kind": "varbit",
+      "id": 13619
+    },
+    {
+      "questId": 167,
+      "kind": "varbit",
+      "id": 13738
+    },
+    {
+      "questId": 168,
+      "kind": "varbit",
+      "id": 13841
+    },
+    {
+      "questId": 169,
+      "kind": "varbit",
+      "id": 13902
+    },
+    {
+      "questId": 180,
+      "kind": "varbit",
+      "id": 14609
+    },
+    {
+      "questId": 2306,
+      "kind": "varbit",
+      "id": 13836
+    },
+    {
+      "questId": 2307,
+      "kind": "varbit",
+      "id": 1850
+    },
+    {
+      "questId": 2308,
+      "kind": "varbit",
+      "id": 1892
+    },
+    {
+      "questId": 2309,
+      "kind": "varbit",
+      "id": 1867
+    },
+    {
+      "questId": 2310,
+      "kind": "varbit",
+      "id": 1895
+    },
+    {
+      "questId": 2311,
+      "kind": "varbit",
+      "id": 1896
+    },
+    {
+      "questId": 2312,
+      "kind": "varbit",
+      "id": 1878
+    },
+    {
+      "questId": 2313,
+      "kind": "varbit",
+      "id": 1904
+    },
+    {
+      "questId": 2314,
+      "kind": "varbit",
+      "id": 1910
+    },
+    {
+      "questId": 2315,
+      "kind": "varbit",
+      "id": 1914
+    },
+    {
+      "questId": 2316,
+      "kind": "varbit",
+      "id": 1850
+    },
+    {
+      "questId": 2338,
+      "kind": "varbit",
+      "id": 14722
+    },
+    {
+      "questId": 2343,
+      "kind": "varbit",
+      "id": 14862
+    },
+    {
+      "questId": 3250,
+      "kind": "varbit",
+      "id": 14973
+    },
+    {
+      "questId": 3425,
+      "kind": "varbit",
+      "id": 15288
+    },
+    {
+      "questId": 3450,
+      "kind": "varbit",
+      "id": 9632
+    },
+    {
+      "questId": 3451,
+      "kind": "varbit",
+      "id": 9613
+    },
+    {
+      "questId": 3466,
+      "kind": "varbit",
+      "id": 9655
+    },
+    {
+      "questId": 3467,
+      "kind": "varbit",
+      "id": 9653
+    },
+    {
+      "questId": 3512,
+      "kind": "varbit",
+      "id": 9649
+    },
+    {
+      "questId": 3513,
+      "kind": "varbit",
+      "id": 9835
+    },
+    {
+      "questId": 3514,
+      "kind": "varbit",
+      "id": 9819
+    },
+    {
+      "questId": 3515,
+      "kind": "varbit",
+      "id": 9844
+    },
+    {
+      "questId": 3710,
+      "kind": "varbit",
+      "id": 11117
+    },
+    {
+      "questId": 3711,
+      "kind": "varbit",
+      "id": 11210
+    },
+    {
+      "questId": 3712,
+      "kind": "varbit",
+      "id": 11182
+    },
+    {
+      "questId": 3713,
+      "kind": "varbit",
+      "id": 11193
+    },
+    {
+      "questId": 3937,
+      "kind": "varbit",
+      "id": 11479
+    },
+    {
+      "questId": 5189,
+      "kind": "varbit",
+      "id": 16663
+    },
+    {
+      "questId": 5190,
+      "kind": "varbit",
+      "id": 16632
+    },
+    {
+      "questId": 5191,
+      "kind": "varbit",
+      "id": 16758
+    },
+    {
+      "questId": 5192,
+      "kind": "varbit",
+      "id": 16661
+    },
+    {
+      "questId": 5193,
+      "kind": "varbit",
+      "id": 16662
+    },
+    {
+      "questId": 5194,
+      "kind": "varbit",
+      "id": 17227
+    },
+    {
+      "questId": 7103,
+      "kind": "varbit",
+      "id": 18314
+    },
+    {
+      "questId": 7104,
+      "kind": "varbit",
+      "id": 18317
+    },
+    {
+      "questId": 7105,
+      "kind": "varbit",
+      "id": 18282
+    },
+    {
+      "questId": 7106,
+      "kind": "varbit",
+      "id": 18321
+    },
+    {
+      "questId": 7107,
+      "kind": "varbit",
+      "id": 18335
+    },
+    {
+      "questId": 7108,
+      "kind": "varbit",
+      "id": 18274
+    },
+    {
+      "questId": 9643,
+      "kind": "varp",
+      "id": 281
+    },
+    {
+      "questId": 9645,
+      "kind": "varbit",
+      "id": 20106
+    }
+  ]
+}

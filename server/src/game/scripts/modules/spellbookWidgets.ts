@@ -100,6 +100,42 @@ const HOME_TELEPORT_SOUND_RANGE = 4;
 const HOME_TELEPORT_VARBIT_COOLDOWN = 15064;
 const HOME_TELEPORT_VARBIT_COOLDOWN_VALUE = 100;
 
+/**
+ * CS2 home-teleport gate: clientclock - varp(892) >= 90000.
+ * 90000 × 20ms client cycles = 30 minutes (OSRS cache constant — do not change).
+ */
+const CS2_HOME_TELEPORT_COOLDOWN_CYCLES = 90000;
+/** Desired leagues home-teleport cooldown (5 minutes). */
+const HOME_TELEPORT_COOLDOWN_MS = 5 * 60 * 1000;
+const HOME_TELEPORT_COOLDOWN_CYCLES = Math.floor(HOME_TELEPORT_COOLDOWN_MS / 20);
+
+/** Approximate CS2 clientclock (20ms cycles) from session wall-clock. */
+function estimateClientClock(player: PlayerState): number {
+    const baseMs = player.__clientClockBaseMs ?? Date.now();
+    if (player.__clientClockBaseMs === undefined) {
+        player.__clientClockBaseMs = baseMs;
+    }
+    return Math.max(1, Math.floor((Date.now() - baseMs) / 20) + 1);
+}
+
+/**
+ * Varp value such that CS2's 30-minute threshold effectively waits `HOME_TELEPORT_COOLDOWN_MS`.
+ * Immediately after cast: clientclock - varp ≈ 90000 - 15000 = 75000 (still cooling).
+ * After 5 minutes: difference reaches 90000 (ready).
+ */
+function homeTeleportCooldownVarp(player: PlayerState): number {
+    return (
+        estimateClientClock(player) -
+        (CS2_HOME_TELEPORT_COOLDOWN_CYCLES - HOME_TELEPORT_COOLDOWN_CYCLES)
+    );
+}
+
+function homeTeleportCooldownRemainingMs(player: PlayerState): number {
+    const last = player.lastHomeTeleportMs;
+    if (!last) return 0;
+    return Math.max(0, HOME_TELEPORT_COOLDOWN_MS - (Date.now() - last));
+}
+
 // Wait durations for QueueTask yields.
 // Phase1 fires on first invoke; cycle() is called the same tick so the first
 // WaitCondition gets one decrement immediately → need N+1 for an N-tick gap.
@@ -1208,6 +1244,18 @@ function executeHomeTeleport(
         return;
     }
 
+    const remainingMs = homeTeleportCooldownRemainingMs(player);
+    if (remainingMs > 0) {
+        const remainingMin = Math.max(1, Math.ceil(remainingMs / 60000));
+        services.sendGameMessage(
+            player,
+            `You need to wait another ${remainingMin} ${
+                remainingMin === 1 ? "minute" : "minutes"
+            } before casting this spell again.`,
+        );
+        return;
+    }
+
     // Check teleblock
     if (!player.canTeleport()) {
         services.sendGameMessage(player, "A magical force stops you from teleporting.");
@@ -1282,8 +1330,10 @@ function executeHomeTeleport(
 
         // Teleport: tick +24 — clear seq/spotanim, update cooldown varp/varbit, teleport
         player.timers.remove(HOME_TELEPORT_TIMER);
+        player.lastHomeTeleportMs = Date.now();
         services.queueVarbit?.(player.id, HOME_TELEPORT_VARBIT_COOLDOWN, HOME_TELEPORT_VARBIT_COOLDOWN_VALUE);
-        services.queueVarp?.(player.id, VARP_LAST_HOME_TELEPORT, services.getCurrentTick?.() ?? 0);
+        // Write clientclock-compatible varp so CS2's 90000 threshold equals a 5-minute wait.
+        services.queueVarp?.(player.id, VARP_LAST_HOME_TELEPORT, homeTeleportCooldownVarp(player));
         services.teleportPlayer?.(player, destination.x, destination.y, destination.level);
         services.playPlayerSeq?.(player, -1);
         services.broadcastPlayerSpot?.(player, -1, 0, 0);

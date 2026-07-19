@@ -25,6 +25,7 @@ export type BuiltInActionKind =
     | "skill.spin"
     | "skill.sinew"
     | "skill.flax"
+    | "skill.pick_plant"
     | "skill.woodcut"
     | "skill.firemaking"
     | "skill.mine"

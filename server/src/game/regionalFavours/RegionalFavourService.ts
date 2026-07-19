@@ -809,12 +809,27 @@ export class RegionalFavourService {
         active: ActiveRegionalFavour,
         amount = 1,
     ): void {
+        this.setProgressAbsolute(player, active, active.progress + amount);
+    }
+
+    /**
+     * Set favour progress to an absolute value (capped). Used for inventory-count
+     * tasks (`acceptsExistingItems`) and incremental post-assignment progress.
+     */
+    private setProgressAbsolute(
+        player: RegionalFavourHostPlayer,
+        active: ActiveRegionalFavour,
+        progress: number,
+    ): void {
         mutateState(player, (s) => {
             ensureActiveMap(s);
             const current = s.activeByRegion[active.region];
             if (!current || current.favourId !== active.favourId) return;
             if (current.rewardClaimed || current.objectiveComplete) return;
-            current.progress = Math.min(current.requiredAmount, current.progress + amount);
+            const next = Math.min(current.requiredAmount, Math.max(0, progress | 0));
+            if (next === current.progress) return;
+            const prev = current.progress;
+            current.progress = next;
             if (current.progress >= current.requiredAmount) {
                 current.objectiveComplete = true;
                 // Same-NPC turn-in (incl. seek-contact) is claimed in this conversation — no "return to" spam.
@@ -827,7 +842,7 @@ export class RegionalFavourService {
                         `Favour complete — return to ${npcName(current.turnInNpcId)} to claim your reward.`,
                     );
                 }
-            } else {
+            } else if (next > prev) {
                 this.bridge.queueChat(
                     player.id,
                     `Favour progress: ${current.progress}/${current.requiredAmount}`,
@@ -870,24 +885,41 @@ export class RegionalFavourService {
         );
         if (!match) return;
         this.markProgressOn(player, match.active, 1);
+        // Progress sync may no-op HUD when already complete; always retarget tip
+        // off the corpse onto another living kill target (or turn-in).
+        this.syncHintArrow(player);
     }
 
     onItemObtained(playerId: number, itemId: number, count: number): void {
         const player = this.bridge.getPlayer(playerId);
         if (!player) return;
-        const match = this.findActive(player, (_a, def) => {
+        const isTargetItemFavour = (def: RegionalFavourDefinition): boolean => {
             if (def.targetItemId !== itemId) return false;
-            if (
-                def.category !== "GATHER_ITEM" &&
-                def.category !== "PRODUCE_ITEM" &&
-                def.category !== "PROCESS_ITEM" &&
-                def.category !== "MULTI_STEP" &&
-                def.category !== "RETURN_ITEM"
-            ) {
-                return false;
-            }
-            return !!def.requiresPostAssignmentProgress;
-        });
+            return (
+                def.category === "GATHER_ITEM" ||
+                def.category === "PRODUCE_ITEM" ||
+                def.category === "PROCESS_ITEM" ||
+                def.category === "MULTI_STEP" ||
+                def.category === "RETURN_ITEM"
+            );
+        };
+
+        // Bring-X tasks seed progress from inventory at assign time, but must also
+        // resync when the player later gathers more of the item (e.g. pick onions).
+        const inventoryMatch = this.findActive(
+            player,
+            (_a, def) => isTargetItemFavour(def) && !!def.acceptsExistingItems,
+        );
+        if (inventoryMatch) {
+            const have = this.bridge.getItemCount(player, itemId);
+            this.setProgressAbsolute(player, inventoryMatch.active, have);
+            return;
+        }
+
+        const match = this.findActive(
+            player,
+            (_a, def) => isTargetItemFavour(def) && !!def.requiresPostAssignmentProgress,
+        );
         if (!match) return;
         this.markProgressOn(player, match.active, Math.max(1, count));
     }
@@ -902,6 +934,31 @@ export class RegionalFavourService {
         );
         if (!match) return;
         this.markProgressOn(player, match.active, 1);
+    }
+
+    /**
+     * Progress PERFORM_SKILL_ACTION / USE_OBJECT favours from skill systems
+     * (stall thieve, pickpocket, cook on range, pick plant, etc.).
+     */
+    onSkillAction(playerId: number, actionId: string, amount = 1): void {
+        if (!actionId) return;
+        const player = this.bridge.getPlayer(playerId);
+        if (!player) return;
+        const match = this.findActive(player, (_a, def) => {
+            if (
+                def.category !== "PERFORM_SKILL_ACTION" &&
+                def.category !== "USE_OBJECT"
+            ) {
+                return false;
+            }
+            if (!def.skillActionIds?.includes(actionId)) return false;
+            if (def.targetArea) {
+                return isPlayerInArea(player.tileX, player.tileY, def.targetArea);
+            }
+            return true;
+        });
+        if (!match) return;
+        this.markProgressOn(player, match.active, Math.max(1, amount | 0));
     }
 
     onPlayerLocation(playerId: number): void {

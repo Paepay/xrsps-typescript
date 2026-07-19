@@ -38,6 +38,8 @@ export interface NpcInteractPassiveState {
     kind: "npcInteract";
     npcId: number;
     option?: string;
+    /** 1-based cache action slot from OPNPC* (when known). */
+    opNum?: number;
     modifierFlags?: number;
     lastRouteTick: number;
     lastNpcTileX: number;

@@ -151,12 +151,15 @@ export function registerChatOps(handlers: HandlerMap): void {
 
     // CHAT_SENDCLAN (5010): Sends clan chat message
     // Pops: message (string), chatType (int), clanIndex (int)
+    // OSRS: chatType 1 = friends chat; 3+ = modern clan (out of scope)
     handlers.set(Opcodes.CHAT_SENDCLAN, (ctx) => {
-        const _message = ctx.stringStack[--ctx.stringStackSize];
+        const message = ctx.stringStack[--ctx.stringStackSize];
         ctx.intStackSize -= 2;
-        const _chatType = ctx.intStack[ctx.intStackSize];
+        const chatType = ctx.intStack[ctx.intStackSize];
         const _clanIndex = ctx.intStack[ctx.intStackSize + 1];
-        // Server would handle the clan chat packet
+        if ((chatType | 0) === 1) {
+            sendChat(String(message ?? ""), "channel", chatType | 0);
+        }
     });
 
     // CHAT_PLAYERNAME (5015): Returns local player's name

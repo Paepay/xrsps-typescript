@@ -31,6 +31,14 @@ import {
     rollStoneChestSuccess,
 } from "../../skills/thievingChests";
 import { rollStallLoot } from "../../skills/thievingStalls";
+import {
+    FIELD_CROP_PICK_ANIMATION_ID,
+    FIELD_CROP_PICK_DELAY_TICKS,
+    FIELD_CROP_PICK_SOUND_ID,
+    getFieldCropDefinition,
+    resolveFieldCropRespawnTicks,
+    rollFieldCropLoot,
+} from "../../skills/fieldCrops";
 import type { HatchetDefinition, WoodcuttingTreeDefinition } from "../../skills/woodcutting";
 import { type InventoryItem as RuneInventoryItem, RuneValidator } from "../../spells/RuneValidator";
 import type {
@@ -40,6 +48,7 @@ import type {
     SkillFiremakingActionData as FiremakingActionData,
     SkillFishingActionData as FishingActionData,
     SkillFlaxActionData as FlaxActionData,
+    SkillPickPlantActionData as PickPlantActionData,
     SkillFletchActionData as FletchActionData,
     SkillMiningActionData as MiningActionData,
     SkillSinewActionData as SinewActionData,
@@ -98,6 +107,7 @@ export type SkillScheduledActionKind =
     | "skill.spin"
     | "skill.sinew"
     | "skill.flax"
+    | "skill.pick_plant"
     | "skill.woodcut"
     | "skill.firemaking"
     | "skill.mine"
@@ -319,6 +329,11 @@ export interface SkillActionServices {
     getEnumTypeLoader?(): any;
     /** Cache struct loader for league relic unlock checks. */
     getStructTypeLoader?(): any;
+    /**
+     * Notify regional favours of a completed skill action
+     * (e.g. "stall:tea_stall", "pickpocket:guard", "cook:range").
+     */
+    onRegionalSkillAction?(playerId: number, actionId: string, amount?: number): void;
     rollFishingSuccess(level: number, catchLevel: number, tool: FishingToolDef): boolean;
     rollSmeltingSuccess(
         level: number,
@@ -372,6 +387,15 @@ export interface SkillActionServices {
     // --- Flax Tracking ---
     isFlaxDepleted(tile: Vec2, level: number): boolean;
     markFlaxDepleted(info: {
+        tile: Vec2;
+        level: number;
+        locId: number;
+        respawnTicks: number;
+    }, tick: number): void;
+
+    // --- Field crop / pickable plant tracking ---
+    isFieldCropDepleted(tile: Vec2, level: number): boolean;
+    markFieldCropDepleted(info: {
         tile: Vec2;
         level: number;
         locId: number;
@@ -832,6 +856,10 @@ export class SkillActionHandler {
 
         if (cooked) {
             this.services.awardSkillXp(player, SkillId.Cooking, recipe.xp);
+            this.services.onRegionalSkillAction?.(
+                player.id,
+                heatSource === "fire" ? "cook:fire" : "cook:range",
+            );
         }
 
         const effects: ActionEffect[] = [
@@ -1307,6 +1335,77 @@ export class SkillActionHandler {
             ok: true,
             cooldownTicks: FLAX_PICK_DELAY_TICKS,
             groups: ["skill.flax"],
+            effects,
+        };
+    }
+
+    /**
+     * Pick wild field crops (onion, potato, cabbage, wheat). No Farming XP.
+     */
+    executeSkillPickPlantAction(
+        player: PlayerState,
+        data: PickPlantActionData,
+        tick: number,
+    ): ActionExecutionResult {
+        const tile: Vec2 = { x: data.tile.x, y: data.tile.y };
+        const plane = data.level;
+        const locId = data.locId;
+        const def = getFieldCropDefinition(locId);
+
+        if (!def) {
+            return this.failGatheringPrecheck(player, "", "invalid_plant");
+        }
+
+        if (this.services.isFieldCropDepleted(tile, plane)) {
+            return this.failGatheringPrecheck(player, "", "plant_depleted");
+        }
+
+        if (!this.services.hasInventorySlot(player)) {
+            return this.failGatheringPrecheck(
+                player,
+                def.inventoryFullMessage,
+                "inventory_full",
+            );
+        }
+
+        const loot = rollFieldCropLoot(def);
+        const effects: ActionEffect[] = [];
+
+        this.services.faceGatheringTarget(player, tile);
+        player.queueOneShotSeq(FIELD_CROP_PICK_ANIMATION_ID);
+
+        this.services.enqueueSoundBroadcast(
+            FIELD_CROP_PICK_SOUND_ID,
+            tile.x,
+            tile.y,
+            plane,
+        );
+
+        const respawnTicks = resolveFieldCropRespawnTicks(def.respawn);
+        this.services.markFieldCropDepleted(
+            {
+                tile,
+                level: plane,
+                locId,
+                respawnTicks,
+            },
+            tick,
+        );
+        this.services.emitLocChange(locId, def.depletedLocId ?? 0, tile, plane);
+
+        const result = this.services.addItemToInventory(player, loot.itemId, 1);
+        if (result.added > 0) {
+            effects.push({ type: "inventorySnapshot", playerId: player.id });
+        }
+
+        effects.push(this.services.buildSkillMessageEffect(player, loot.message));
+        this.services.sendSound(player, FIELD_CROP_PICK_SOUND_ID);
+        this.services.onRegionalSkillAction?.(player.id, `pick_plant:${def.id}`);
+
+        return {
+            ok: true,
+            cooldownTicks: FIELD_CROP_PICK_DELAY_TICKS,
+            groups: ["skill.pick_plant"],
             effects,
         };
     }
@@ -3000,6 +3099,10 @@ export class SkillActionHandler {
                 );
 
                 if (data.guideId) {
+                    this.services.onRegionalSkillAction?.(
+                        player.id,
+                        `pickpocket:${data.guideId}`,
+                    );
                     tryRememberThievingPickpocketGuideLocation(player, data.guideId, {
                         canUseAdminTeleport: (p) =>
                             this.services.canUseThievingGuideFeature?.(p) === true,
@@ -3248,6 +3351,7 @@ export class SkillActionHandler {
         this.services.emitLocChange(data.locId, data.emptyLocId, tile, data.level);
 
         if (data.guideId) {
+            this.services.onRegionalSkillAction?.(player.id, `stall:${data.guideId}`);
             notifyThievingStallSuccess(player, data.guideId, {
                 canUseAdminTeleport: (p) =>
                     this.services.canUseThievingGuideFeature?.(p) === true,

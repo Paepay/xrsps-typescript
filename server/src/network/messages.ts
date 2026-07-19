@@ -204,6 +204,28 @@ export type TradeActionClientPayload =
     | { action: "confirm_accept" }
     | { action: "confirm_decline" };
 
+export type FriendsChatMemberPayload = {
+    name: string;
+    world: number;
+    rank: number;
+};
+
+export type FriendsChatServerPayload =
+    | { kind: "leave" }
+    | {
+          kind: "full";
+          owner: string;
+          channelName: string;
+          minKick: number;
+          members: FriendsChatMemberPayload[];
+      }
+    | {
+          kind: "incremental";
+          name: string;
+          world: number;
+          rank: number;
+      };
+
 export type GroundItemActionPayload = {
     stackId: number;
     tile: { x: number; y: number; level?: number };
@@ -446,6 +468,10 @@ export type ServerToClient =
     | { type: "ground_items"; payload: GroundItemsServerPayload }
     | { type: "trade"; payload: TradeServerPayload }
     | {
+          type: "friends_chat";
+          payload: FriendsChatServerPayload;
+      }
+    | {
           type: "npc_info";
           payload: { loopCycle: number; large: boolean; packet: string | number[] };
       }
@@ -660,6 +686,21 @@ export type ClientToServer =
           };
       }
     | { type: "trade_action"; payload: TradeActionClientPayload }
+    | {
+          type: "friends_chat_join_leave";
+          payload: { channelName?: string };
+      }
+    | { type: "friends_chat_kick"; payload: { name: string } }
+    | { type: "friends_chat_set_rank"; payload: { rank: number; name: string } }
+    | {
+          type: "friends_chat_settings";
+          payload: {
+              channelName: string;
+              enterRank: number;
+              talkRank: number;
+              kickRank: number;
+          };
+      }
     | { type: "ground_item_action"; payload: GroundItemActionPayload }
     | { type: "bank_deposit_inventory"; payload?: Record<string, never> }
     | { type: "bank_deposit_equipment"; payload?: Record<string, never> }
@@ -683,7 +724,7 @@ export type ClientToServer =
           type: "chat";
           payload: {
               text: string;
-              messageType?: "public" | "game";
+              messageType?: "public" | "game" | "channel";
               chatType?: number;
               colorId?: number;
               effectId?: number;
@@ -844,6 +885,25 @@ function encodeMessageToBinaryDirect(msg: ServerToClient): Uint8Array {
                 payload.prefix,
                 payload.playerId,
             );
+
+        case "friends_chat": {
+            if (payload.kind === "leave") {
+                return serverEncoder.encodeFriendsChatUpdate(null);
+            }
+            if (payload.kind === "incremental") {
+                return serverEncoder.encodeFriendsChatUpdateIncremental({
+                    name: payload.name,
+                    world: payload.world,
+                    rank: payload.rank,
+                });
+            }
+            return serverEncoder.encodeFriendsChatUpdate({
+                owner: payload.owner,
+                channelName: payload.channelName,
+                minKick: payload.minKick,
+                members: payload.members,
+            });
+        }
 
         case "sound":
             return serverEncoder.encodeSound(

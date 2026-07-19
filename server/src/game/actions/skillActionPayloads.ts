@@ -75,6 +75,12 @@ export interface SkillFlaxActionData {
     level: number;
 }
 
+export interface SkillPickPlantActionData {
+    locId: number;
+    tile: { x: number; y: number };
+    level: number;
+}
+
 export interface SkillSmeltActionData extends SkillRecipeActionData {}
 
 export interface SkillPicklockActionData {
@@ -188,6 +194,7 @@ export type SkillActionPayloadByKind = {
     "skill.spin": SkillSpinActionData;
     "skill.sinew": SkillSinewActionData;
     "skill.flax": SkillFlaxActionData;
+    "skill.pick_plant": SkillPickPlantActionData;
     "skill.mine": SkillMiningActionData;
     "skill.fish": SkillFishingActionData;
     "skill.smelt": SkillSmeltActionData;

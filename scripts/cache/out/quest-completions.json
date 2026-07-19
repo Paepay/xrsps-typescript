@@ -1,0 +1,2349 @@
+{
+  "cache": "osrs-237_2026-03-25",
+  "source": {
+    "progressScriptId": 4024,
+    "statusScriptId": 4029,
+    "startColumn": 18,
+    "completeColumn": 19
+  },
+  "counts": {
+    "questRows": 212,
+    "withProgressAndComplete": 212,
+    "missingProgress": 0,
+    "missingComplete": 0
+  },
+  "quests": [
+    {
+      "questId": 1,
+      "dbrowId": 17,
+      "name": "Cook's Assistant",
+      "progress": {
+        "kind": "varp",
+        "id": 29
+      },
+      "startValue": null,
+      "completeValue": 2
+    },
+    {
+      "questId": 2,
+      "dbrowId": 25,
+      "name": "Demon Slayer",
+      "progress": {
+        "kind": "varbit",
+        "id": 2561
+      },
+      "startValue": null,
+      "completeValue": 3
+    },
+    {
+      "questId": 3,
+      "dbrowId": 120,
+      "name": "Restless Ghost, The",
+      "progress": {
+        "kind": "varp",
+        "id": 107
+      },
+      "startValue": null,
+      "completeValue": 5
+    },
+    {
+      "questId": 4,
+      "dbrowId": 121,
+      "name": "Romeo & Juliet",
+      "progress": {
+        "kind": "varp",
+        "id": 144
+      },
+      "startValue": null,
+      "completeValue": 100
+    },
+    {
+      "questId": 5,
+      "dbrowId": 131,
+      "name": "Sheep Shearer",
+      "progress": {
+        "kind": "varp",
+        "id": 179
+      },
+      "startValue": null,
+      "completeValue": 21
+    },
+    {
+      "questId": 6,
+      "dbrowId": 132,
+      "name": "Shield of Arrav",
+      "progress": {
+        "kind": "varbit",
+        "id": 13716
+      },
+      "startValue": null,
+      "completeValue": 2
+    },
+    {
+      "questId": 7,
+      "dbrowId": 44,
+      "name": "Ernest the Chicken",
+      "progress": {
+        "kind": "varp",
+        "id": 32
+      },
+      "startValue": null,
+      "completeValue": 3
+    },
+    {
+      "questId": 8,
+      "dbrowId": 155,
+      "name": "Vampyre Slayer",
+      "progress": {
+        "kind": "varp",
+        "id": 178
+      },
+      "startValue": null,
+      "completeValue": 3
+    },
+    {
+      "questId": 9,
+      "dbrowId": 76,
+      "name": "Imp Catcher",
+      "progress": {
+        "kind": "varp",
+        "id": 160
+      },
+      "startValue": null,
+      "completeValue": 2
+    },
+    {
+      "questId": 10,
+      "dbrowId": 112,
+      "name": "Prince Ali Rescue",
+      "progress": {
+        "kind": "varp",
+        "id": 273
+      },
+      "startValue": null,
+      "completeValue": 110
+    },
+    {
+      "questId": 11,
+      "dbrowId": 30,
+      "name": "Doric's Quest",
+      "progress": {
+        "kind": "varp",
+        "id": 31
+      },
+      "startValue": null,
+      "completeValue": 100
+    },
+    {
+      "questId": 12,
+      "dbrowId": 10,
+      "name": "Black Knights' Fortress",
+      "progress": {
+        "kind": "varp",
+        "id": 130
+      },
+      "startValue": null,
+      "completeValue": 4
+    },
+    {
+      "questId": 13,
+      "dbrowId": 161,
+      "name": "Witch's Potion",
+      "progress": {
+        "kind": "varp",
+        "id": 67
+      },
+      "startValue": null,
+      "completeValue": 3
+    },
+    {
+      "questId": 14,
+      "dbrowId": 83,
+      "name": "Knight's Sword, The",
+      "progress": {
+        "kind": "varp",
+        "id": 122
+      },
+      "startValue": null,
+      "completeValue": 7
+    },
+    {
+      "questId": 15,
+      "dbrowId": 64,
+      "name": "Goblin Diplomacy",
+      "progress": {
+        "kind": "varbit",
+        "id": 2378
+      },
+      "startValue": null,
+      "completeValue": 6
+    },
+    {
+      "questId": 16,
+      "dbrowId": 108,
+      "name": "Pirate's Treasure",
+      "progress": {
+        "kind": "varp",
+        "id": 71
+      },
+      "startValue": null,
+      "completeValue": 4
+    },
+    {
+      "questId": 17,
+      "dbrowId": 31,
+      "name": "Dragon Slayer I",
+      "progress": {
+        "kind": "varp",
+        "id": 176
+      },
+      "startValue": null,
+      "completeValue": 10
+    },
+    {
+      "questId": 18,
+      "dbrowId": 34,
+      "name": "Druidic Ritual",
+      "progress": {
+        "kind": "varp",
+        "id": 80
+      },
+      "startValue": null,
+      "completeValue": 4
+    },
+    {
+      "questId": 19,
+      "dbrowId": 86,
+      "name": "Lost City",
+      "progress": {
+        "kind": "varp",
+        "id": 147
+      },
+      "startValue": null,
+      "completeValue": 6
+    },
+    {
+      "questId": 20,
+      "dbrowId": 160,
+      "name": "Witch's House",
+      "progress": {
+        "kind": "varp",
+        "id": 226
+      },
+      "startValue": null,
+      "completeValue": 7
+    },
+    {
+      "questId": 21,
+      "dbrowId": 93,
+      "name": "Merlin's Crystal",
+      "progress": {
+        "kind": "varp",
+        "id": 14
+      },
+      "startValue": null,
+      "completeValue": 7
+    },
+    {
+      "questId": 22,
+      "dbrowId": 72,
+      "name": "Heroes' Quest",
+      "progress": {
+        "kind": "varp",
+        "id": 188
+      },
+      "startValue": null,
+      "completeValue": 15
+    },
+    {
+      "questId": 23,
+      "dbrowId": 4,
+      "name": "Alfred Grimhand's Barcrawl",
+      "progress": {
+        "kind": "varbit",
+        "id": 13714
+      },
+      "startValue": null,
+      "completeValue": 2
+    },
+    {
+      "questId": 24,
+      "dbrowId": 126,
+      "name": "Scorpion Catcher",
+      "progress": {
+        "kind": "varp",
+        "id": 76
+      },
+      "startValue": null,
+      "completeValue": 6
+    },
+    {
+      "questId": 25,
+      "dbrowId": 48,
+      "name": "Family Crest",
+      "progress": {
+        "kind": "varp",
+        "id": 148
+      },
+      "startValue": null,
+      "completeValue": 11
+    },
+    {
+      "questId": 26,
+      "dbrowId": 151,
+      "name": "Tribal Totem",
+      "progress": {
+        "kind": "varp",
+        "id": 200
+      },
+      "startValue": null,
+      "completeValue": 5
+    },
+    {
+      "questId": 27,
+      "dbrowId": 52,
+      "name": "Fishing Contest",
+      "progress": {
+        "kind": "varp",
+        "id": 11
+      },
+      "startValue": null,
+      "completeValue": 5
+    },
+    {
+      "questId": 28,
+      "dbrowId": 97,
+      "name": "Monk's Friend",
+      "progress": {
+        "kind": "varp",
+        "id": 30
+      },
+      "startValue": null,
+      "completeValue": 80
+    },
+    {
+      "questId": 29,
+      "dbrowId": 14,
+      "name": "Clock Tower",
+      "progress": {
+        "kind": "varp",
+        "id": 10
+      },
+      "startValue": null,
+      "completeValue": 8
+    },
+    {
+      "questId": 30,
+      "dbrowId": 146,
+      "name": "Temple of Ikov",
+      "progress": {
+        "kind": "varp",
+        "id": 26
+      },
+      "startValue": null,
+      "completeValue": 80
+    },
+    {
+      "questId": 31,
+      "dbrowId": 73,
+      "name": "Holy Grail",
+      "progress": {
+        "kind": "varp",
+        "id": 5
+      },
+      "startValue": null,
+      "completeValue": 10
+    },
+    {
+      "questId": 32,
+      "dbrowId": 150,
+      "name": "Tree Gnome Village",
+      "progress": {
+        "kind": "varp",
+        "id": 111
+      },
+      "startValue": null,
+      "completeValue": 9
+    },
+    {
+      "questId": 33,
+      "dbrowId": 51,
+      "name": "Fight Arena",
+      "progress": {
+        "kind": "varp",
+        "id": 17
+      },
+      "startValue": null,
+      "completeValue": 14
+    },
+    {
+      "questId": 34,
+      "dbrowId": 71,
+      "name": "Hazeel Cult",
+      "progress": {
+        "kind": "varp",
+        "id": 223
+      },
+      "startValue": null,
+      "completeValue": 9
+    },
+    {
+      "questId": 35,
+      "dbrowId": 130,
+      "name": "Sheep Herder",
+      "progress": {
+        "kind": "varp",
+        "id": 60
+      },
+      "startValue": null,
+      "completeValue": 3
+    },
+    {
+      "questId": 36,
+      "dbrowId": 109,
+      "name": "Plague City",
+      "progress": {
+        "kind": "varp",
+        "id": 165
+      },
+      "startValue": null,
+      "completeValue": 29
+    },
+    {
+      "questId": 37,
+      "dbrowId": 127,
+      "name": "Sea Slug",
+      "progress": {
+        "kind": "varp",
+        "id": 159
+      },
+      "startValue": null,
+      "completeValue": 12
+    },
+    {
+      "questId": 38,
+      "dbrowId": 158,
+      "name": "Waterfall Quest",
+      "progress": {
+        "kind": "varp",
+        "id": 65
+      },
+      "startValue": null,
+      "completeValue": 10
+    },
+    {
+      "questId": 39,
+      "dbrowId": 9,
+      "name": "Biohazard",
+      "progress": {
+        "kind": "varp",
+        "id": 68
+      },
+      "startValue": null,
+      "completeValue": 16
+    },
+    {
+      "questId": 40,
+      "dbrowId": 80,
+      "name": "Jungle Potion",
+      "progress": {
+        "kind": "varp",
+        "id": 175
+      },
+      "startValue": null,
+      "completeValue": 12
+    },
+    {
+      "questId": 41,
+      "dbrowId": 66,
+      "name": "Grand Tree, The",
+      "progress": {
+        "kind": "varp",
+        "id": 150
+      },
+      "startValue": null,
+      "completeValue": 160
+    },
+    {
+      "questId": 42,
+      "dbrowId": 133,
+      "name": "Shilo Village",
+      "progress": {
+        "kind": "varp",
+        "id": 116
+      },
+      "startValue": null,
+      "completeValue": 15
+    },
+    {
+      "questId": 43,
+      "dbrowId": 154,
+      "name": "Underground Pass",
+      "progress": {
+        "kind": "varp",
+        "id": 161
+      },
+      "startValue": null,
+      "completeValue": 11
+    },
+    {
+      "questId": 44,
+      "dbrowId": 105,
+      "name": "Observatory Quest",
+      "progress": {
+        "kind": "varp",
+        "id": 112
+      },
+      "startValue": null,
+      "completeValue": 7
+    },
+    {
+      "questId": 45,
+      "dbrowId": 148,
+      "name": "Tourist Trap, The",
+      "progress": {
+        "kind": "varp",
+        "id": 197
+      },
+      "startValue": null,
+      "completeValue": 30
+    },
+    {
+      "questId": 46,
+      "dbrowId": 157,
+      "name": "Watchtower",
+      "progress": {
+        "kind": "varp",
+        "id": 212
+      },
+      "startValue": null,
+      "completeValue": 13
+    },
+    {
+      "questId": 47,
+      "dbrowId": 35,
+      "name": "Dwarf Cannon",
+      "progress": {
+        "kind": "varp",
+        "id": 0
+      },
+      "startValue": null,
+      "completeValue": 11
+    },
+    {
+      "questId": 48,
+      "dbrowId": 101,
+      "name": "Murder Mystery",
+      "progress": {
+        "kind": "varp",
+        "id": 192
+      },
+      "startValue": null,
+      "completeValue": 2
+    },
+    {
+      "questId": 49,
+      "dbrowId": 29,
+      "name": "Dig Site, The",
+      "progress": {
+        "kind": "varp",
+        "id": 131
+      },
+      "startValue": null,
+      "completeValue": 9
+    },
+    {
+      "questId": 50,
+      "dbrowId": 60,
+      "name": "Gertrude's Cat",
+      "progress": {
+        "kind": "varp",
+        "id": 180
+      },
+      "startValue": null,
+      "completeValue": 6
+    },
+    {
+      "questId": 51,
+      "dbrowId": 85,
+      "name": "Legends' Quest",
+      "progress": {
+        "kind": "varp",
+        "id": 139
+      },
+      "startValue": null,
+      "completeValue": 75
+    },
+    {
+      "questId": 52,
+      "dbrowId": 89,
+      "name": "Mage Arena I",
+      "progress": {
+        "kind": "varp",
+        "id": 267
+      },
+      "startValue": null,
+      "completeValue": 8
+    },
+    {
+      "questId": 53,
+      "dbrowId": 125,
+      "name": "Rune Mysteries",
+      "progress": {
+        "kind": "varp",
+        "id": 63
+      },
+      "startValue": null,
+      "completeValue": 6
+    },
+    {
+      "questId": 54,
+      "dbrowId": 8,
+      "name": "Big Chompy Bird Hunting",
+      "progress": {
+        "kind": "varp",
+        "id": 293
+      },
+      "startValue": null,
+      "completeValue": 65
+    },
+    {
+      "questId": 55,
+      "dbrowId": 38,
+      "name": "Elemental Workshop I",
+      "progress": {
+        "kind": "varbit",
+        "id": 13718
+      },
+      "startValue": null,
+      "completeValue": 2
+    },
+    {
+      "questId": 56,
+      "dbrowId": 111,
+      "name": "Priest in Peril",
+      "progress": {
+        "kind": "varp",
+        "id": 302
+      },
+      "startValue": null,
+      "completeValue": 60
+    },
+    {
+      "questId": 57,
+      "dbrowId": 103,
+      "name": "Nature Spirit",
+      "progress": {
+        "kind": "varp",
+        "id": 307
+      },
+      "startValue": null,
+      "completeValue": 110
+    },
+    {
+      "questId": 58,
+      "dbrowId": 23,
+      "name": "Death Plateau",
+      "progress": {
+        "kind": "varp",
+        "id": 314
+      },
+      "startValue": null,
+      "completeValue": 80
+    },
+    {
+      "questId": 59,
+      "dbrowId": 153,
+      "name": "Troll Stronghold",
+      "progress": {
+        "kind": "varp",
+        "id": 317
+      },
+      "startValue": null,
+      "completeValue": 50
+    },
+    {
+      "questId": 60,
+      "dbrowId": 141,
+      "name": "Tai Bwo Wannai Trio",
+      "progress": {
+        "kind": "varp",
+        "id": 320
+      },
+      "startValue": 2,
+      "completeValue": 6
+    },
+    {
+      "questId": 61,
+      "dbrowId": 119,
+      "name": "Regicide",
+      "progress": {
+        "kind": "varp",
+        "id": 328
+      },
+      "startValue": null,
+      "completeValue": 15
+    },
+    {
+      "questId": 62,
+      "dbrowId": 36,
+      "name": "Eadgar's Ruse",
+      "progress": {
+        "kind": "varp",
+        "id": 335
+      },
+      "startValue": null,
+      "completeValue": 110
+    },
+    {
+      "questId": 63,
+      "dbrowId": 128,
+      "name": "Shades of Mort'ton",
+      "progress": {
+        "kind": "varp",
+        "id": 339
+      },
+      "startValue": null,
+      "completeValue": 85
+    },
+    {
+      "questId": 64,
+      "dbrowId": 57,
+      "name": "Fremennik Trials, The",
+      "progress": {
+        "kind": "varp",
+        "id": 347
+      },
+      "startValue": null,
+      "completeValue": 10
+    },
+    {
+      "questId": 65,
+      "dbrowId": 74,
+      "name": "Horror from the Deep",
+      "progress": {
+        "kind": "varbit",
+        "id": 34
+      },
+      "startValue": null,
+      "completeValue": 10
+    },
+    {
+      "questId": 66,
+      "dbrowId": 147,
+      "name": "Throne of Miscellania",
+      "progress": {
+        "kind": "varp",
+        "id": 359
+      },
+      "startValue": null,
+      "completeValue": 100
+    },
+    {
+      "questId": 67,
+      "dbrowId": 95,
+      "name": "Monkey Madness I",
+      "progress": {
+        "kind": "varp",
+        "id": 365
+      },
+      "startValue": null,
+      "completeValue": 9
+    },
+    {
+      "questId": 68,
+      "dbrowId": 70,
+      "name": "Haunted Mine",
+      "progress": {
+        "kind": "varp",
+        "id": 382
+      },
+      "startValue": null,
+      "completeValue": 11
+    },
+    {
+      "questId": 69,
+      "dbrowId": 152,
+      "name": "Troll Romance",
+      "progress": {
+        "kind": "varp",
+        "id": 385
+      },
+      "startValue": null,
+      "completeValue": 45
+    },
+    {
+      "questId": 70,
+      "dbrowId": 79,
+      "name": "In Search of the Myreque",
+      "progress": {
+        "kind": "varp",
+        "id": 387
+      },
+      "startValue": null,
+      "completeValue": 105
+    },
+    {
+      "questId": 71,
+      "dbrowId": 19,
+      "name": "Creature of Fenkenstrain",
+      "progress": {
+        "kind": "varbit",
+        "id": 13715
+      },
+      "startValue": null,
+      "completeValue": 9
+    },
+    {
+      "questId": 72,
+      "dbrowId": 122,
+      "name": "Roving Elves",
+      "progress": {
+        "kind": "varp",
+        "id": 402
+      },
+      "startValue": null,
+      "completeValue": 6
+    },
+    {
+      "questId": 73,
+      "dbrowId": 62,
+      "name": "Ghosts Ahoy",
+      "progress": {
+        "kind": "varbit",
+        "id": 217
+      },
+      "startValue": null,
+      "completeValue": 8
+    },
+    {
+      "questId": 74,
+      "dbrowId": 107,
+      "name": "One Small Favour",
+      "progress": {
+        "kind": "varp",
+        "id": 416
+      },
+      "startValue": null,
+      "completeValue": 285
+    },
+    {
+      "questId": 75,
+      "dbrowId": 98,
+      "name": "Mountain Daughter",
+      "progress": {
+        "kind": "varbit",
+        "id": 260
+      },
+      "startValue": null,
+      "completeValue": 70
+    },
+    {
+      "questId": 76,
+      "dbrowId": 7,
+      "name": "Between a Rock...",
+      "progress": {
+        "kind": "varbit",
+        "id": 299
+      },
+      "startValue": null,
+      "completeValue": 110
+    },
+    {
+      "questId": 77,
+      "dbrowId": 50,
+      "name": "Feud, The",
+      "progress": {
+        "kind": "varbit",
+        "id": 334
+      },
+      "startValue": null,
+      "completeValue": 28
+    },
+    {
+      "questId": 78,
+      "dbrowId": 65,
+      "name": "Golem, The",
+      "progress": {
+        "kind": "varbit",
+        "id": 346
+      },
+      "startValue": null,
+      "completeValue": 10
+    },
+    {
+      "questId": 79,
+      "dbrowId": 27,
+      "name": "Desert Treasure I",
+      "progress": {
+        "kind": "varbit",
+        "id": 358
+      },
+      "startValue": null,
+      "completeValue": 15
+    },
+    {
+      "questId": 80,
+      "dbrowId": 75,
+      "name": "Icthlarin's Little Helper",
+      "progress": {
+        "kind": "varbit",
+        "id": 418
+      },
+      "startValue": null,
+      "completeValue": 26
+    },
+    {
+      "questId": 81,
+      "dbrowId": 145,
+      "name": "Tears of Guthix",
+      "progress": {
+        "kind": "varbit",
+        "id": 451
+      },
+      "startValue": null,
+      "completeValue": 2
+    },
+    {
+      "questId": 82,
+      "dbrowId": 163,
+      "name": "Zogre Flesh Eaters",
+      "progress": {
+        "kind": "varbit",
+        "id": 487
+      },
+      "startValue": null,
+      "completeValue": 14
+    },
+    {
+      "questId": 83,
+      "dbrowId": 87,
+      "name": "Lost Tribe, The",
+      "progress": {
+        "kind": "varbit",
+        "id": 532
+      },
+      "startValue": null,
+      "completeValue": 11
+    },
+    {
+      "questId": 84,
+      "dbrowId": 63,
+      "name": "Giant Dwarf, The",
+      "progress": {
+        "kind": "varbit",
+        "id": 571
+      },
+      "startValue": null,
+      "completeValue": 50
+    },
+    {
+      "questId": 85,
+      "dbrowId": 43,
+      "name": "Enter the Abyss",
+      "progress": {
+        "kind": "varp",
+        "id": 492
+      },
+      "startValue": null,
+      "completeValue": 4
+    },
+    {
+      "questId": 86,
+      "dbrowId": 118,
+      "name": "Recruitment Drive",
+      "progress": {
+        "kind": "varbit",
+        "id": 657
+      },
+      "startValue": null,
+      "completeValue": 2
+    },
+    {
+      "questId": 87,
+      "dbrowId": 99,
+      "name": "Mourning's End Part I",
+      "progress": {
+        "kind": "varp",
+        "id": 517
+      },
+      "startValue": null,
+      "completeValue": 9
+    },
+    {
+      "questId": 88,
+      "dbrowId": 53,
+      "name": "Forgettable Tale...",
+      "progress": {
+        "kind": "varbit",
+        "id": 822
+      },
+      "startValue": null,
+      "completeValue": 140
+    },
+    {
+      "questId": 89,
+      "dbrowId": 20,
+      "name": "Curse of the Empty Lord",
+      "progress": {
+        "kind": "varbit",
+        "id": 13713
+      },
+      "startValue": null,
+      "completeValue": 6
+    },
+    {
+      "questId": 90,
+      "dbrowId": 58,
+      "name": "Garden of Tranquillity",
+      "progress": {
+        "kind": "varbit",
+        "id": 961
+      },
+      "startValue": null,
+      "completeValue": 60
+    },
+    {
+      "questId": 91,
+      "dbrowId": 142,
+      "name": "Tail of Two Cats, A",
+      "progress": {
+        "kind": "varbit",
+        "id": 1028
+      },
+      "startValue": null,
+      "completeValue": 70
+    },
+    {
+      "questId": 92,
+      "dbrowId": 156,
+      "name": "Wanted!",
+      "progress": {
+        "kind": "varbit",
+        "id": 1051
+      },
+      "startValue": null,
+      "completeValue": 11
+    },
+    {
+      "questId": 93,
+      "dbrowId": 100,
+      "name": "Mourning's End Part II",
+      "progress": {
+        "kind": "varbit",
+        "id": 1103
+      },
+      "startValue": null,
+      "completeValue": 60
+    },
+    {
+      "questId": 94,
+      "dbrowId": 135,
+      "name": "Skippy and the Mogres",
+      "progress": {
+        "kind": "varbit",
+        "id": 1344
+      },
+      "startValue": null,
+      "completeValue": 3
+    },
+    {
+      "questId": 95,
+      "dbrowId": 124,
+      "name": "Rum Deal",
+      "progress": {
+        "kind": "varp",
+        "id": 600
+      },
+      "startValue": null,
+      "completeValue": 19
+    },
+    {
+      "questId": 96,
+      "dbrowId": 129,
+      "name": "Shadow of the Storm",
+      "progress": {
+        "kind": "varbit",
+        "id": 1372
+      },
+      "startValue": null,
+      "completeValue": 125
+    },
+    {
+      "questId": 97,
+      "dbrowId": 92,
+      "name": "Making History",
+      "progress": {
+        "kind": "varbit",
+        "id": 1383
+      },
+      "startValue": null,
+      "completeValue": 4
+    },
+    {
+      "questId": 98,
+      "dbrowId": 41,
+      "name": "Enchanted Key, The",
+      "progress": {
+        "kind": "varbit",
+        "id": 13717
+      },
+      "startValue": null,
+      "completeValue": 2
+    },
+    {
+      "questId": 99,
+      "dbrowId": 116,
+      "name": "Ratcatchers",
+      "progress": {
+        "kind": "varbit",
+        "id": 1404
+      },
+      "startValue": null,
+      "completeValue": 127
+    },
+    {
+      "questId": 100,
+      "dbrowId": 139,
+      "name": "Spirits of the Elid",
+      "progress": {
+        "kind": "varbit",
+        "id": 1444
+      },
+      "startValue": null,
+      "completeValue": 60
+    },
+    {
+      "questId": 101,
+      "dbrowId": 28,
+      "name": "Devious Minds",
+      "progress": {
+        "kind": "varbit",
+        "id": 1465
+      },
+      "startValue": null,
+      "completeValue": 80
+    },
+    {
+      "questId": 102,
+      "dbrowId": 69,
+      "name": "Hand in the Sand, The",
+      "progress": {
+        "kind": "varbit",
+        "id": 1527
+      },
+      "startValue": null,
+      "completeValue": 160
+    },
+    {
+      "questId": 103,
+      "dbrowId": 40,
+      "name": "Enakhra's Lament",
+      "progress": {
+        "kind": "varbit",
+        "id": 1560
+      },
+      "startValue": null,
+      "completeValue": 70
+    },
+    {
+      "questId": 104,
+      "dbrowId": 12,
+      "name": "Cabin Fever",
+      "progress": {
+        "kind": "varp",
+        "id": 655
+      },
+      "startValue": null,
+      "completeValue": 140
+    },
+    {
+      "questId": 105,
+      "dbrowId": 46,
+      "name": "Fairytale I - Growing Pains",
+      "progress": {
+        "kind": "varbit",
+        "id": 1803
+      },
+      "startValue": null,
+      "completeValue": 90
+    },
+    {
+      "questId": 106,
+      "dbrowId": 117,
+      "name": "Recipe for Disaster",
+      "progress": {
+        "kind": "varbit",
+        "id": 1850
+      },
+      "startValue": null,
+      "completeValue": 5
+    },
+    {
+      "questId": 107,
+      "dbrowId": 77,
+      "name": "In Aid of the Myreque",
+      "progress": {
+        "kind": "varbit",
+        "id": 1990
+      },
+      "startValue": null,
+      "completeValue": 430
+    },
+    {
+      "questId": 108,
+      "dbrowId": 138,
+      "name": "Soul's Bane, A",
+      "progress": {
+        "kind": "varbit",
+        "id": 2011
+      },
+      "startValue": null,
+      "completeValue": 13
+    },
+    {
+      "questId": 109,
+      "dbrowId": 114,
+      "name": "Rag and Bone Man I",
+      "progress": {
+        "kind": "varp",
+        "id": 714
+      },
+      "startValue": null,
+      "completeValue": 4
+    },
+    {
+      "questId": 110,
+      "dbrowId": 115,
+      "name": "Rag and Bone Man II",
+      "progress": {
+        "kind": "varp",
+        "id": 714
+      },
+      "startValue": 3,
+      "completeValue": 6
+    },
+    {
+      "questId": 111,
+      "dbrowId": 140,
+      "name": "Swan Song",
+      "progress": {
+        "kind": "varbit",
+        "id": 2098
+      },
+      "startValue": null,
+      "completeValue": 200
+    },
+    {
+      "questId": 112,
+      "dbrowId": 123,
+      "name": "Royal Trouble",
+      "progress": {
+        "kind": "varbit",
+        "id": 2140
+      },
+      "startValue": null,
+      "completeValue": 30
+    },
+    {
+      "questId": 113,
+      "dbrowId": 24,
+      "name": "Death to the Dorgeshuun",
+      "progress": {
+        "kind": "varbit",
+        "id": 2258
+      },
+      "startValue": null,
+      "completeValue": 13
+    },
+    {
+      "questId": 114,
+      "dbrowId": 47,
+      "name": "Fairytale II - Cure a Queen",
+      "progress": {
+        "kind": "varbit",
+        "id": 2326
+      },
+      "startValue": 10,
+      "completeValue": 90
+    },
+    {
+      "questId": 115,
+      "dbrowId": 88,
+      "name": "Lunar Diplomacy",
+      "progress": {
+        "kind": "varbit",
+        "id": 2448
+      },
+      "startValue": null,
+      "completeValue": 190
+    },
+    {
+      "questId": 116,
+      "dbrowId": 45,
+      "name": "Eyes of Glouphrie, The",
+      "progress": {
+        "kind": "varbit",
+        "id": 2497
+      },
+      "startValue": null,
+      "completeValue": 60
+    },
+    {
+      "questId": 117,
+      "dbrowId": 22,
+      "name": "Darkness of Hallowvale",
+      "progress": {
+        "kind": "varbit",
+        "id": 2573
+      },
+      "startValue": null,
+      "completeValue": 320
+    },
+    {
+      "questId": 118,
+      "dbrowId": 136,
+      "name": "Slug Menace, The",
+      "progress": {
+        "kind": "varbit",
+        "id": 2610
+      },
+      "startValue": null,
+      "completeValue": 14
+    },
+    {
+      "questId": 119,
+      "dbrowId": 39,
+      "name": "Elemental Workshop II",
+      "progress": {
+        "kind": "varbit",
+        "id": 2639
+      },
+      "startValue": null,
+      "completeValue": 11
+    },
+    {
+      "questId": 120,
+      "dbrowId": 102,
+      "name": "My Arm's Big Adventure",
+      "progress": {
+        "kind": "varbit",
+        "id": 2790
+      },
+      "startValue": null,
+      "completeValue": 320
+    },
+    {
+      "questId": 121,
+      "dbrowId": 42,
+      "name": "Enlightened Journey",
+      "progress": {
+        "kind": "varbit",
+        "id": 2866
+      },
+      "startValue": null,
+      "completeValue": 200
+    },
+    {
+      "questId": 122,
+      "dbrowId": 37,
+      "name": "Eagles' Peak",
+      "progress": {
+        "kind": "varbit",
+        "id": 2780
+      },
+      "startValue": null,
+      "completeValue": 40
+    },
+    {
+      "questId": 123,
+      "dbrowId": 0,
+      "name": "Animal Magnetism",
+      "progress": {
+        "kind": "varbit",
+        "id": 3185
+      },
+      "startValue": null,
+      "completeValue": 240
+    },
+    {
+      "questId": 124,
+      "dbrowId": 16,
+      "name": "Contact!",
+      "progress": {
+        "kind": "varbit",
+        "id": 3274
+      },
+      "startValue": null,
+      "completeValue": 130
+    },
+    {
+      "questId": 125,
+      "dbrowId": 84,
+      "name": "Lair of Tarn Razorlor",
+      "progress": {
+        "kind": "varbit",
+        "id": 3290
+      },
+      "startValue": null,
+      "completeValue": 3
+    },
+    {
+      "questId": 126,
+      "dbrowId": 15,
+      "name": "Cold War",
+      "progress": {
+        "kind": "varbit",
+        "id": 3293
+      },
+      "startValue": null,
+      "completeValue": 135
+    },
+    {
+      "questId": 127,
+      "dbrowId": 56,
+      "name": "Fremennik Isles, The",
+      "progress": {
+        "kind": "varbit",
+        "id": 3311
+      },
+      "startValue": null,
+      "completeValue": 340
+    },
+    {
+      "questId": 128,
+      "dbrowId": 59,
+      "name": "General's Shadow, The",
+      "progress": {
+        "kind": "varbit",
+        "id": 3330
+      },
+      "startValue": null,
+      "completeValue": 30
+    },
+    {
+      "questId": 129,
+      "dbrowId": 149,
+      "name": "Tower of Life",
+      "progress": {
+        "kind": "varbit",
+        "id": 3337
+      },
+      "startValue": null,
+      "completeValue": 18
+    },
+    {
+      "questId": 130,
+      "dbrowId": 67,
+      "name": "Great Brain Robbery, The",
+      "progress": {
+        "kind": "varp",
+        "id": 980
+      },
+      "startValue": null,
+      "completeValue": 130
+    },
+    {
+      "questId": 131,
+      "dbrowId": 159,
+      "name": "What Lies Below",
+      "progress": {
+        "kind": "varbit",
+        "id": 3523
+      },
+      "startValue": null,
+      "completeValue": 150
+    },
+    {
+      "questId": 132,
+      "dbrowId": 106,
+      "name": "Olaf's Quest",
+      "progress": {
+        "kind": "varbit",
+        "id": 3534
+      },
+      "startValue": null,
+      "completeValue": 80
+    },
+    {
+      "questId": 133,
+      "dbrowId": 1,
+      "name": "Another Slice of H.A.M.",
+      "progress": {
+        "kind": "varbit",
+        "id": 3550
+      },
+      "startValue": null,
+      "completeValue": 11
+    },
+    {
+      "questId": 134,
+      "dbrowId": 33,
+      "name": "Dream Mentor",
+      "progress": {
+        "kind": "varbit",
+        "id": 3618
+      },
+      "startValue": null,
+      "completeValue": 28
+    },
+    {
+      "questId": 135,
+      "dbrowId": 68,
+      "name": "Grim Tales",
+      "progress": {
+        "kind": "varbit",
+        "id": 2783
+      },
+      "startValue": null,
+      "completeValue": 60
+    },
+    {
+      "questId": 136,
+      "dbrowId": 82,
+      "name": "King's Ransom",
+      "progress": {
+        "kind": "varbit",
+        "id": 3888
+      },
+      "startValue": null,
+      "completeValue": 90
+    },
+    {
+      "questId": 137,
+      "dbrowId": 3450,
+      "name": "Children of the Sun",
+      "progress": {
+        "kind": "varbit",
+        "id": 9632
+      },
+      "startValue": null,
+      "completeValue": 24
+    },
+    {
+      "questId": 138,
+      "dbrowId": 5,
+      "name": "Bear Your Soul",
+      "progress": {
+        "kind": "varbit",
+        "id": 5078
+      },
+      "startValue": null,
+      "completeValue": 3
+    },
+    {
+      "questId": 139,
+      "dbrowId": 96,
+      "name": "Monkey Madness II",
+      "progress": {
+        "kind": "varbit",
+        "id": 5027
+      },
+      "startValue": null,
+      "completeValue": 195
+    },
+    {
+      "questId": 140,
+      "dbrowId": 49,
+      "name": "Family Pest",
+      "progress": {
+        "kind": "varbit",
+        "id": 5347
+      },
+      "startValue": null,
+      "completeValue": 3
+    },
+    {
+      "questId": 141,
+      "dbrowId": 94,
+      "name": "Misthalin Mystery",
+      "progress": {
+        "kind": "varbit",
+        "id": 3468
+      },
+      "startValue": null,
+      "completeValue": 135
+    },
+    {
+      "questId": 142,
+      "dbrowId": 13,
+      "name": "Client of Kourend",
+      "progress": {
+        "kind": "varbit",
+        "id": 5619
+      },
+      "startValue": null,
+      "completeValue": 7
+    },
+    {
+      "questId": 143,
+      "dbrowId": 11,
+      "name": "Bone Voyage",
+      "progress": {
+        "kind": "varbit",
+        "id": 5795
+      },
+      "startValue": null,
+      "completeValue": 50
+    },
+    {
+      "questId": 144,
+      "dbrowId": 113,
+      "name": "Queen of Thieves, The",
+      "progress": {
+        "kind": "varbit",
+        "id": 6037
+      },
+      "startValue": null,
+      "completeValue": 13
+    },
+    {
+      "questId": 145,
+      "dbrowId": 26,
+      "name": "Depths of Despair, The",
+      "progress": {
+        "kind": "varbit",
+        "id": 6027
+      },
+      "startValue": null,
+      "completeValue": 11
+    },
+    {
+      "questId": 146,
+      "dbrowId": 90,
+      "name": "Mage Arena II",
+      "progress": {
+        "kind": "varbit",
+        "id": 6067
+      },
+      "startValue": null,
+      "completeValue": 4
+    },
+    {
+      "questId": 147,
+      "dbrowId": 18,
+      "name": "Corsair Curse, The",
+      "progress": {
+        "kind": "varbit",
+        "id": 6071
+      },
+      "startValue": null,
+      "completeValue": 60
+    },
+    {
+      "questId": 148,
+      "dbrowId": 32,
+      "name": "Dragon Slayer II",
+      "progress": {
+        "kind": "varbit",
+        "id": 6104
+      },
+      "startValue": null,
+      "completeValue": 215
+    },
+    {
+      "questId": 149,
+      "dbrowId": 143,
+      "name": "Tale of the Righteous",
+      "progress": {
+        "kind": "varbit",
+        "id": 6358
+      },
+      "startValue": null,
+      "completeValue": 17
+    },
+    {
+      "questId": 150,
+      "dbrowId": 144,
+      "name": "Taste of Hope, A",
+      "progress": {
+        "kind": "varbit",
+        "id": 6396
+      },
+      "startValue": null,
+      "completeValue": 165
+    },
+    {
+      "questId": 151,
+      "dbrowId": 91,
+      "name": "Making Friends with My Arm",
+      "progress": {
+        "kind": "varbit",
+        "id": 6528
+      },
+      "startValue": null,
+      "completeValue": 200
+    },
+    {
+      "questId": 152,
+      "dbrowId": 3,
+      "name": "Ascent of Arceuus, The",
+      "progress": {
+        "kind": "varbit",
+        "id": 7856
+      },
+      "startValue": null,
+      "completeValue": 14
+    },
+    {
+      "questId": 153,
+      "dbrowId": 54,
+      "name": "Forsaken Tower, The",
+      "progress": {
+        "kind": "varbit",
+        "id": 7796
+      },
+      "startValue": null,
+      "completeValue": 11
+    },
+    {
+      "questId": 154,
+      "dbrowId": 162,
+      "name": "X Marks the Spot",
+      "progress": {
+        "kind": "varbit",
+        "id": 8063
+      },
+      "startValue": null,
+      "completeValue": 8
+    },
+    {
+      "questId": 155,
+      "dbrowId": 78,
+      "name": "In Search of Knowledge",
+      "progress": {
+        "kind": "varbit",
+        "id": 8403
+      },
+      "startValue": null,
+      "completeValue": 3
+    },
+    {
+      "questId": 156,
+      "dbrowId": 137,
+      "name": "Song of the Elves",
+      "progress": {
+        "kind": "varbit",
+        "id": 9016
+      },
+      "startValue": null,
+      "completeValue": 200
+    },
+    {
+      "questId": 157,
+      "dbrowId": 55,
+      "name": "Fremennik Exiles, The",
+      "progress": {
+        "kind": "varbit",
+        "id": 9459
+      },
+      "startValue": null,
+      "completeValue": 130
+    },
+    {
+      "questId": 158,
+      "dbrowId": 134,
+      "name": "Sins of the Father",
+      "progress": {
+        "kind": "varbit",
+        "id": 7255
+      },
+      "startValue": null,
+      "completeValue": 138
+    },
+    {
+      "questId": 159,
+      "dbrowId": 21,
+      "name": "Daddy's Home",
+      "progress": {
+        "kind": "varbit",
+        "id": 10570
+      },
+      "startValue": null,
+      "completeValue": 13
+    },
+    {
+      "questId": 160,
+      "dbrowId": 110,
+      "name": "Porcine of Interest, A",
+      "progress": {
+        "kind": "varbit",
+        "id": 10582
+      },
+      "startValue": null,
+      "completeValue": 40
+    },
+    {
+      "questId": 161,
+      "dbrowId": 61,
+      "name": "Getting Ahead",
+      "progress": {
+        "kind": "varbit",
+        "id": 693
+      },
+      "startValue": null,
+      "completeValue": 34
+    },
+    {
+      "questId": 162,
+      "dbrowId": 6,
+      "name": "Below Ice Mountain",
+      "progress": {
+        "kind": "varbit",
+        "id": 12063
+      },
+      "startValue": null,
+      "completeValue": 120
+    },
+    {
+      "questId": 163,
+      "dbrowId": 104,
+      "name": "Night at the Theatre, A",
+      "progress": {
+        "kind": "varbit",
+        "id": 12276
+      },
+      "startValue": null,
+      "completeValue": 86
+    },
+    {
+      "questId": 164,
+      "dbrowId": 81,
+      "name": "Kingdom Divided, A",
+      "progress": {
+        "kind": "varbit",
+        "id": 12296
+      },
+      "startValue": null,
+      "completeValue": 150
+    },
+    {
+      "questId": 165,
+      "dbrowId": 164,
+      "name": "Frozen Door, The",
+      "progress": {
+        "kind": "varbit",
+        "id": 13175
+      },
+      "startValue": null,
+      "completeValue": 10
+    },
+    {
+      "questId": 166,
+      "dbrowId": 165,
+      "name": "Land of the Goblins",
+      "progress": {
+        "kind": "varbit",
+        "id": 13599
+      },
+      "startValue": null,
+      "completeValue": 56
+    },
+    {
+      "questId": 167,
+      "dbrowId": 166,
+      "name": "Hopespear's Will",
+      "progress": {
+        "kind": "varbit",
+        "id": 13619
+      },
+      "startValue": null,
+      "completeValue": 2
+    },
+    {
+      "questId": 168,
+      "dbrowId": 167,
+      "name": "Temple of the Eye",
+      "progress": {
+        "kind": "varbit",
+        "id": 13738
+      },
+      "startValue": null,
+      "completeValue": 130
+    },
+    {
+      "questId": 169,
+      "dbrowId": 168,
+      "name": "Beneath Cursed Sands",
+      "progress": {
+        "kind": "varbit",
+        "id": 13841
+      },
+      "startValue": null,
+      "completeValue": 108
+    },
+    {
+      "questId": 170,
+      "dbrowId": 169,
+      "name": "Sleeping Giants",
+      "progress": {
+        "kind": "varbit",
+        "id": 13902
+      },
+      "startValue": null,
+      "completeValue": 30
+    },
+    {
+      "questId": 171,
+      "dbrowId": 2307,
+      "name": "Recipe for Disaster Another Cook's Quest",
+      "progress": {
+        "kind": "varbit",
+        "id": 1850
+      },
+      "startValue": null,
+      "completeValue": 2
+    },
+    {
+      "questId": 172,
+      "dbrowId": 2308,
+      "name": "Recipe for Disaster Dwarf",
+      "progress": {
+        "kind": "varbit",
+        "id": 1892
+      },
+      "startValue": null,
+      "completeValue": 60
+    },
+    {
+      "questId": 173,
+      "dbrowId": 2309,
+      "name": "Recipe for Disaster Goblins",
+      "progress": {
+        "kind": "varbit",
+        "id": 1867
+      },
+      "startValue": null,
+      "completeValue": 40
+    },
+    {
+      "questId": 174,
+      "dbrowId": 2310,
+      "name": "Recipe for Disaster Pirate",
+      "progress": {
+        "kind": "varbit",
+        "id": 1895
+      },
+      "startValue": null,
+      "completeValue": 110
+    },
+    {
+      "questId": 175,
+      "dbrowId": 2311,
+      "name": "Recipe for Disaster Lumbridge Guide",
+      "progress": {
+        "kind": "varbit",
+        "id": 1896
+      },
+      "startValue": null,
+      "completeValue": 5
+    },
+    {
+      "questId": 176,
+      "dbrowId": 2312,
+      "name": "Recipe for Disaster Dave",
+      "progress": {
+        "kind": "varbit",
+        "id": 1878
+      },
+      "startValue": null,
+      "completeValue": 5
+    },
+    {
+      "questId": 177,
+      "dbrowId": 2313,
+      "name": "Recipe for Disaster Uglogwee",
+      "progress": {
+        "kind": "varbit",
+        "id": 1904
+      },
+      "startValue": null,
+      "completeValue": 170
+    },
+    {
+      "questId": 178,
+      "dbrowId": 2314,
+      "name": "Recipe for Disaster Amik Varze",
+      "progress": {
+        "kind": "varbit",
+        "id": 1910
+      },
+      "startValue": null,
+      "completeValue": 20
+    },
+    {
+      "questId": 179,
+      "dbrowId": 2315,
+      "name": "Recipe for Disaster Awowogei",
+      "progress": {
+        "kind": "varbit",
+        "id": 1914
+      },
+      "startValue": null,
+      "completeValue": 50
+    },
+    {
+      "questId": 180,
+      "dbrowId": 2316,
+      "name": "Recipe for Disaster Culinaromancer",
+      "progress": {
+        "kind": "varbit",
+        "id": 1850
+      },
+      "startValue": 3,
+      "completeValue": 5
+    },
+    {
+      "questId": 181,
+      "dbrowId": 2306,
+      "name": "Into the Tombs",
+      "progress": {
+        "kind": "varbit",
+        "id": 13836
+      },
+      "startValue": null,
+      "completeValue": 24
+    },
+    {
+      "questId": 182,
+      "dbrowId": 180,
+      "name": "Garden of Death, The",
+      "progress": {
+        "kind": "varbit",
+        "id": 14609
+      },
+      "startValue": null,
+      "completeValue": 56
+    },
+    {
+      "questId": 183,
+      "dbrowId": 2338,
+      "name": "Secrets of the North",
+      "progress": {
+        "kind": "varbit",
+        "id": 14722
+      },
+      "startValue": null,
+      "completeValue": 90
+    },
+    {
+      "questId": 184,
+      "dbrowId": 3250,
+      "name": "His Faithful Servants",
+      "progress": {
+        "kind": "varbit",
+        "id": 14973
+      },
+      "startValue": null,
+      "completeValue": 10
+    },
+    {
+      "questId": 185,
+      "dbrowId": 2343,
+      "name": "Desert Treasure II - The Fallen Empire",
+      "progress": {
+        "kind": "varbit",
+        "id": 14862
+      },
+      "startValue": null,
+      "completeValue": 118
+    },
+    {
+      "questId": 186,
+      "dbrowId": 3425,
+      "name": "Path of Glouphrie, The",
+      "progress": {
+        "kind": "varbit",
+        "id": 15288
+      },
+      "startValue": null,
+      "completeValue": 50
+    },
+    {
+      "questId": 187,
+      "dbrowId": 3451,
+      "name": "Barbarian Training",
+      "progress": {
+        "kind": "varbit",
+        "id": 9613
+      },
+      "startValue": null,
+      "completeValue": 10
+    },
+    {
+      "questId": 188,
+      "dbrowId": 3466,
+      "name": "Defender of Varrock",
+      "progress": {
+        "kind": "varbit",
+        "id": 9655
+      },
+      "startValue": null,
+      "completeValue": 56
+    },
+    {
+      "questId": 189,
+      "dbrowId": 3467,
+      "name": "While Guthix Sleeps",
+      "progress": {
+        "kind": "varbit",
+        "id": 9653
+      },
+      "startValue": null,
+      "completeValue": 900
+    },
+    {
+      "questId": 190,
+      "dbrowId": 3512,
+      "name": "Twilight's Promise",
+      "progress": {
+        "kind": "varbit",
+        "id": 9649
+      },
+      "startValue": null,
+      "completeValue": 50
+    },
+    {
+      "questId": 191,
+      "dbrowId": 3513,
+      "name": "At First Light",
+      "progress": {
+        "kind": "varbit",
+        "id": 9835
+      },
+      "startValue": null,
+      "completeValue": 12
+    },
+    {
+      "questId": 192,
+      "dbrowId": 3514,
+      "name": "Perlious Moons",
+      "progress": {
+        "kind": "varbit",
+        "id": 9819
+      },
+      "startValue": null,
+      "completeValue": 36
+    },
+    {
+      "questId": 193,
+      "dbrowId": 3515,
+      "name": "Ribbiting Tale of a Lily Pad Labour Dispute, The",
+      "progress": {
+        "kind": "varbit",
+        "id": 9844
+      },
+      "startValue": null,
+      "completeValue": 32
+    },
+    {
+      "questId": 194,
+      "dbrowId": 3710,
+      "name": "Heart of Darkness, The",
+      "progress": {
+        "kind": "varbit",
+        "id": 11117
+      },
+      "startValue": null,
+      "completeValue": 76
+    },
+    {
+      "questId": 195,
+      "dbrowId": 3711,
+      "name": "Death on the Isle",
+      "progress": {
+        "kind": "varbit",
+        "id": 11210
+      },
+      "startValue": null,
+      "completeValue": 50
+    },
+    {
+      "questId": 196,
+      "dbrowId": 3712,
+      "name": "Meat and Greet",
+      "progress": {
+        "kind": "varbit",
+        "id": 11182
+      },
+      "startValue": null,
+      "completeValue": 26
+    },
+    {
+      "questId": 197,
+      "dbrowId": 3713,
+      "name": "Ethically Acquired Antiquities",
+      "progress": {
+        "kind": "varbit",
+        "id": 11193
+      },
+      "startValue": null,
+      "completeValue": 38
+    },
+    {
+      "questId": 198,
+      "dbrowId": 3937,
+      "name": "Curse of Arrav, The",
+      "progress": {
+        "kind": "varbit",
+        "id": 11479
+      },
+      "startValue": null,
+      "completeValue": 60
+    },
+    {
+      "questId": 199,
+      "dbrowId": 5189,
+      "name": "Final Dawn, The",
+      "progress": {
+        "kind": "varbit",
+        "id": 16663
+      },
+      "startValue": null,
+      "completeValue": 68
+    },
+    {
+      "questId": 200,
+      "dbrowId": 5190,
+      "name": "Shadows of Custodia",
+      "progress": {
+        "kind": "varbit",
+        "id": 16632
+      },
+      "startValue": null,
+      "completeValue": 24
+    },
+    {
+      "questId": 201,
+      "dbrowId": 5191,
+      "name": "Scrambled!",
+      "progress": {
+        "kind": "varbit",
+        "id": 16758
+      },
+      "startValue": null,
+      "completeValue": 30
+    },
+    {
+      "questId": 202,
+      "dbrowId": 5192,
+      "name": ".",
+      "progress": {
+        "kind": "varbit",
+        "id": 16661
+      },
+      "startValue": null,
+      "completeValue": 28
+    },
+    {
+      "questId": 203,
+      "dbrowId": 5193,
+      "name": ".",
+      "progress": {
+        "kind": "varbit",
+        "id": 16662
+      },
+      "startValue": null,
+      "completeValue": 28
+    },
+    {
+      "questId": 204,
+      "dbrowId": 5194,
+      "name": "Vale Totems",
+      "progress": {
+        "kind": "varbit",
+        "id": 17227
+      },
+      "startValue": null,
+      "completeValue": 100
+    },
+    {
+      "questId": 205,
+      "dbrowId": 9643,
+      "name": "Learning the Ropes",
+      "progress": {
+        "kind": "varp",
+        "id": 281
+      },
+      "startValue": null,
+      "completeValue": 671
+    },
+    {
+      "questId": 206,
+      "dbrowId": 7103,
+      "name": "Pandemonium",
+      "progress": {
+        "kind": "varbit",
+        "id": 18314
+      },
+      "startValue": null,
+      "completeValue": 50
+    },
+    {
+      "questId": 207,
+      "dbrowId": 7104,
+      "name": "Prying Times",
+      "progress": {
+        "kind": "varbit",
+        "id": 18317
+      },
+      "startValue": null,
+      "completeValue": 35
+    },
+    {
+      "questId": 208,
+      "dbrowId": 7105,
+      "name": "Current Affairs",
+      "progress": {
+        "kind": "varbit",
+        "id": 18282
+      },
+      "startValue": null,
+      "completeValue": 45
+    },
+    {
+      "questId": 209,
+      "dbrowId": 7106,
+      "name": "Troubled Tortugans",
+      "progress": {
+        "kind": "varbit",
+        "id": 18321
+      },
+      "startValue": null,
+      "completeValue": 44
+    },
+    {
+      "questId": 210,
+      "dbrowId": 7107,
+      "name": "Red Reef, The",
+      "progress": {
+        "kind": "varbit",
+        "id": 18335
+      },
+      "startValue": null,
+      "completeValue": 42
+    },
+    {
+      "questId": 211,
+      "dbrowId": 7108,
+      "name": ".",
+      "progress": {
+        "kind": "varbit",
+        "id": 18274
+      },
+      "startValue": null,
+      "completeValue": 48
+    },
+    {
+      "questId": 212,
+      "dbrowId": 9645,
+      "name": "Ides of Milk, The",
+      "progress": {
+        "kind": "varbit",
+        "id": 20106
+      },
+      "startValue": null,
+      "completeValue": 22
+    }
+  ]
+}

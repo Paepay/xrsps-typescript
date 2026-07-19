@@ -215,6 +215,7 @@ import type {
     SkillFiremakingActionData,
     SkillFishingActionData,
     SkillFlaxActionData,
+    SkillPickPlantActionData,
     SkillFletchActionData,
     SkillMiningActionData,
     SkillPicklockActionData,
@@ -326,6 +327,7 @@ import { LeagueTaskManager } from "../game/leagues/LeagueTaskManager";
 import {
     RegionalFavourService,
     bindRegionalFavourService,
+    initRegionalFavourHints,
 } from "../game/regionalFavours";
 import { LeagueTaskService } from "../game/leagues/LeagueTaskService";
 import {
@@ -352,6 +354,7 @@ import {
     PlayerState,
     SkillSyncUpdate,
 } from "../game/player";
+import { collectQuestProgressClientSync } from "../game/quests/questCompletions";
 import { PrayerSystem } from "../game/prayer/PrayerSystem";
 import { getActiveLeagueType, isLeagueWorld } from "../game/rules/playerWorldRules";
 import { ScriptRegistry } from "../game/scripts/ScriptRegistry";
@@ -375,6 +378,7 @@ import type {
     ScriptInventoryAddResult,
 } from "../game/scripts/types";
 import { ShopManager, type ShopStockEntry } from "../game/shops/ShopManager";
+import { getShopDefinitionByNpcId } from "../game/shops/definitions";
 import {
     FIRE_LIGHTING_ANIMATION,
     FiremakingTracker,
@@ -487,6 +491,7 @@ import {
 } from "../game/tick/TickPhaseOrchestrator";
 import { GameTicker, TickEvent } from "../game/ticker";
 import { TradeManager } from "../game/trade/TradeManager";
+import { FriendsChatService } from "../game/social/FriendsChatService";
 import { PathService } from "../pathfinding/PathService";
 import { RectAdjacentRouteStrategy } from "../pathfinding/legacy/pathfinder/RouteStrategy";
 import { CollisionFlag } from "../pathfinding/legacy/pathfinder/flag/CollisionFlag";
@@ -1328,6 +1333,7 @@ export class WSServer {
     private playerCombatManager?: PlayerCombatManager;
     private shopManager?: ShopManager;
     private tradeManager?: TradeManager;
+    private friendsChatService?: FriendsChatService;
     private interfaceService?: InterfaceService;
     private woodcuttingLocMap: Map<number, string> = new Map();
     private miningLocMap: Map<number, MiningLocMapping> = new Map();
@@ -1694,6 +1700,20 @@ export class WSServer {
                 );
             } catch (err) {
                 logger.warn("[fishing] failed to build npc fishing map", err);
+            }
+        }
+        if (this.cacheEnv) {
+            try {
+                initRegionalFavourHints({
+                    cacheEnv: this.cacheEnv,
+                    locTypeLoader: this.locTypeLoader ?? locTypeLoader,
+                    miningLocMap: this.miningLocMap,
+                    woodcuttingLocMap: this.woodcuttingLocMap,
+                    fishingSpotMap: this.fishingSpotMap,
+                });
+                logger.info("[regionalFavours] gather hints derived from world data");
+            } catch (err) {
+                logger.warn("[regionalFavours] failed to derive gather hints from world data", err);
             }
         }
         this.npcManager = opts.npcManager;
@@ -2162,6 +2182,19 @@ export class WSServer {
                 openModal: (player, interfaceId, data) => {
                     this.interfaceService?.openModal(player, interfaceId, data);
                 },
+                friendsChatGetSettings: (player) =>
+                    this.friendsChatService?.getSettings(player) ?? {
+                        channelName: "",
+                        enterRank: -2,
+                        talkRank: -2,
+                        kickRank: 7,
+                    },
+                friendsChatUpdateSettings: (player, opts) => {
+                    this.friendsChatService?.updateSettings(player, opts);
+                },
+                friendsChatBeginPrefixEdit: (player) => {
+                    this.friendsChatService?.beginPrefixEdit(player);
+                },
                 teleportPlayer: (player, x, y, level, forceRebuild = false) =>
                     this.teleportPlayer(player, x, y, level, forceRebuild),
                 requestTeleportAction: (player, request) =>
@@ -2344,6 +2377,41 @@ export class WSServer {
                     this.addItemToInventory(player, itemId, qty),
                 getItemDefinition: (itemId) => getItemDefinition(itemId),
             });
+            this.friendsChatService = new FriendsChatService({
+                getPlayerById: (id) => this.players?.getById(id),
+                getPlayerByName: (name) => {
+                    const key = name.trim().toLowerCase();
+                    if (!key || !this.players) return undefined;
+                    for (const p of this.players.getAllPlayersForSync()) {
+                        if ((p.name ?? "").trim().toLowerCase() === key) return p;
+                    }
+                    return undefined;
+                },
+                getOfflineOwnerSettings: (ownerName) =>
+                    this.playerPersistence.getFriendsChatSettings(ownerName),
+                sendUpdate: (playerId, payload) => {
+                    const sock = this.players?.getSocketByPlayerId(playerId);
+                    if (!sock) return;
+                    this.withDirectSendBypass("friends_chat", () =>
+                        this.sendWithGuard(
+                            sock,
+                            encodeMessage({ type: "friends_chat", payload }),
+                            "friends_chat",
+                        ),
+                    );
+                },
+                sendGameMessage: sendGameMessageFn,
+                queueChannelChat: (opts) => {
+                    this.queueChatMessage({
+                        messageType: "channel",
+                        text: opts.text,
+                        from: opts.from,
+                        prefix: opts.prefix,
+                        playerId: opts.playerId,
+                        targetPlayerIds: opts.targetPlayerIds,
+                    });
+                },
+            });
             this.players.setTradeHandshakeCallback((me, target, tick) => {
                 this.tradeManager?.requestTrade(me, target, tick);
             });
@@ -2371,6 +2439,9 @@ export class WSServer {
             this.players.setGameMessageCallback((player, text) => {
                 sendGameMessageFn(player, text);
             });
+            this.players.setResolveNpcOptionCallback((npc, opNum) =>
+                this.resolveNpcOptionByOpNum(npc, opNum),
+            );
             // OSRS parity: Wire up skill action interruption callback
             this.players.setInterruptSkillActionsCallback((playerId) => {
                 this.interruptPlayerSkillActions(playerId);
@@ -5265,21 +5336,26 @@ export class WSServer {
     ): { x: number; y: number } | undefined {
         if (!this.npcManager || typeIds.length === 0) return undefined;
         const wanted = new Set(typeIds.map((id) => id | 0));
-        let best: { x: number; y: number; dist: number } | undefined;
+        const tick = this.options.ticker.currentTick();
+        let bestLiving: { x: number; y: number; dist: number } | undefined;
+        let bestAny: { x: number; y: number; dist: number } | undefined;
         this.npcManager.forEach((npc) => {
             if (!wanted.has(npc.typeId | 0)) return;
-            try {
-                if (typeof (npc as any).isDead === "function" && (npc as any).isDead(0)) {
-                    // Prefer living NPCs; still allow spawn tile if all matching are dead.
-                }
-            } catch {}
             const dx = (npc.tileX | 0) - (nearX | 0);
             const dy = (npc.tileY | 0) - (nearY | 0);
             const dist = dx * dx + dy * dy;
-            if (!best || dist < best.dist) {
-                best = { x: npc.tileX | 0, y: npc.tileY | 0, dist };
+            if (!bestAny || dist < bestAny.dist) {
+                bestAny = { x: npc.tileX | 0, y: npc.tileY | 0, dist };
+            }
+            const dead =
+                (typeof npc.isDead === "function" && npc.isDead(tick)) ||
+                (typeof npc.getHitpoints === "function" && (npc.getHitpoints() | 0) <= 0);
+            if (dead) return;
+            if (!bestLiving || dist < bestLiving.dist) {
+                bestLiving = { x: npc.tileX | 0, y: npc.tileY | 0, dist };
             }
         });
+        const best = bestLiving ?? bestAny;
         return best ? { x: best.x, y: best.y } : undefined;
     }
 
@@ -5438,7 +5514,8 @@ export class WSServer {
             messageType:
                 message.messageType === "public" ||
                 message.messageType === "server" ||
-                message.messageType === "private"
+                message.messageType === "private" ||
+                message.messageType === "channel"
                     ? message.messageType
                     : "game",
         };
@@ -6996,9 +7073,9 @@ export class WSServer {
             ),
         );
 
-        // Send home teleport varp with large negative value to bypass 30-minute cooldown.
-        // The CS2 check is: clientclock - varp(892) >= 90000. With varp = -100000,
-        // this becomes clientclock + 100000 >= 90000, which is always true.
+        // Home teleport varp (892): CS2 checks clientclock - varp >= 90000 (30 min).
+        // Start ready (-100000). After cast, server writes a clientclock-compatible value
+        // offset so the effective wait is 5 minutes for leagues.
         this.withDirectSendBypass("varp", () =>
             this.sendWithGuard(
                 sock,
@@ -7140,6 +7217,38 @@ export class WSServer {
                 "varbit",
             ),
         );
+    }
+
+    /**
+     * Replay persisted quest progress varps/varbits to the client on login/reconnect.
+     * Server state is already restored via applyPersistentVars; this syncs multiNPC/loc + journal.
+     */
+    private sendSavedQuestProgressVars(sock: WebSocket, player: PlayerState): void {
+        const snapshot = collectQuestProgressClientSync(player);
+        for (const { varpId, value } of snapshot.varps) {
+            this.withDirectSendBypass("varp", () =>
+                this.sendWithGuard(
+                    sock,
+                    encodeMessage({
+                        type: "varp",
+                        payload: { varpId, value },
+                    }),
+                    "varp",
+                ),
+            );
+        }
+        for (const { varbitId, value } of snapshot.varbits) {
+            this.withDirectSendBypass("varbit", () =>
+                this.sendWithGuard(
+                    sock,
+                    encodeMessage({
+                        type: "varbit",
+                        payload: { varbitId, value },
+                    }),
+                    "varbit",
+                ),
+            );
+        }
     }
 
     private queueAnimSnapshot(playerId: number, anim: PlayerAnimSet | undefined): void {
@@ -8007,6 +8116,10 @@ export class WSServer {
                 this.gatheringSystem.flaxTracker.isDepleted(tile, level),
             markFlaxDepleted: (info, tick) =>
                 this.gatheringSystem.markFlaxDepleted(info, tick),
+            isFieldCropDepleted: (tile, level) =>
+                this.gatheringSystem.fieldCropTracker.isDepleted(tile, level),
+            markFieldCropDepleted: (info, tick) =>
+                this.gatheringSystem.markFieldCropDepleted(info, tick),
             isThievingStallDepleted: (key) =>
                 this.gatheringSystem.isThievingStallDepleted(key),
             markThievingStallDepleted: (info, tick) =>
@@ -8146,6 +8259,9 @@ export class WSServer {
                     else if (level === "error") logger.error(message, data);
                     else logger.info(message, data);
                 } catch {}
+            },
+            onRegionalSkillAction: (playerId, actionId, amount) => {
+                this.regionalFavourService?.onSkillAction(playerId, actionId, amount);
             },
         };
         return new SkillActionHandler(services);
@@ -8921,6 +9037,41 @@ export class WSServer {
                 this.tradeManager?.handleAction(player, payload, tick);
             },
 
+            handleFriendsChatJoinLeave: (player, payload) => {
+                this.friendsChatService?.handleJoinLeave(player, payload.channelName);
+            },
+            handleFriendsChatKick: (player, payload) => {
+                this.friendsChatService?.kick(player, payload.name);
+            },
+            handleFriendsChatSetRank: (player, payload) => {
+                this.friendsChatService?.setRank(player, payload.name, payload.rank);
+            },
+            handleFriendsChatSettings: (player, payload) => {
+                this.friendsChatService?.updateSettings(player, payload);
+            },
+            handleFriendsChatMessage: (player, text) => {
+                return this.friendsChatService?.handleChannelMessage(player, text) ?? false;
+            },
+            handleFriendsChatPrefixNameDialog: (player, value) => {
+                const handled =
+                    this.friendsChatService?.handlePrefixNameDialog(player, value) ?? false;
+                if (handled) {
+                    const settings = this.friendsChatService?.getSettings(player);
+                    if (settings) {
+                        const {
+                            refreshFriendsChatSetupLabels,
+                        } = require("../game/scripts/modules/friendsChatWidgets");
+                        refreshFriendsChatSetupLabels(
+                            (playerId: number, event: any) =>
+                                this.queueWidgetEvent(playerId, event),
+                            player.id,
+                            settings,
+                        );
+                    }
+                }
+                return handled;
+            },
+
             // Banking
             handleBankDepositInventory: (ws, payload) =>
                 this.handleBankDepositInventory(ws, payload),
@@ -8963,8 +9114,8 @@ export class WSServer {
             getNpcById: (npcId) => this.npcManager?.getById(npcId),
             startNpcAttack: (ws, npc, tick, attackSpeed, modifierFlags) =>
                 this.players!.startNpcAttack(ws, npc, tick, attackSpeed, modifierFlags),
-            startNpcInteraction: (ws, npc, option, modifierFlags) =>
-                this.players?.startNpcInteraction(ws, npc, option, modifierFlags),
+            startNpcInteraction: (ws, npc, option, modifierFlags, opNum) =>
+                this.players?.startNpcInteraction(ws, npc, option, modifierFlags, opNum),
             pickAttackSpeed: (player) => this.pickAttackSpeed(player),
             startCombat: (player, npc, tick, attackSpeed) =>
                 this.playerCombatManager?.startCombat(player, npc, tick, attackSpeed),
@@ -10262,12 +10413,21 @@ export class WSServer {
         try {
             const type = this.npcManager?.getNpcType?.(npc);
             const raw = Array.isArray(type?.actions) ? type.actions[idx] : undefined;
-            if (!raw) return undefined;
-            const normalized = raw.trim();
-            return normalized.length > 0 ? normalized : undefined;
+            if (raw) {
+                const normalized = raw.trim();
+                if (normalized.length > 0) return normalized;
+            }
         } catch {
-            return undefined;
+            // fall through to shop convention
         }
+        // Shopkeepers: OPNPC2 is Trade even when cache action slot is sparse/missing.
+        try {
+            const typeId = Math.trunc(npc?.typeId ?? 0);
+            if (opNum === 2 && typeId > 0 && getShopDefinitionByNpcId(typeId)) {
+                return "Trade";
+            }
+        } catch {}
+        return undefined;
     }
 
     private resolveLocActionByOpNum(
@@ -10460,6 +10620,12 @@ export class WSServer {
                 return this.skillActionHandler.executeSkillFlaxAction(
                     player,
                     action.data as SkillFlaxActionData,
+                    tick,
+                );
+            case "skill.pick_plant":
+                return this.skillActionHandler.executeSkillPickPlantAction(
+                    player,
+                    action.data as SkillPickPlantActionData,
                     tick,
                 );
             case "skill.woodcut":
@@ -12962,6 +13128,9 @@ export class WSServer {
                             );
                         }
 
+                        // Align with client clientclock restart (20ms cycles from session start).
+                        p.__clientClockBaseMs = Date.now();
+
                         try {
                             this.followerManager?.restoreFollowerForPlayer(p);
                         } catch (err) {
@@ -13204,6 +13373,12 @@ export class WSServer {
                         } catch (err) {
                             logger.warn("[handshake] equipment snapshot failed", err);
                         }
+                        try {
+                            // After handshake ack so the client can apply channel state.
+                            this.friendsChatService?.tryAutoRejoin(p);
+                        } catch (err) {
+                            logger.warn("[friends_chat] failed to auto-rejoin", err);
+                        }
                         // OSRS parity: ensure login sends a full skill snapshot (packet 134 burst).
                         // Without this, reconnect paths can end up sending only deltas (or nothing),
                         // leading to briefly incorrect levels until the next XP/HP change.
@@ -13213,6 +13388,7 @@ export class WSServer {
                         this.sendRunEnergyState(ws, p);
                         // Send saved transmit varps to restore client state
                         this.sendSavedTransmitVarps(ws, p);
+                        this.sendSavedQuestProgressVars(ws, p);
                         this.sendCollectionLogDisplayVarps(ws, p);
                         this.sendSavedAutocastTransmitVarbits(ws, p);
                         // Account type (varbit 1777) drives ownership filtering for ground items.
@@ -14283,6 +14459,7 @@ export class WSServer {
                         player,
                         "The other player has declined the trade.",
                     );
+                    this.friendsChatService?.handlePlayerLogout(player);
                     if (id !== undefined) {
                         this.widgetDialogHandler.cleanupPlayerDialogState(id);
                     }

@@ -719,6 +719,44 @@ export class ServerBinaryEncoder {
         return this.buffer.toPacket(ServerPacketId.CHAT_MESSAGE);
     }
 
+    /**
+     * Full friends-chat snapshot. Pass null/undefined for leave (empty payload).
+     */
+    encodeFriendsChatUpdate(snapshot?: {
+        owner: string;
+        channelName: string;
+        minKick: number;
+        members: Array<{ name: string; world: number; rank: number }>;
+    } | null): Uint8Array {
+        this.buffer.reset();
+        if (!snapshot) {
+            return this.buffer.toPacket(ServerPacketId.FRIENDS_CHAT_UPDATE);
+        }
+        this.buffer.writeString(snapshot.owner);
+        this.buffer.writeString(snapshot.channelName);
+        this.buffer.writeByte(snapshot.minKick | 0);
+        const members = snapshot.members ?? [];
+        this.buffer.writeShort(members.length);
+        for (const member of members) {
+            this.buffer.writeString(member.name);
+            this.buffer.writeShort(member.world | 0);
+            this.buffer.writeByte(member.rank | 0);
+        }
+        return this.buffer.toPacket(ServerPacketId.FRIENDS_CHAT_UPDATE);
+    }
+
+    encodeFriendsChatUpdateIncremental(payload: {
+        name: string;
+        world: number;
+        rank: number;
+    }): Uint8Array {
+        this.buffer.reset();
+        this.buffer.writeString(payload.name);
+        this.buffer.writeShort(payload.world | 0);
+        this.buffer.writeByte(payload.rank | 0);
+        return this.buffer.toPacket(ServerPacketId.FRIENDS_CHAT_UPDATE_INCREMENTAL);
+    }
+
     // ========================================
     // SOUND
     // ========================================
@@ -1145,7 +1183,8 @@ export class ServerBinaryEncoder {
         this.buffer.writeShort(stock.length);
         for (const s of stock) {
             this.buffer.writeShort(s.slot);
-            this.buffer.writeShort(s.itemId);
+            // +1 / -1 empty convention (same as inventory packets); raw -1 writes as 65535.
+            this.buffer.writeShort((s.itemId | 0) + 1);
             this.buffer.writeInt(s.quantity);
             this.buffer.writeInt(s.defaultQuantity ?? s.quantity);
             this.buffer.writeInt(s.priceEach ?? 0);
@@ -1168,7 +1207,7 @@ export class ServerBinaryEncoder {
         this.buffer.reset();
         this.buffer.writeString(shopId);
         this.buffer.writeShort(slot.slot);
-        this.buffer.writeShort(slot.itemId);
+        this.buffer.writeShort((slot.itemId | 0) + 1);
         this.buffer.writeInt(slot.quantity);
         this.buffer.writeInt(slot.defaultQuantity ?? slot.quantity);
         this.buffer.writeInt(slot.priceEach ?? 0);

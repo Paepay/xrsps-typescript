@@ -6,6 +6,7 @@
  * binary encoding.
  */
 import { ClientState, MOUSE_CROSS_YELLOW } from "../../client/ClientState";
+import { sendNpcInteract } from "../../network/ServerConnection";
 import { ClientPacket, createPacket, queuePacket } from "../../network/packet";
 import { MenuTargetType } from "../../rs/MenuEntry";
 import { MODIFIER_FLAG_CTRL, MODIFIER_FLAG_CTRL_SHIFT } from "../../shared/input/modifierFlags";
@@ -347,67 +348,30 @@ export function menuAction(
     // ========================================
     // NPC OPCODES (9-13)
     // ========================================
-
-    // OPNPC1 (9) - Uses packet 76 (field3208)
-    if (opcode === MenuOpcode.NpcFirstOption) {
+    // High-level npc_interact with the menu option string is authoritative.
+    // OPNPC2/OPNPC3 (and some rev packet layouts) are unreliable here — Talk-to
+    // worked via OPNPC1 but Trade/Teleport never reached the server correctly.
+    if (
+        opcode === MenuOpcode.NpcFirstOption ||
+        opcode === MenuOpcode.NpcSecondOption ||
+        opcode === MenuOpcode.NpcThirdOption ||
+        opcode === MenuOpcode.NpcFourthOption ||
+        opcode === MenuOpcode.NpcFifthOption
+    ) {
         const npc = ClientState.npcs[identifier];
         if (npc != null) {
             setVisualFeedback();
-            // OSRS uses field3208 (packet 76) for NPC option 1
-            const pkt = createPacket(ClientPacket.OPNPC1_ALT);
-            pkt.packetBuffer.writeByte(ctrlHeld ? 1 : 0);
-            pkt.packetBuffer.writeShortAddLE(identifier);
-            queuePacket(pkt);
-        }
-    }
-
-    // OPNPC2 (10)
-    if (opcode === MenuOpcode.NpcSecondOption) {
-        const npc = ClientState.npcs[identifier];
-        if (npc != null) {
-            setVisualFeedback();
-            const pkt = createPacket(ClientPacket.OPNPC2);
-            pkt.packetBuffer.writeShortAddLE(identifier);
-            pkt.packetBuffer.writeByte(ctrlHeld ? 1 : 0);
-            queuePacket(pkt);
-        }
-    }
-
-    // OPNPC3 (11)
-    if (opcode === MenuOpcode.NpcThirdOption) {
-        const npc = ClientState.npcs[identifier];
-        if (npc != null) {
-            setVisualFeedback();
-            const pkt = createPacket(ClientPacket.OPNPC3);
-            pkt.packetBuffer.writeShortAdd(identifier);
-            pkt.packetBuffer.writeByteNeg(ctrlHeld ? 1 : 0);
-            queuePacket(pkt);
-        }
-    }
-
-    // OPNPC4 (12)
-    if (opcode === MenuOpcode.NpcFourthOption) {
-        const npc = ClientState.npcs[identifier];
-        if (npc != null) {
-            setVisualFeedback();
-            const pkt = createPacket(ClientPacket.OPNPC4);
-            pkt.packetBuffer.writeByteNeg(ctrlHeld ? 1 : 0);
-            pkt.packetBuffer.writeShortLE(identifier);
-            queuePacket(pkt);
-        }
-    }
-
-    // OPNPC5 (13) - Uses packet 57 (field3220)
-    if (opcode === MenuOpcode.NpcFifthOption) {
-        const npc = ClientState.npcs[identifier];
-        if (npc != null) {
-            setVisualFeedback();
-            // OSRS uses field3220 (packet 57) for NPC option 5
-            // Note: Our OPNPC1 constant is packet 57, which is confusingly named
-            const pkt = createPacket(ClientPacket.OPNPC1);
-            pkt.packetBuffer.writeByteAdd(ctrlHeld ? 1 : 0);
-            pkt.packetBuffer.writeShortLE(identifier);
-            queuePacket(pkt);
+            const opNum =
+                opcode === MenuOpcode.NpcFirstOption
+                    ? 1
+                    : opcode === MenuOpcode.NpcSecondOption
+                      ? 2
+                      : opcode === MenuOpcode.NpcThirdOption
+                        ? 3
+                        : opcode === MenuOpcode.NpcFourthOption
+                          ? 4
+                          : 5;
+            sendNpcInteract(identifier, action, opNum);
         }
     }
 

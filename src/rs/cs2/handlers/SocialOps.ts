@@ -1,6 +1,11 @@
 /**
  * Social operations: Friends, Ignore, Clan chat
  */
+import {
+    sendFriendsChatJoinLeave,
+    sendFriendsChatKick,
+    sendFriendsChatSetRank,
+} from "../../../network/ServerConnection";
 import { Opcodes } from "../Opcodes";
 import type { HandlerMap } from "./HandlerTypes";
 
@@ -39,11 +44,12 @@ export function registerSocialOps(handlers: HandlerMap): void {
     handlers.set(Opcodes.FRIEND_SETRANK, (ctx) => {
         const rank = ctx.intStack[--ctx.intStackSize];
         const name = ctx.stringStack[--ctx.stringStackSize];
-        // Find friend and update rank
+        // Find friend and update rank locally; server owns channel rank map
         const friend = ctx.friendList.find((f) => f.name.toLowerCase() === name.toLowerCase());
         if (friend) {
             friend.rank = rank;
         }
+        sendFriendsChatSetRank(rank | 0, String(name ?? ""));
     });
 
     handlers.set(Opcodes.FRIEND_ADD, (ctx) => {
@@ -175,13 +181,12 @@ export function registerSocialOps(handlers: HandlerMap): void {
     });
 
     handlers.set(Opcodes.CLAN_GETCHATMINKICK, (ctx) => {
-        // Minimum rank required to kick - 0 means anyone can kick
-        ctx.pushInt(0);
+        ctx.pushInt(ctx.clanMinKick ?? 0);
     });
 
     handlers.set(Opcodes.CLAN_KICKUSER, (ctx) => {
         const name = ctx.stringStack[--ctx.stringStackSize];
-        // Server would handle actual kick - this is client-side request
+        sendFriendsChatKick(String(name ?? ""));
     });
 
     handlers.set(Opcodes.CLAN_GETCHATRANK, (ctx) => {
@@ -191,11 +196,11 @@ export function registerSocialOps(handlers: HandlerMap): void {
 
     handlers.set(Opcodes.CLAN_JOINCHAT, (ctx) => {
         const name = ctx.stringStack[--ctx.stringStackSize];
-        // Server would handle actual join - this is client-side request
+        sendFriendsChatJoinLeave(String(name ?? ""));
     });
 
     handlers.set(Opcodes.CLAN_LEAVECHAT, () => {
-        // Server would handle actual leave - this is client-side request
+        sendFriendsChatJoinLeave("");
     });
 
     handlers.set(Opcodes.CLAN_ISSELF, (ctx) => {

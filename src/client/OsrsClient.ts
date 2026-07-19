@@ -26,6 +26,7 @@ import {
     subscribeCombat,
     subscribeDisconnect,
     subscribeEquipment,
+    subscribeFriendsChat,
     subscribeGroundItems,
     subscribeHandshake,
     subscribeHitsplats,
@@ -230,6 +231,7 @@ import {
     getTransmitCycles,
     isTransmitProcessingNeeded,
     markChatTransmit,
+    markClanTransmit,
     markInvTransmit,
     markMiscTransmit,
     markStatTransmit,
@@ -934,6 +936,7 @@ export class OsrsClient {
     private unsubscribePathDebug?: () => void;
     private unsubscribeGroundItems?: () => void;
     private unsubscribeChatMessages?: () => void;
+    private unsubscribeFriendsChat?: () => void;
     private unsubscribeSkills?: () => void;
     private unsubscribeRunEnergy?: () => void;
     private unsubscribeNotifications?: () => void;
@@ -1302,6 +1305,7 @@ export class OsrsClient {
             clanName: "",
             clanOwner: "",
             clanRank: 0,
+            clanMinKick: 0,
             paramTypeLoader: this.loaderFactory.getParamTypeLoader(),
             enumTypeLoader: this.loaderFactory.getEnumTypeLoader(),
             structTypeLoader: this.loaderFactory.getStructTypeLoader(),
@@ -2869,6 +2873,64 @@ export class OsrsClient {
             ) => {
                 this.cs2Vm?.context?.onNotificationDisplay?.(title, message, color | 0);
             };
+        } catch {}
+        // Friends chat (chat-channel) member list / join state → CS2 clan* context
+        try {
+            this.unsubscribeFriendsChat = subscribeFriendsChat((payload) => {
+                const ctx = this.cs2Vm?.context;
+                if (!ctx) return;
+                if (payload.kind === "leave") {
+                    ctx.clanMembers = [];
+                    ctx.clanName = "";
+                    ctx.clanOwner = "";
+                    ctx.clanRank = 0;
+                    ctx.clanMinKick = 0;
+                    markClanTransmit();
+                    return;
+                }
+                if (payload.kind === "full") {
+                    ctx.clanOwner = payload.owner;
+                    ctx.clanName = payload.channelName;
+                    ctx.clanMinKick = payload.minKick | 0;
+                    ctx.clanMembers = payload.members.map((m) => ({
+                        name: m.name,
+                        world: m.world | 0,
+                        rank: m.rank | 0,
+                    }));
+                    const selfName = (ctx.localPlayerName ?? "").toLowerCase();
+                    const self = ctx.clanMembers.find(
+                        (m) => m.name.toLowerCase() === selfName,
+                    );
+                    ctx.clanRank = self?.rank ?? 0;
+                    markClanTransmit();
+                    return;
+                }
+                // incremental
+                const members = ctx.clanMembers ?? [];
+                const nameKey = payload.name.toLowerCase();
+                if ((payload.rank | 0) === -128) {
+                    ctx.clanMembers = members.filter((m) => m.name.toLowerCase() !== nameKey);
+                } else {
+                    const existing = members.find((m) => m.name.toLowerCase() === nameKey);
+                    if (existing) {
+                        existing.world = payload.world | 0;
+                        existing.rank = payload.rank | 0;
+                    } else {
+                        members.push({
+                            name: payload.name,
+                            world: payload.world | 0,
+                            rank: payload.rank | 0,
+                        });
+                        ctx.clanMembers = members;
+                    }
+                }
+                const selfName = (ctx.localPlayerName ?? "").toLowerCase();
+                const self = (ctx.clanMembers ?? []).find(
+                    (m) => m.name.toLowerCase() === selfName,
+                );
+                if (self) ctx.clanRank = self.rank;
+                markClanTransmit();
+            });
         } catch {}
         // Subscribe to loot notifications and display via CS2 notification system
         try {
@@ -10103,7 +10165,8 @@ export class OsrsClient {
                 const slot = Math.max(0, Math.min(39, entry.slot | 0));
                 const itemId = entry.itemId | 0;
                 const quantity = typeof entry.quantity === "number" ? entry.quantity | 0 : 1;
-                if (itemId > 0) {
+                // Skip empty / invalid ids (e.g. legacy -1 encoded as unsigned 65535).
+                if (itemId > 0 && itemId < 65535 && quantity > 0) {
                     this.shopInventory.setSlot(slot, itemId, quantity);
                 }
             }

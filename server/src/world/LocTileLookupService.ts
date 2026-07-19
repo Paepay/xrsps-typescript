@@ -60,6 +60,24 @@ export class LocTileLookupService {
         );
     }
 
+    /**
+     * Visit every decoded loc placement in a map square (loads the square once).
+     * Used for resource-hint derivation / offline scans.
+     */
+    forEachPlacementInSquare(
+        mapX: number,
+        mapY: number,
+        visitor: (placement: LocTilePlacement) => void,
+    ): void {
+        const square = this.getOrLoadSquare(mapX | 0, mapY | 0);
+        if (!square) return;
+        for (const placements of square.values()) {
+            for (const placement of placements) {
+                visitor(placement);
+            }
+        }
+    }
+
     private getOrLoadSquare(mapX: number, mapY: number): SquareTileMap | undefined {
         const key = this.squareKey(mapX, mapY);
         const cached = this.squareCache.get(key);

@@ -734,6 +734,49 @@ export function decodeServerPacket(data: Uint8Array | ArrayBuffer): DecodedServe
                 },
             };
 
+        case ServerPacketId.FRIENDS_CHAT_UPDATE: {
+            if (reader.remaining <= 0) {
+                return {
+                    type: "friends_chat",
+                    payload: { kind: "leave" },
+                };
+            }
+            const owner = reader.readString();
+            const channelName = reader.readString();
+            const minKick = reader.readSignedByte();
+            const memberCount = reader.readShort();
+            const members: Array<{ name: string; world: number; rank: number }> = [];
+            for (let i = 0; i < memberCount; i++) {
+                members.push({
+                    name: reader.readString(),
+                    world: reader.readShort(),
+                    rank: reader.readSignedByte(),
+                });
+            }
+            return {
+                type: "friends_chat",
+                payload: {
+                    kind: "full",
+                    owner,
+                    channelName,
+                    minKick,
+                    members,
+                },
+            };
+        }
+
+        case ServerPacketId.FRIENDS_CHAT_UPDATE_INCREMENTAL: {
+            return {
+                type: "friends_chat",
+                payload: {
+                    kind: "incremental",
+                    name: reader.readString(),
+                    world: reader.readShort(),
+                    rank: reader.readSignedByte(),
+                },
+            };
+        }
+
         case ServerPacketId.CHAT_MESSAGE: {
             const messageTypes = [
                 "game",
@@ -1109,7 +1152,7 @@ export function decodeServerPacket(data: Uint8Array | ArrayBuffer): DecodedServe
             for (let i = 0; i < stockCount; i++) {
                 stock.push({
                     slot: reader.readShort(),
-                    itemId: reader.readShort(),
+                    itemId: reader.readShort() - 1, // 0 = empty
                     quantity: reader.readInt(),
                     defaultQuantity: reader.readInt(),
                     priceEach: reader.readInt(),
@@ -1140,7 +1183,7 @@ export function decodeServerPacket(data: Uint8Array | ArrayBuffer): DecodedServe
                     shopId,
                     slot: {
                         slot: reader.readShort(),
-                        itemId: reader.readShort(),
+                        itemId: reader.readShort() - 1, // 0 = empty
                         quantity: reader.readInt(),
                         defaultQuantity: reader.readInt(),
                         priceEach: reader.readInt(),

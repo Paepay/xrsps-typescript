@@ -112,16 +112,42 @@ export function resolveFavourHintTarget(
                     ? fromDefNames
                     : registry?.objectNames;
             const rockId = registry?.rockId;
+            const npcTypeIds = registry?.npcTypeIds;
             if (area) {
-                return areaCenter(area, { objectNames, rockId });
+                // Prefer the live NPC (shopkeeper / fishing spot) when the hint names one.
+                if (npcTypeIds && npcTypeIds.length > 0) {
+                    const cx = (area.minX + area.maxX) >> 1;
+                    const cy = (area.minY + area.maxY) >> 1;
+                    const npcTile = resolveNpcTile(lookup, npcTypeIds, cx, cy);
+                    if (npcTile) {
+                        return {
+                            ...npcTile,
+                            objectNames,
+                            rockId,
+                        };
+                    }
+                }
+                return areaCenter(area, { objectNames, rockId, npcTypeIds });
             }
-            if ((objectNames && objectNames.length > 0) || rockId) {
+            if ((objectNames && objectNames.length > 0) || rockId || (npcTypeIds && npcTypeIds.length > 0)) {
+                // Prefer snapping to a nearby NPC of the hint type when we have no area.
+                if (npcTypeIds && npcTypeIds.length > 0) {
+                    const npcTile = resolveNpcTile(lookup, npcTypeIds, playerTileX, playerTileY);
+                    if (npcTile) {
+                        return {
+                            ...npcTile,
+                            objectNames,
+                            rockId,
+                        };
+                    }
+                }
                 return {
                     worldX: playerTileX,
                     worldY: playerTileY,
                     height: 0,
                     objectNames,
                     rockId,
+                    npcTypeIds,
                 };
             }
             return undefined;

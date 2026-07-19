@@ -137,6 +137,11 @@ export const SCRIPT_MANIFEST: ScriptManifestEntry[] = [
         watch: [path.resolve(MODULE_DIR, "modules/settingsWidgets.ts")],
     },
     {
+        id: "content.friends-chat-widgets",
+        load: loadModule("modules/friendsChatWidgets", "friendsChatWidgetsModule"),
+        watch: [path.resolve(MODULE_DIR, "modules/friendsChatWidgets.ts")],
+    },
+    {
         id: "content.quest-journal-widgets",
         load: loadModule("modules/questJournalWidgets", "questJournalWidgetsModule"),
         watch: [path.resolve(MODULE_DIR, "modules/questJournalWidgets.ts")],
@@ -205,6 +210,11 @@ export const SCRIPT_MANIFEST: ScriptManifestEntry[] = [
         id: "skills.flax",
         load: loadModule("modules/skills/flax", "flaxModule"),
         watch: [path.resolve(MODULE_DIR, "modules/skills/flax.ts")],
+    },
+    {
+        id: "skills.field-crops",
+        load: loadModule("modules/skills/fieldCrops", "fieldCropsModule"),
+        watch: [path.resolve(MODULE_DIR, "modules/skills/fieldCrops.ts")],
     },
     {
         id: "skills.spinning",

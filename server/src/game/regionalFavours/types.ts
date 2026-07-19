@@ -74,6 +74,11 @@ export type RegionalFavourDefinition = {
      */
     targetObjectNames?: string[];
     targetArea?: TileBounds;
+    /**
+     * Skill-action favour keys matched by RegionalFavourService.onSkillAction
+     * (e.g. "stall:tea_stall", "pickpocket:guard", "cook:range", "pick_plant:cabbage").
+     */
+    skillActionIds?: string[];
     minAmount: number;
     maxAmount: number;
     requirements?: SkillRequirement[];

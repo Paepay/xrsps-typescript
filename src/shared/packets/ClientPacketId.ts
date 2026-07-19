@@ -78,6 +78,13 @@ export const enum ClientPacketId {
     RESUME_NAMEDIALOG = 193,
     RESUME_STRINGDIALOG = 194,
     MAP_EDIT = 195,
+    /** Empty name = leave; otherwise join channel owned by that name. */
+    FRIENDS_CHAT_JOIN_LEAVE = 196,
+    FRIENDS_CHAT_KICK = 197,
+    /** Owner setup: set a member's rank in this channel. */
+    FRIENDS_CHAT_SET_RANK = 198,
+    /** Owner setup: channel display name + enter/talk/kick ranks. */
+    FRIENDS_CHAT_SETTINGS = 199,
 }
 
 /**
@@ -129,6 +136,10 @@ export const CLIENT_PACKET_LENGTHS: Record<ClientPacketId, number> = {
     [ClientPacketId.RESUME_NAMEDIALOG]: -1, // value(string)
     [ClientPacketId.RESUME_STRINGDIALOG]: -1, // value(string)
     [ClientPacketId.MAP_EDIT]: -1, // action(1) + tile(4) + level/type/rotation/id(var)
+    [ClientPacketId.FRIENDS_CHAT_JOIN_LEAVE]: -1, // channel owner name (empty = leave)
+    [ClientPacketId.FRIENDS_CHAT_KICK]: -1, // member name
+    [ClientPacketId.FRIENDS_CHAT_SET_RANK]: -1, // rank(1) + name
+    [ClientPacketId.FRIENDS_CHAT_SETTINGS]: -1, // name + enter/talk/kick ranks
 
     [ClientPacketId.DEBUG]: -2,
 };

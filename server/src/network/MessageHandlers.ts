@@ -14,6 +14,12 @@ import {
 import { getItemDefinition } from "../data/items";
 import { ALL_RUNE_ITEM_IDS, RUNE_IDS } from "../data/runes";
 import { getCollectionLogItems } from "../game/collectionlog";
+import {
+    applyAllQuestCompletions,
+    applyQuestCompletionDef,
+    findQuestCompletion,
+    getAllQuestCompletions,
+} from "../game/quests/questCompletions";
 import type { NpcState } from "../game/npc";
 import type { PlayerState } from "../game/player";
 import {
@@ -109,6 +115,26 @@ export interface MessageHandlerServices {
         tick: number,
     ) => void;
 
+    // Friends chat
+    handleFriendsChatJoinLeave: (
+        player: PlayerState,
+        payload: MessagePayload<"friends_chat_join_leave">,
+    ) => void;
+    handleFriendsChatKick: (
+        player: PlayerState,
+        payload: MessagePayload<"friends_chat_kick">,
+    ) => void;
+    handleFriendsChatSetRank: (
+        player: PlayerState,
+        payload: MessagePayload<"friends_chat_set_rank">,
+    ) => void;
+    handleFriendsChatSettings: (
+        player: PlayerState,
+        payload: MessagePayload<"friends_chat_settings">,
+    ) => void;
+    handleFriendsChatMessage: (player: PlayerState, text: string) => boolean;
+    handleFriendsChatPrefixNameDialog: (player: PlayerState, value: string) => boolean;
+
     // Banking
     handleBankDepositInventory: (
         ws: WebSocket,
@@ -190,6 +216,7 @@ export interface MessageHandlerServices {
         npc: NpcState,
         option?: string,
         modifierFlags?: number,
+        opNum?: number,
     ) => { ok: boolean; message?: string } | undefined;
     pickAttackSpeed: (player: PlayerState) => number;
     startCombat: (player: PlayerState, npc: NpcState, tick: number, attackSpeed: number) => void;
@@ -243,7 +270,7 @@ export interface MessageHandlerServices {
 
     // Chat
     queueChatMessage: (msg: {
-        messageType: "game" | "public" | "server";
+        messageType: "game" | "public" | "server" | "channel";
         text: string;
         playerId?: number;
         from?: string;
@@ -397,6 +424,42 @@ export function registerMessageHandlers(
         }
     });
 
+    router.register("friends_chat_join_leave", (ctx) => {
+        if (!ctx.player) return;
+        try {
+            services.handleFriendsChatJoinLeave(ctx.player, ctx.payload);
+        } catch (err) {
+            logger.warn("[friends_chat] join/leave failed", err);
+        }
+    });
+
+    router.register("friends_chat_kick", (ctx) => {
+        if (!ctx.player) return;
+        try {
+            services.handleFriendsChatKick(ctx.player, ctx.payload);
+        } catch (err) {
+            logger.warn("[friends_chat] kick failed", err);
+        }
+    });
+
+    router.register("friends_chat_set_rank", (ctx) => {
+        if (!ctx.player) return;
+        try {
+            services.handleFriendsChatSetRank(ctx.player, ctx.payload);
+        } catch (err) {
+            logger.warn("[friends_chat] set rank failed", err);
+        }
+    });
+
+    router.register("friends_chat_settings", (ctx) => {
+        if (!ctx.player) return;
+        try {
+            services.handleFriendsChatSettings(ctx.player, ctx.payload);
+        } catch (err) {
+            logger.warn("[friends_chat] settings failed", err);
+        }
+    });
+
     // =========================================================================
     // BANKING HANDLERS
     // =========================================================================
@@ -456,6 +519,9 @@ export function registerMessageHandlers(
 
     router.register("resume_namedialog", (ctx) => {
         if (!ctx.player) return;
+        if (services.handleFriendsChatPrefixNameDialog(ctx.player, ctx.payload.value)) {
+            return;
+        }
         ctx.player.taskQueue.submitReturnValue(ctx.payload.value);
     });
 
@@ -645,15 +711,22 @@ export function registerMessageHandlers(
                 opNum !== undefined && opNum > 0
                     ? services.resolveNpcOption(npc, opNum)
                     : undefined;
-            const option = rawOption && rawOption.length > 0 ? rawOption : optionFromOpNum;
+            // Prefer explicit option text from high-level npc_interact (menu label).
+            // Fall back to cache-resolved OPNPC* slot when only opNum is present.
+            const option =
+                rawOption && rawOption.length > 0
+                    ? rawOption
+                    : optionFromOpNum && optionFromOpNum.length > 0
+                      ? optionFromOpNum
+                      : undefined;
             const modifierFlags = normalizeModifierFlags(rawModifierFlags);
             const optNorm = (option ?? "").trim().toLowerCase();
             logger.info?.(
                 `[npc] recv npc_interact player=${player?.id ?? "?"} opt=${
                     option ?? "Talk-to"
-                } npc=${npcId} type=${npc?.typeId ?? "?"} playerPos=(${player?.tileX ?? "?"},${
-                    player?.tileY ?? "?"
-                },${player?.level ?? "?"})`,
+                } opNum=${opNum ?? "-"} npc=${npcId} type=${npc?.typeId ?? "?"} playerPos=(${
+                    player?.tileX ?? "?"
+                },${player?.tileY ?? "?"},${player?.level ?? "?"})`,
             );
 
             // OSRS parity: "Attack" is encoded as a regular NPC option packet (OPNPC*),
@@ -724,7 +797,7 @@ export function registerMessageHandlers(
 
                         if (canBankFromPos) {
                             try {
-                                services.startNpcInteraction(ctx.ws, npc, option, modifierFlags);
+                                services.startNpcInteraction(ctx.ws, npc, option, modifierFlags, opNum);
                             } catch {}
                             return;
                         } else {
@@ -787,6 +860,7 @@ export function registerMessageHandlers(
                                         npc,
                                         option,
                                         modifierFlags,
+                                        opNum,
                                     );
                                 } catch {}
                                 routed = true;
@@ -806,7 +880,7 @@ export function registerMessageHandlers(
                 }
             }
 
-            const res = services.startNpcInteraction(ctx.ws, npc, option, modifierFlags);
+            const res = services.startNpcInteraction(ctx.ws, npc, option, modifierFlags, opNum);
             if (!res?.ok) {
                 logger.info?.(
                     `[npc] interaction rejected: ${res?.message || "invalid"} (npc=${npcId})`,
@@ -1055,118 +1129,9 @@ function replaceInventoryContents(
     return true;
 }
 
-// ========== Quest unlock data ==========
-// Maps quest names to their varp ID and completion value.
-// Varp-based quests set the varp to the completion value.
-// Varbit-based quests use negative varpId as a signal (handled separately).
-const QUEST_DATA: Array<{
-    name: string;
-    aliases: string[];
-    varpId: number;
-    completionValue: number;
-    varbitEntries?: Array<{ varbitId: number; value: number }>;
-    unlocks: string;
-}> = [
-    {
-        name: "Desert Treasure",
-        aliases: ["dt", "desert", "deserttreasure"],
-        varpId: 440,
-        completionValue: 15,
-        unlocks: "Ancient Magicks spellbook",
-    },
-    {
-        name: "Lunar Diplomacy",
-        aliases: ["lunar", "lunardiplomacy"],
-        varpId: 823,
-        completionValue: 190,
-        unlocks: "Lunar spellbook",
-    },
-    {
-        name: "Legend's Quest",
-        aliases: ["legends", "legendsquest"],
-        varpId: 139,
-        completionValue: 180,
-        unlocks: "Charge spell",
-    },
-    {
-        name: "Underground Pass",
-        aliases: ["undergroundpass", "underground", "iban"],
-        varpId: 161,
-        completionValue: 110,
-        varbitEntries: [{ varbitId: 9133, value: 1 }], // Iban book read
-        unlocks: "Iban Blast",
-    },
-    {
-        name: "Mage Arena",
-        aliases: ["magearena", "ma1"],
-        varpId: 267,
-        completionValue: 8,
-        unlocks: "God spells (Claws of Guthix, Flames of Zamorak, Saradomin Strike)",
-    },
-    {
-        name: "Mage Arena II",
-        aliases: ["magearena2", "ma2", "magearenaii"],
-        varpId: -1, // varbit only
-        completionValue: 0,
-        varbitEntries: [{ varbitId: 6067, value: 6 }],
-        unlocks: "Enhanced god spells",
-    },
-    {
-        name: "Eadgar's Ruse",
-        aliases: ["eadgar", "eadgarsruse", "eadgars"],
-        varpId: 335,
-        completionValue: 110,
-        unlocks: "Trollheim Teleport",
-    },
-    {
-        name: "Watchtower",
-        aliases: ["watchtower"],
-        varpId: 212,
-        completionValue: 13,
-        unlocks: "Watchtower Teleport",
-    },
-    {
-        name: "Plague City",
-        aliases: ["plaguecity", "plague"],
-        varpId: 165,
-        completionValue: 29,
-        unlocks: "Ardougne Teleport (prerequisite)",
-    },
-    {
-        name: "Biohazard",
-        aliases: ["biohazard"],
-        varpId: 68,
-        completionValue: 16,
-        unlocks: "Ardougne Teleport",
-    },
-    {
-        name: "Client of Kourend",
-        aliases: ["clientofkourend", "kourend", "cok"],
-        varpId: -1,
-        completionValue: 0,
-        varbitEntries: [{ varbitId: 5619, value: 9 }],
-        unlocks: "Kourend Castle Teleport",
-    },
-    {
-        name: "Dream Mentor",
-        aliases: ["dreammentor", "dream"],
-        varpId: -1,
-        completionValue: 0,
-        varbitEntries: [{ varbitId: 3618, value: 28 }],
-        unlocks: "Spellbook Swap, extra Lunar spells",
-    },
-    {
-        name: "Arceuus Favour",
-        aliases: ["arceuus", "arceuusfavour", "arceuusfavor"],
-        varpId: -1,
-        completionValue: 0,
-        varbitEntries: [
-            { varbitId: 4896, value: 1000 },
-            { varbitId: 9631, value: 1 },
-        ],
-        unlocks: "Arceuus spellbook",
-    },
-];
+// ========== Quest commands ==========
+// Completion vars come from cache (CS2 4024 + quest DB columns 18/19).
+// See server/src/game/quests/questCompletions.ts
 
 function handleQuestCommand(
     sender: PlayerState,
@@ -1180,41 +1145,45 @@ function handleQuestCommand(
             targetPlayerIds: [sender.id],
         });
 
+    const quests = getAllQuestCompletions();
     if (args.length === 0 || args[0] === "list") {
-        reply("Available quests: " + QUEST_DATA.map((q) => q.name).join(", "));
-        reply("Usage: ::quest <name> — e.g. ::quest desert treasure");
+        const filter = args[0] === "list" ? args.slice(1).join("") : "";
+        const key = filter.toLowerCase().replace(/[^a-z0-9]/g, "");
+        const matches = key
+            ? quests.filter((q) => q.name.toLowerCase().replace(/[^a-z0-9]/g, "").includes(key))
+            : quests;
+        reply(
+            key
+                ? `${matches.length} quest(s) matching "${args.slice(1).join(" ")}": ${matches.map((q) => q.name).join(", ") || "(none)"}`
+                : `${quests.length} quests loaded from cache. Usage: ::quest <name> | ::quest list <filter> | ::allquests`,
+        );
         return;
     }
 
-    // Join args and normalize for matching
-    const search = args.join("").toLowerCase().replace(/[^a-z0-9]/g, "");
-
-    // Try alias match first, then fuzzy name match
-    const quest =
-        QUEST_DATA.find((q) => q.aliases.includes(search)) ??
-        QUEST_DATA.find((q) => q.name.toLowerCase().replace(/[^a-z0-9]/g, "").includes(search));
-
+    const quest = findQuestCompletion(args.join(" "));
     if (!quest) {
-        reply(`Unknown quest "${args.join(" ")}". Use ::quest list to see available quests.`);
+        reply(`Unknown quest "${args.join(" ")}". Try ::quest list <filter>.`);
         return;
     }
 
-    // Set varp if applicable
-    if (quest.varpId >= 0) {
-        sender.setVarpValue(quest.varpId, quest.completionValue);
-        services.queueVarp(sender.id, quest.varpId, quest.completionValue);
-    }
-
-    // Set varbits if applicable
-    if (quest.varbitEntries) {
-        for (const { varbitId, value } of quest.varbitEntries) {
-            sender.setVarbitValue(varbitId, value);
-            services.queueVarbit(sender.id, varbitId, value);
-        }
-    }
-
-    reply(`Completed "${quest.name}" — unlocks: ${quest.unlocks}`);
+    applyQuestCompletionDef(sender, quest, services);
+    reply(
+        `Completed "${quest.name}" (${quest.kind} ${quest.varId}=${quest.completeValue})`,
+    );
     logger.info(`[cmd] ::quest - Player ${sender.id} completed "${quest.name}"`);
+}
+
+function handleAllQuestsCommand(
+    sender: PlayerState,
+    services: Pick<MessageHandlerServices, "queueChatMessage" | "queueVarp" | "queueVarbit">,
+): void {
+    const { questCount } = applyAllQuestCompletions(sender, services);
+    services.queueChatMessage({
+        messageType: "game",
+        text: `Completed ${questCount} quests from cache (+ spell/favour extras). Relog or re-enter area if NPC options look stale.`,
+        targetPlayerIds: [sender.id],
+    });
+    logger.info(`[cmd] ::allquests - Player ${sender.id} completed ${questCount} quests`);
 }
 
 /**
@@ -1622,6 +1591,11 @@ function createChatHandler(services: MessageHandlerServices): MessageHandler<"ch
                     return;
                 }
 
+                if (root === "allquests") {
+                    handleAllQuestsCommand(sender, services);
+                    return;
+                }
+
                 if (root === "pos") {
                     services.queueChatMessage({
                         messageType: "game",
@@ -1753,6 +1727,10 @@ function createChatHandler(services: MessageHandlerServices): MessageHandler<"ch
 
             // Regular chat message
             const senderName = sender.name || "Player";
+            if (payload.messageType === "channel") {
+                services.handleFriendsChatMessage(sender, text);
+                return;
+            }
             const messageType = payload.messageType === "game" ? "game" : "public";
             const colorIdRaw = payload.colorId;
             const effectIdRaw = payload.effectId;

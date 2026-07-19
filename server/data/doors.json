@@ -7,8 +7,16 @@
         "opened": 4
       },
       {
+        "closed": 777,
+        "opened": 778
+      },
+      {
         "closed": 881,
         "opened": 882
+      },
+      {
+        "closed": 1511,
+        "opened": 1512
       },
       {
         "closed": 1518,
@@ -29,6 +37,22 @@
       {
         "closed": 1540,
         "opened": 1541
+      },
+      {
+        "closed": 1543,
+        "opened": 1544
+      },
+      {
+        "closed": 1546,
+        "opened": 1547
+      },
+      {
+        "closed": 1549,
+        "opened": 1550
+      },
+      {
+        "closed": 1551,
+        "opened": 1552
       },
       {
         "closed": 1558,
@@ -59,6 +83,30 @@
         "opened": 2105
       },
       {
+        "closed": 2111,
+        "opened": 2112
+      },
+      {
+        "closed": 2416,
+        "opened": 2417
+      },
+      {
+        "closed": 2546,
+        "opened": 2547
+      },
+      {
+        "closed": 2548,
+        "opened": 2549
+      },
+      {
+        "closed": 3270,
+        "opened": 3271
+      },
+      {
+        "closed": 3726,
+        "opened": 3727
+      },
+      {
         "closed": 3763,
         "opened": 3764
       },
@@ -69,6 +117,50 @@
       {
         "closed": 4247,
         "opened": 4248
+      },
+      {
+        "closed": 4250,
+        "opened": 4251
+      },
+      {
+        "closed": 4424,
+        "opened": 4425
+      },
+      {
+        "closed": 4428,
+        "opened": 4429
+      },
+      {
+        "closed": 4629,
+        "opened": 4630
+      },
+      {
+        "closed": 4633,
+        "opened": 4634
+      },
+      {
+        "closed": 4638,
+        "opened": 4639
+      },
+      {
+        "closed": 4696,
+        "opened": 4697
+      },
+      {
+        "closed": 5186,
+        "opened": 5187
+      },
+      {
+        "closed": 5244,
+        "opened": 5245
+      },
+      {
+        "closed": 5887,
+        "opened": 5888
+      },
+      {
+        "closed": 5889,
+        "opened": 5890
       },
       {
         "closed": 6100,
@@ -103,8 +195,20 @@
         "opened": 6115
       },
       {
+        "closed": 6625,
+        "opened": 6626
+      },
+      {
         "closed": 6975,
         "opened": 6976
+      },
+      {
+        "closed": 7259,
+        "opened": 7260
+      },
+      {
+        "closed": 7373,
+        "opened": 7374
       },
       {
         "closed": 7452,
@@ -113,6 +217,38 @@
       {
         "closed": 8695,
         "opened": 8696
+      },
+      {
+        "closed": 8818,
+        "opened": 8819
+      },
+      {
+        "closed": 8820,
+        "opened": 8821
+      },
+      {
+        "closed": 9563,
+        "opened": 9564
+      },
+      {
+        "closed": 10260,
+        "opened": 10261
+      },
+      {
+        "closed": 10262,
+        "opened": 10263
+      },
+      {
+        "closed": 10264,
+        "opened": 10265
+      },
+      {
+        "closed": 11470,
+        "opened": 11471
+      },
+      {
+        "closed": 11616,
+        "opened": 11617
       },
       {
         "closed": 11773,
@@ -135,12 +271,24 @@
         "opened": 12048
       },
       {
+        "closed": 12444,
+        "opened": 12445
+      },
+      {
         "closed": 12446,
         "opened": 12447
       },
       {
         "closed": 12448,
         "opened": 12449
+      },
+      {
+        "closed": 13001,
+        "opened": 13002
+      },
+      {
+        "closed": 13007,
+        "opened": 13008
       },
       {
         "closed": 13015,
@@ -165,6 +313,14 @@
       {
         "closed": 13101,
         "opened": 13103
+      },
+      {
+        "closed": 13107,
+        "opened": 13108
+      },
+      {
+        "closed": 13109,
+        "opened": 13110
       },
       {
         "closed": 13118,
@@ -195,6 +351,10 @@
         "opened": 13327
       },
       {
+        "closed": 13349,
+        "opened": 13350
+      },
+      {
         "closed": 14233,
         "opened": 14234
       },
@@ -219,8 +379,48 @@
         "opened": 14244
       },
       {
+        "closed": 14749,
+        "opened": 14750
+      },
+      {
+        "closed": 14752,
+        "opened": 14753
+      },
+      {
+        "closed": 15204,
+        "opened": 15205
+      },
+      {
+        "closed": 16776,
+        "opened": 16777
+      },
+      {
         "closed": 16778,
         "opened": 16779
+      },
+      {
+        "closed": 16902,
+        "opened": 16903
+      },
+      {
+        "closed": 17089,
+        "opened": 17090
+      },
+      {
+        "closed": 17091,
+        "opened": 17092
+      },
+      {
+        "closed": 17093,
+        "opened": 17094
+      },
+      {
+        "closed": 17114,
+        "opened": 17115
+      },
+      {
+        "closed": 17316,
+        "opened": 17317
       },
       {
         "closed": 18489,
@@ -233,6 +433,10 @@
       {
         "closed": 18700,
         "opened": 18701
+      },
+      {
+        "closed": 21160,
+        "opened": 21161
       },
       {
         "closed": 21341,
@@ -295,12 +499,20 @@
         "opened": 23217
       },
       {
+        "closed": 23338,
+        "opened": 23339
+      },
+      {
         "closed": 23340,
         "opened": 23341
       },
       {
         "closed": 23342,
         "opened": 23343
+      },
+      {
+        "closed": 23917,
+        "opened": 23918
       },
       {
         "closed": 23972,
@@ -311,20 +523,116 @@
         "opened": 24051
       },
       {
+        "closed": 24052,
+        "opened": 24053
+      },
+      {
+        "closed": 24054,
+        "opened": 24055
+      },
+      {
         "closed": 24057,
         "opened": 24058
+      },
+      {
+        "closed": 24060,
+        "opened": 24061
+      },
+      {
+        "closed": 24062,
+        "opened": 24063
+      },
+      {
+        "closed": 24064,
+        "opened": 24065
+      },
+      {
+        "closed": 24306,
+        "opened": 24307
+      },
+      {
+        "closed": 24309,
+        "opened": 24310
+      },
+      {
+        "closed": 24312,
+        "opened": 24313
+      },
+      {
+        "closed": 24315,
+        "opened": 24316
       },
       {
         "closed": 24318,
         "opened": 24319
       },
       {
+        "closed": 24364,
+        "opened": 24365
+      },
+      {
         "closed": 24369,
         "opened": 24368
       },
       {
+        "closed": 25638,
+        "opened": 25639
+      },
+      {
+        "closed": 25640,
+        "opened": 25641
+      },
+      {
+        "closed": 25642,
+        "opened": 25643
+      },
+      {
+        "closed": 25716,
+        "opened": 25717
+      },
+      {
+        "closed": 25718,
+        "opened": 25719
+      },
+      {
+        "closed": 25788,
+        "opened": 25789
+      },
+      {
+        "closed": 25790,
+        "opened": 25791
+      },
+      {
+        "closed": 25799,
+        "opened": 25800
+      },
+      {
+        "closed": 25804,
+        "opened": 25805
+      },
+      {
+        "closed": 25806,
+        "opened": 25807
+      },
+      {
+        "closed": 25814,
+        "opened": 25815
+      },
+      {
         "closed": 25819,
         "opened": 25820
+      },
+      {
+        "closed": 25825,
+        "opened": 25826
+      },
+      {
+        "closed": 25827,
+        "opened": 25828
+      },
+      {
+        "closed": 25876,
+        "opened": 25877
       },
       {
         "closed": 27084,
@@ -347,6 +655,10 @@
         "opened": 27488
       },
       {
+        "closed": 28463,
+        "opened": 28464
+      },
+      {
         "closed": 28479,
         "opened": 28482
       },
@@ -359,8 +671,16 @@
         "opened": 33557
       },
       {
+        "closed": 34927,
+        "opened": 34928
+      },
+      {
         "closed": 36253,
         "opened": 36254
+      },
+      {
+        "closed": 37455,
+        "opened": 37456
       },
       {
         "closed": 37463,
@@ -391,6 +711,10 @@
         "opened": 40861
       },
       {
+        "closed": 41861,
+        "opened": 41862
+      },
+      {
         "closed": 42116,
         "opened": 42117
       },
@@ -413,6 +737,26 @@
       {
         "closed": 42126,
         "opened": 42127
+      },
+      {
+        "closed": 44784,
+        "opened": 44785
+      },
+      {
+        "closed": 46253,
+        "opened": 46254
+      },
+      {
+        "closed": 46658,
+        "opened": 46659
+      },
+      {
+        "closed": 46660,
+        "opened": 46661
+      },
+      {
+        "closed": 46863,
+        "opened": 46864
       },
       {
         "closed": 48254,
@@ -451,12 +795,52 @@
         "opened": 48292
       },
       {
+        "closed": 49742,
+        "opened": 49743
+      },
+      {
+        "closed": 52388,
+        "opened": 52389
+      },
+      {
+        "closed": 52600,
+        "opened": 52601
+      },
+      {
+        "closed": 52602,
+        "opened": 52603
+      },
+      {
+        "closed": 52605,
+        "opened": 52606
+      },
+      {
+        "closed": 52608,
+        "opened": 52609
+      },
+      {
+        "closed": 53101,
+        "opened": 53102
+      },
+      {
         "closed": 53322,
         "opened": 53321
       },
       {
+        "closed": 53445,
+        "opened": 53446
+      },
+      {
         "closed": 53893,
         "opened": 53894
+      },
+      {
+        "closed": 56147,
+        "opened": 56148
+      },
+      {
+        "closed": 56149,
+        "opened": 56150
       },
       {
         "closed": 56158,
@@ -470,6 +854,10 @@
         "closed": 56376,
         "opened": 56377,
         "openDir": "ccw"
+      },
+      {
+        "closed": 56539,
+        "opened": 56540
       },
       {
         "closed": 58062,
@@ -486,6 +874,14 @@
       {
         "closed": 58276,
         "opened": 58277
+      },
+      {
+        "closed": 58280,
+        "opened": 58281
+      },
+      {
+        "closed": 60222,
+        "opened": 60223
       }
     ],
     "doubleDoors": [

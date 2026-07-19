@@ -31,6 +31,11 @@ const RECENT_NPC_LIMIT = 3;
 const RECENT_SKILL_LIMIT = 2;
 const RECENT_CATEGORY_LIMIT = 2;
 
+/** Combat favours: kill tasks (and any combat-lamp reward). Everything else is non-combat. */
+export function isCombatFavour(def: RegionalFavourDefinition): boolean {
+    return def.category === "KILL_NPC" || def.reward.kind === "combat_lamp";
+}
+
 function meetsRequirements(
     def: RegionalFavourDefinition,
     player: RegionalFavourPlayerView,
@@ -50,6 +55,87 @@ function meetsRequirements(
 
 function belongsToRegion(def: RegionalFavourDefinition, region: RegionalFavourRegion): boolean {
     return def.region === region;
+}
+
+/**
+ * How well this favour matches the player's current levels.
+ * Peaks inside the recommended band; drops sharply when underleveled or far overleveled.
+ */
+function levelFitMultiplier(
+    def: RegionalFavourDefinition,
+    player: RegionalFavourPlayerView,
+): number {
+    if (isCombatFavour(def)) {
+        const combatLevel = player.getCombatLevel();
+        const min = def.minCombatLevel ?? def.recommendedLevelMin ?? 1;
+        const max = def.recommendedLevelMax ?? min + 30;
+        if (combatLevel < min) return 0.05;
+        if (combatLevel <= max) {
+            // Prefer mid-to-upper band (slightly challenging for current CB).
+            const span = Math.max(1, max - min);
+            const ideal = min + span * 0.65;
+            const dist = Math.abs(combatLevel - ideal) / span;
+            return 2.2 - dist * 0.9;
+        }
+        // Overleveled: still prefer the hardest eligible targets.
+        const over = combatLevel - max;
+        const harderBias = Math.min(0.55, min / 40);
+        if (over <= 15) return 0.75 + harderBias;
+        if (over <= 35) return 0.35 + harderBias;
+        return 0.12 + harderBias * 0.5;
+    }
+
+    if (def.recommendedSkillId !== undefined && def.recommendedLevelMin !== undefined) {
+        const level = player.getSkillBaseLevel(def.recommendedSkillId);
+        const min = def.recommendedLevelMin;
+        const max = def.recommendedLevelMax ?? min + 25;
+        if (level < min) return 0.05;
+        if (level <= max) {
+            const span = Math.max(1, max - min);
+            const ideal = min + span * 0.55;
+            const dist = Math.abs(level - ideal) / span;
+            return 2.1 - dist * 0.85;
+        }
+        const over = level - max;
+        if (over <= 15) return 0.7;
+        if (over <= 40) return 0.3;
+        return 0.1;
+    }
+
+    // Courier / visit with no skill band — neutral so levelled gather/produce can win.
+    return 1;
+}
+
+/**
+ * Scale required amount toward the high end when the player sits high in the level band.
+ */
+export function rollAmountForPlayer(
+    def: RegionalFavourDefinition,
+    player: RegionalFavourPlayerView,
+    random: () => number = Math.random,
+): number {
+    const lo = Math.max(1, Math.floor(def.minAmount));
+    const hi = Math.max(lo, Math.floor(def.maxAmount));
+    if (lo >= hi) return lo;
+
+    let t = 0.45;
+    if (isCombatFavour(def)) {
+        const combatLevel = player.getCombatLevel();
+        const min = def.minCombatLevel ?? def.recommendedLevelMin ?? 1;
+        const max = def.recommendedLevelMax ?? min + 30;
+        t = max > min ? (combatLevel - min) / (max - min) : 0.5;
+    } else if (def.recommendedSkillId !== undefined && def.recommendedLevelMin !== undefined) {
+        const level = player.getSkillBaseLevel(def.recommendedSkillId);
+        const min = def.recommendedLevelMin;
+        const max = def.recommendedLevelMax ?? min + 25;
+        t = max > min ? (level - min) / (max - min) : 0.5;
+    }
+    t = Math.max(0, Math.min(1, t));
+
+    const center = lo + (hi - lo) * t;
+    const spread = Math.max(1, (hi - lo) * 0.35);
+    const rolled = center + (random() * 2 - 1) * spread;
+    return Math.max(lo, Math.min(hi, Math.round(rolled)));
 }
 
 function calculateWeight(
@@ -85,14 +171,7 @@ function calculateWeight(
         weight *= 0.35;
     }
 
-    if (def.recommendedSkillId !== undefined && def.recommendedLevelMin !== undefined) {
-        const level = player.getSkillBaseLevel(def.recommendedSkillId);
-        const min = def.recommendedLevelMin;
-        const max = def.recommendedLevelMax ?? min + 25;
-        if (level < min) weight *= 0.1;
-        else if (level > max + 30) weight *= 0.35;
-        else if (level >= min && level <= max) weight *= 1.35;
-    }
+    weight *= levelFitMultiplier(def, player);
 
     // Soft preference for tasks near the player (giver in same general area — use travel distance).
     const travel = def.reward.travelDistance ?? 100;
@@ -100,6 +179,36 @@ function calculateWeight(
     if (travel > 400) weight *= 0.85;
 
     return Math.max(0.01, weight);
+}
+
+/**
+ * Pick combat or non-combat at ~50/50, then weighted-pick within that bucket by level fit.
+ * Falls back to the other bucket when one side has no eligible favours.
+ */
+function pickFavourBalanced(
+    eligible: RegionalFavourDefinition[],
+    player: RegionalFavourPlayerView,
+    preferredGiverNpcId: number | undefined,
+    history: RegionalFavourHistory,
+    random: () => number,
+): RegionalFavourDefinition | undefined {
+    const combat = eligible.filter(isCombatFavour);
+    const nonCombat = eligible.filter((def) => !isCombatFavour(def));
+
+    let bucket: RegionalFavourDefinition[];
+    if (combat.length === 0) {
+        bucket = nonCombat;
+    } else if (nonCombat.length === 0) {
+        bucket = combat;
+    } else {
+        bucket = random() < 0.5 ? combat : nonCombat;
+    }
+
+    return pickWeighted(
+        bucket,
+        (def) => calculateWeight(def, player, preferredGiverNpcId, history),
+        random,
+    );
 }
 
 function pushRecent<T>(list: T[], value: T, limit: number): T[] {
@@ -156,8 +265,11 @@ export function recordFavourInHistory(
 export function createActiveFromDefinition(
     def: RegionalFavourDefinition,
     random: () => number = Math.random,
+    player?: RegionalFavourPlayerView,
 ): ActiveRegionalFavour {
-    const amount = rollAmount(def.minAmount, def.maxAmount, random);
+    const amount = player
+        ? rollAmountForPlayer(def, player, random)
+        : rollAmount(def.minAmount, def.maxAmount, random);
     const reward = computeRegionalReward(def, amount, random);
     return {
         favourId: def.id,
@@ -280,14 +392,10 @@ export function generateRegionalFavour(
     if (eligible.length === 0) return undefined;
 
     const preferred = options.forceGiverNpcId ?? options.preferredGiverNpcId;
-    const selected = pickWeighted(
-        eligible,
-        (def) => calculateWeight(def, player, preferred, history),
-        random,
-    );
+    const selected = pickFavourBalanced(eligible, player, preferred, history, random);
     if (!selected || !belongsToRegion(selected, region)) return undefined;
 
-    const active = createActiveFromDefinition(selected, random);
+    const active = createActiveFromDefinition(selected, random, player);
     if (active.region !== region) return undefined;
     // Speak/deliver with amount 1 start incomplete until action.
     if (

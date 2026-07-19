@@ -111,29 +111,18 @@ export function resolveHintArrowWorldTargets(opts: {
         if (matches.length > 0) return matches;
     }
 
-    // Snap to filtered NPC types near the server hint tile (turn-in / speak).
+    // Snap to filtered NPC types near the server hint tile (turn-in / speak / kill).
     // Never do this while a gather object filter is active — area tiles sit on other rocks.
     if (npcTypeFilter.length > 0 && !hasObjectFilter) {
         const hintWx = (ClientState.hintArrowWorldX | 0) + 0.5;
         const hintWy = (ClientState.hintArrowWorldY | 0) + 0.5;
-        let bestDist = 2.25; // ~1.5 tiles
-        let best: HintArrowWorldTarget | undefined;
-        for (const npc of opts.npcs) {
-            if (!npcTypeFilter.includes(npc.typeId | 0)) continue;
-            const dx = npc.worldX - hintWx;
-            const dy = npc.worldY - hintWy;
-            const dist = dx * dx + dy * dy;
-            if (dist > bestDist) continue;
-            bestDist = dist;
-            best = {
-                worldX: npc.worldX,
-                worldY: npc.worldY,
-                plane: npc.plane | 0,
-                snapped: true,
-                kind: "npc",
-            };
-        }
-        if (best) return [best];
+        // Prefer a tight snap to the server-chosen tile (living target after retarget).
+        // Fall back to a wider search so kill favours can pick another nearby NPC of
+        // the same type when the corpse is still at an outdated hint tile for a frame.
+        const tightBest = pickNearestNpcOfTypes(opts.npcs, npcTypeFilter, hintWx, hintWy, 1.5);
+        if (tightBest) return [tightBest];
+        const wideBest = pickNearestNpcOfTypes(opts.npcs, npcTypeFilter, hintWx, hintWy, 12);
+        if (wideBest) return [wideBest];
     }
 
     const hintWx = ClientState.hintArrowWorldX | 0;
@@ -148,6 +137,34 @@ export function resolveHintArrowWorldTargets(opts: {
             kind: "tile",
         },
     ];
+}
+
+function pickNearestNpcOfTypes(
+    npcs: Iterable<HintArrowSceneNpc>,
+    typeFilter: readonly number[],
+    fromX: number,
+    fromY: number,
+    maxTiles: number,
+): HintArrowWorldTarget | undefined {
+    const maxDist = maxTiles * maxTiles;
+    let bestDist = maxDist;
+    let best: HintArrowWorldTarget | undefined;
+    for (const npc of npcs) {
+        if (!typeFilter.includes(npc.typeId | 0)) continue;
+        const dx = npc.worldX - fromX;
+        const dy = npc.worldY - fromY;
+        const dist = dx * dx + dy * dy;
+        if (dist > bestDist) continue;
+        bestDist = dist;
+        best = {
+            worldX: npc.worldX,
+            worldY: npc.worldY,
+            plane: npc.plane | 0,
+            snapped: true,
+            kind: "npc",
+        };
+    }
+    return best;
 }
 
 /** Nearest target to a world position (for minimap single marker). */

@@ -41,6 +41,7 @@ import {
     ITEM_PLANK,
     ITEM_POT_FLOUR,
     ITEM_POTATO,
+    ITEM_PURE_ESSENCE,
     ITEM_RAW_ANCHOVIES,
     ITEM_RAW_SALMON,
     ITEM_RAW_SHRIMPS,
@@ -176,6 +177,8 @@ function gather(
     difficulty: RegionalFavourDefinition["reward"]["difficulty"],
     acceptsExisting = true,
 ): RegionalFavourDefinition {
+    // Hint arrows: derived at boot from cache/spawns/skill maps (initRegionalFavourHints).
+    // For shop-only items with no world resource, add MANUAL_HINT_OVERRIDES in gatherHints.ts.
     return {
         id,
         region: "misthalin",
@@ -216,6 +219,7 @@ function produce(
     minLevel: number,
     difficulty: RegionalFavourDefinition["reward"]["difficulty"],
 ): RegionalFavourDefinition {
+    // Process/shop destinations are derived when possible; otherwise MANUAL_HINT_OVERRIDES.
     return {
         id,
         region: "misthalin",
@@ -264,7 +268,7 @@ function kill(
         minAmount,
         maxAmount,
         minCombatLevel: minCombat,
-        baseWeight: 10,
+        baseWeight: 12,
         acceptsExistingItems: false,
         requiresPostAssignmentProgress: true,
         objectiveText: `Kill ${label}.`,
@@ -352,6 +356,59 @@ function multi(
     };
 }
 
+/**
+ * League-task overlap: perform a skill action in a place (stall, pickpocket, cook, pick plant).
+ * Progress comes from RegionalFavourService.onSkillAction.
+ */
+function skillAct(
+    id: string,
+    giver: number,
+    actionIds: readonly string[],
+    area: TileBounds,
+    label: string,
+    skillId: SkillId,
+    minLevel: number,
+    difficulty: RegionalFavourDefinition["reward"]["difficulty"],
+    opts?: {
+        amount?: [number, number];
+        objectNames?: readonly string[];
+        turnIn?: number;
+        travelDistance?: number;
+    },
+): RegionalFavourDefinition {
+    const [minAmount, maxAmount] = opts?.amount ?? [1, 1];
+    const turnIn = opts?.turnIn ?? giver;
+    return {
+        id,
+        region: "misthalin",
+        giverNpcId: giver,
+        turnInNpcId: turnIn,
+        category: "PERFORM_SKILL_ACTION",
+        reward: {
+            kind: "skill_xp",
+            skillId,
+            difficulty,
+            travelDistance: opts?.travelDistance,
+        },
+        skillActionIds: [...actionIds],
+        targetArea: area,
+        targetObjectNames: opts?.objectNames ? [...opts.objectNames] : undefined,
+        minAmount,
+        maxAmount,
+        requirements: minLevel > 1 ? [{ skillId, level: minLevel }] : undefined,
+        baseWeight: 11,
+        acceptsExistingItems: false,
+        requiresPostAssignmentProgress: true,
+        objectiveText: label,
+        instructionText: `${label} after accepting this favour, then return.`,
+        assignmentDialog: [label, "Come back when it's done."],
+        completionDialog: ["Nice work.", "Here's your reward."],
+        recommendedSkillId: skillId,
+        recommendedLevelMin: minLevel,
+        recommendedLevelMax: minLevel + 20,
+    };
+}
+
 const H = NpcIds.Hans;
 const COOK = NpcIds.Cook;
 const DUKE = NpcIds.DukeHoracio;
@@ -393,10 +450,14 @@ export const MISTHALIN_FAVOUR_DEFINITIONS: RegionalFavourDefinition[] = [
     visit("mist_hans_visit_draynor", H, H, MistAreas.DraynorVillage, "Draynor Village", 220),
     visit("mist_hans_visit_graveyard", H, H, MistAreas.LumbridgeGraveyard, "the Lumbridge graveyard", 80),
     kill("mist_hans_kill_goblins", H, MistCombat.Goblins, "goblins near Lumbridge", 5, 15, 3, "easy"),
+    kill("mist_hans_kill_rats", H, MistCombat.GiantRats, "giant rats", 5, 12, 5, "easy"),
+    kill("mist_hans_kill_chickens", H, MistCombat.Chickens, "chickens", 5, 15, 1, "easy"),
     bury("mist_hans_bury_bones", H, ITEM_BONES, "bones", 5, 15, 1),
     gather("mist_hans_chop_logs", H, ITEM_LOGS, "logs", 5, 15, SkillId.Woodcutting, 1, "easy", false),
 
     // ——— Cook ———
+    kill("mist_cook_rats", COOK, MistCombat.Rats, "rats in the castle", 5, 15, 1, "easy"),
+    kill("mist_cook_giant_rats", COOK, MistCombat.GiantRats, "giant rats", 5, 12, 5, "easy"),
     gather("mist_cook_eggs", COOK, ITEM_EGG, "eggs", 3, 10, SkillId.Cooking, 1, "very_easy"),
     gather("mist_cook_milk", COOK, ITEM_BUCKET_MILK, "buckets of milk", 2, 8, SkillId.Cooking, 1, "very_easy"),
     gather("mist_cook_flour", COOK, ITEM_POT_FLOUR, "pots of flour", 2, 8, SkillId.Cooking, 1, "very_easy"),
@@ -423,6 +484,8 @@ export const MISTHALIN_FAVOUR_DEFINITIONS: RegionalFavourDefinition[] = [
     speak("mist_duke_speak_sedridor", DUKE, SEDRIDOR, "Sedridor", 260),
     kill("mist_duke_goblins", DUKE, MistCombat.Goblins, "goblins", 8, 20, 3, "easy"),
     kill("mist_duke_rats", DUKE, MistCombat.GiantRats, "giant rats", 5, 15, 5, "easy"),
+    kill("mist_duke_frogs", DUKE, MistCombat.Frogs, "frogs in the swamp", 8, 20, 1, "easy"),
+    kill("mist_duke_imps", DUKE, MistCombat.Imps, "imps", 3, 8, 5, "easy"),
     gather("mist_duke_bronze_bars", DUKE, ITEM_BRONZE_BAR, "bronze bars", 3, 10, SkillId.Smithing, 1, "easy"),
     gather("mist_duke_iron_bars", DUKE, ITEM_IRON_BAR, "iron bars", 3, 8, SkillId.Smithing, 15, "medium"),
     gather("mist_duke_bronze_dagger", DUKE, ITEM_BRONZE_DAGGER, "bronze daggers", 1, 5, SkillId.Smithing, 1, "easy"),
@@ -441,6 +504,7 @@ export const MISTHALIN_FAVOUR_DEFINITIONS: RegionalFavourDefinition[] = [
     deliver("mist_aereck_records_lawrence", AERECK, LAWRENCE, "Father Lawrence", 420),
     kill("mist_aereck_skeletons", AERECK, MistCombat.Skeletons, "skeletons", 5, 12, 10, "medium"),
     kill("mist_aereck_ghosts", AERECK, MistCombat.Ghosts, "ghosts", 3, 10, 10, "medium"),
+    kill("mist_aereck_zombies", AERECK, MistCombat.Zombies, "zombies in the sewers", 5, 12, 15, "medium"),
     gather("mist_aereck_logs", AERECK, ITEM_LOGS, "logs for church repairs", 5, 15, SkillId.Woodcutting, 1, "easy", false),
 
     // ——— Bob ———
@@ -458,8 +522,13 @@ export const MISTHALIN_FAVOUR_DEFINITIONS: RegionalFavourDefinition[] = [
     produce("mist_bob_iron_dagger", BOB, ITEM_IRON_DAGGER, "iron daggers", 1, 4, SkillId.Smithing, 15, "medium"),
     deliver("mist_bob_to_duke", BOB, DUKE, "Duke Horacio", 50),
     deliver("mist_bob_to_fred", BOB, FRED, "Fred the Farmer", 120),
+    kill("mist_bob_goblins", BOB, MistCombat.Goblins, "goblins", 5, 15, 3, "easy"),
+    kill("mist_bob_imps", BOB, MistCombat.Imps, "imps", 3, 8, 5, "easy"),
 
     // ——— Lumbridge Guide ———
+    kill("mist_guide_goblins", GUIDE, MistCombat.Goblins, "goblins", 5, 15, 3, "easy"),
+    kill("mist_guide_chickens", GUIDE, MistCombat.Chickens, "chickens", 5, 15, 1, "easy"),
+    kill("mist_guide_cows", GUIDE, MistCombat.Cows, "cows", 3, 10, 3, "easy"),
     visit("mist_guide_bob", GUIDE, GUIDE, MistAreas.LumbridgeCastle, "Bob's axe shop area", 40),
     speak("mist_guide_cook", GUIDE, COOK, "the Cook", 40),
     speak("mist_guide_aereck", GUIDE, AERECK, "Father Aereck", 60),
@@ -495,6 +564,9 @@ export const MISTHALIN_FAVOUR_DEFINITIONS: RegionalFavourDefinition[] = [
     deliver("mist_fred_milk_cook", FRED, COOK, "the Cook", 120),
     speak("mist_fred_speak_cook", FRED, COOK, "the Cook", 120),
     speak("mist_fred_speak_hans", FRED, H, "Hans", 120),
+    kill("mist_fred_goblins", FRED, MistCombat.Goblins, "goblins near the farm", 5, 15, 3, "easy"),
+    kill("mist_fred_rats", FRED, MistCombat.GiantRats, "giant rats", 5, 12, 5, "easy"),
+    kill("mist_fred_chickens", FRED, MistCombat.Chickens, "chickens", 5, 12, 1, "easy"),
 
     // ——— Father Urhney ———
     speak("mist_urhney_aereck", URHNEY, AERECK, "Father Aereck", 180),
@@ -502,6 +574,8 @@ export const MISTHALIN_FAVOUR_DEFINITIONS: RegionalFavourDefinition[] = [
     visit("mist_urhney_swamp", URHNEY, URHNEY, MistAreas.LumbridgeSwamp, "the swamp near his hut", 40),
     kill("mist_urhney_skeletons", URHNEY, MistCombat.Skeletons, "skeletons", 5, 12, 10, "medium"),
     kill("mist_urhney_rats", URHNEY, MistCombat.GiantRats, "giant rats", 5, 15, 5, "easy"),
+    kill("mist_urhney_frogs", URHNEY, MistCombat.Frogs, "frogs", 8, 20, 1, "easy"),
+    kill("mist_urhney_giant_frogs", URHNEY, MistCombat.GiantFrogs, "giant frogs", 3, 8, 10, "medium"),
     gather("mist_urhney_tar", URHNEY, ITEM_SWAMP_TAR, "swamp tar", 5, 15, SkillId.Herblore, 1, "easy", false),
     gather("mist_urhney_logs", URHNEY, ITEM_LOGS, "logs for repairs", 5, 12, SkillId.Woodcutting, 1, "easy", false),
 
@@ -510,6 +584,9 @@ export const MISTHALIN_FAVOUR_DEFINITIONS: RegionalFavourDefinition[] = [
     gather("mist_morgan_food", MORGAN, ITEM_BREAD, "bread", 2, 8, SkillId.Cooking, 1, "easy"),
     gather("mist_morgan_bones", MORGAN, ITEM_BONES, "bones", 5, 15, SkillId.Prayer, 1, "easy"),
     kill("mist_morgan_skeletons", MORGAN, MistCombat.Skeletons, "skeletons", 5, 12, 10, "medium"),
+    kill("mist_morgan_ghosts", MORGAN, MistCombat.Ghosts, "ghosts", 3, 10, 10, "medium"),
+    kill("mist_morgan_rats", MORGAN, MistCombat.Rats, "rats", 5, 15, 1, "easy"),
+    kill("mist_morgan_highwaymen", MORGAN, MistCombat.Highwaymen, "highwaymen", 3, 8, 10, "easy"),
     speak("mist_morgan_aereck", MORGAN, AERECK, "Father Aereck", 200),
     speak("mist_morgan_lawrence", MORGAN, LAWRENCE, "Father Lawrence", 350),
     deliver("mist_morgan_medicine_aereck", MORGAN, AERECK, "Father Aereck", 200),
@@ -523,8 +600,13 @@ export const MISTHALIN_FAVOUR_DEFINITIONS: RegionalFavourDefinition[] = [
     gather("mist_ned_plank", NED, ITEM_PLANK, "planks", 3, 10, SkillId.Construction, 1, "easy"),
     deliver("mist_ned_to_fred", NED, FRED, "Fred the Farmer", 150),
     speak("mist_ned_cook", NED, COOK, "the Cook", 180),
+    kill("mist_ned_highwaymen", NED, MistCombat.Highwaymen, "highwaymen", 3, 10, 10, "easy"),
+    kill("mist_ned_goblins", NED, MistCombat.Goblins, "goblins", 5, 15, 3, "easy"),
+    kill("mist_ned_imps", NED, MistCombat.Imps, "imps", 3, 8, 5, "easy"),
 
     // ——— Aggie ———
+    kill("mist_aggie_frogs", AGGIE, MistCombat.Frogs, "frogs", 8, 20, 1, "easy"),
+    kill("mist_aggie_spiders", AGGIE, MistCombat.Spiders, "spiders", 5, 12, 1, "easy"),
     gather("mist_aggie_onions", AGGIE, ITEM_ONION, "onions", 5, 15, SkillId.Farming, 1, "very_easy"),
     gather("mist_aggie_redberries", AGGIE, ITEM_REDBERRIES, "redberries", 3, 10, SkillId.Herblore, 1, "easy"),
     gather("mist_aggie_cadava", AGGIE, ITEM_CADAVA_BERRIES, "cadava berries", 2, 8, SkillId.Herblore, 1, "easy"),
@@ -544,10 +626,14 @@ export const MISTHALIN_FAVOUR_DEFINITIONS: RegionalFavourDefinition[] = [
     speak("mist_wom_reldo", WOM, RELDO, "Reldo", 60),
     kill("mist_wom_ghosts", WOM, MistCombat.Ghosts, "ghosts", 3, 10, 10, "medium"),
     kill("mist_wom_skeletons", WOM, MistCombat.Skeletons, "skeletons", 5, 12, 10, "medium"),
+    kill("mist_wom_dark_wizards", WOM, MistCombat.DarkWizards, "dark wizards", 5, 12, 15, "medium"),
+    kill("mist_wom_imps", WOM, MistCombat.Imps, "imps", 3, 10, 5, "easy"),
     deliver("mist_wom_notes_aubury", WOM, AUBURY, "Aubury", 80),
 
     // ——— Sedridor ———
     // Rune altar crafting excluded (altars outside Misthalin overworld). Essence mine is always-accessible.
+    kill("mist_sedridor_dark_wizards", SEDRIDOR, MistCombat.DarkWizards, "dark wizards", 5, 12, 15, "medium"),
+    kill("mist_sedridor_imps", SEDRIDOR, MistCombat.Imps, "imps", 3, 10, 5, "easy"),
     gather("mist_sedridor_essence", SEDRIDOR, ITEM_RUNE_ESSENCE, "rune essence", 10, 30, SkillId.Mining, 1, "easy", false),
     gather("mist_sedridor_air", SEDRIDOR, ITEM_AIR_RUNE, "air runes", 20, 50, SkillId.Runecraft, 1, "easy"),
     gather("mist_sedridor_mind", SEDRIDOR, ITEM_MIND_RUNE, "mind runes", 20, 50, SkillId.Runecraft, 2, "easy"),
@@ -558,6 +644,8 @@ export const MISTHALIN_FAVOUR_DEFINITIONS: RegionalFavourDefinition[] = [
     visit("mist_sedridor_varrock", SEDRIDOR, SEDRIDOR, MistAreas.VarrockSquare, "Varrock Square", 300),
 
     // ——— Aubury ———
+    kill("mist_aubury_dark_wizards", AUBURY, MistCombat.DarkWizards, "dark wizards", 5, 12, 15, "medium"),
+    kill("mist_aubury_imps", AUBURY, MistCombat.Imps, "imps", 3, 10, 5, "easy"),
     gather("mist_aubury_essence", AUBURY, ITEM_RUNE_ESSENCE, "rune essence", 10, 30, SkillId.Mining, 1, "easy", false),
     gather("mist_aubury_air", AUBURY, ITEM_AIR_RUNE, "air runes", 20, 50, SkillId.Runecraft, 1, "easy"),
     gather("mist_aubury_mind", AUBURY, ITEM_MIND_RUNE, "mind runes", 20, 50, SkillId.Runecraft, 2, "easy"),
@@ -569,6 +657,8 @@ export const MISTHALIN_FAVOUR_DEFINITIONS: RegionalFavourDefinition[] = [
     visit("mist_aubury_tower", AUBURY, AUBURY, MistAreas.WizardsTower, "the Wizards' Tower", 280),
 
     // ——— Romeo ———
+    kill("mist_romeo_muggers", ROMEO, MistCombat.Muggers, "muggers", 3, 8, 5, "easy"),
+    kill("mist_romeo_highwaymen", ROMEO, MistCombat.Highwaymen, "highwaymen", 3, 8, 10, "easy"),
     speak("mist_romeo_juliet", ROMEO, JULIET, "Juliet", 80),
     deliver("mist_romeo_letter_juliet", ROMEO, JULIET, "Juliet", 80),
     gather("mist_romeo_flowers", ROMEO, ITEM_FLOWERS, "flowers", 1, 3, SkillId.Farming, 1, "very_easy"),
@@ -578,6 +668,7 @@ export const MISTHALIN_FAVOUR_DEFINITIONS: RegionalFavourDefinition[] = [
     gather("mist_romeo_redberries", ROMEO, ITEM_REDBERRIES, "redberries", 3, 8, SkillId.Herblore, 1, "easy"),
 
     // ——— Juliet ———
+    kill("mist_juliet_muggers", JULIET, MistCombat.Muggers, "muggers", 3, 8, 5, "easy"),
     speak("mist_juliet_romeo", JULIET, ROMEO, "Romeo", 80),
     deliver("mist_juliet_letter_romeo", JULIET, ROMEO, "Romeo", 80),
     speak("mist_juliet_lawrence", JULIET, LAWRENCE, "Father Lawrence", 70),
@@ -595,8 +686,13 @@ export const MISTHALIN_FAVOUR_DEFINITIONS: RegionalFavourDefinition[] = [
     visit("mist_lawrence_chapel", LAWRENCE, LAWRENCE, MistAreas.VarrockChapel, "the Varrock chapel", 30),
     speak("mist_lawrence_romeo", LAWRENCE, ROMEO, "Romeo", 50),
     kill("mist_lawrence_ghosts", LAWRENCE, MistCombat.Ghosts, "ghosts", 3, 10, 10, "medium"),
+    kill("mist_lawrence_skeletons", LAWRENCE, MistCombat.Skeletons, "skeletons", 5, 12, 10, "medium"),
+    kill("mist_lawrence_zombies", LAWRENCE, MistCombat.Zombies, "zombies in the sewers", 5, 12, 15, "medium"),
 
     // ——— Apothecary ———
+    kill("mist_apo_frogs", APO, MistCombat.Frogs, "frogs", 8, 20, 1, "easy"),
+    kill("mist_apo_spiders", APO, MistCombat.Spiders, "spiders", 5, 12, 1, "easy"),
+    kill("mist_apo_giant_spiders", APO, MistCombat.GiantSpiders, "giant spiders", 3, 10, 10, "medium"),
     gather("mist_apo_redberries", APO, ITEM_REDBERRIES, "redberries", 3, 10, SkillId.Herblore, 1, "easy"),
     gather("mist_apo_cadava", APO, ITEM_CADAVA_BERRIES, "cadava berries", 2, 8, SkillId.Herblore, 1, "easy"),
     gather("mist_apo_onions", APO, ITEM_ONION, "onions", 5, 12, SkillId.Herblore, 1, "very_easy"),
@@ -607,6 +703,8 @@ export const MISTHALIN_FAVOUR_DEFINITIONS: RegionalFavourDefinition[] = [
     speak("mist_apo_juliet", APO, JULIET, "Juliet", 50),
 
     // ——— Thessalia ———
+    kill("mist_thess_cows", THESS, MistCombat.Cows, "cows", 3, 10, 3, "easy"),
+    kill("mist_thess_chickens", THESS, MistCombat.Chickens, "chickens", 5, 12, 1, "easy"),
     gather("mist_thess_wool", THESS, ITEM_BALL_OF_WOOL, "balls of wool", 5, 15, SkillId.Crafting, 1, "easy"),
     gather("mist_thess_cowhide", THESS, ITEM_COWHIDE, "cowhide", 3, 10, SkillId.Crafting, 1, "easy", false),
     gather("mist_thess_leather", THESS, ITEM_LEATHER, "leather", 3, 10, SkillId.Crafting, 1, "easy"),
@@ -622,6 +720,8 @@ export const MISTHALIN_FAVOUR_DEFINITIONS: RegionalFavourDefinition[] = [
     gather("mist_aris_bones", ARIS, ITEM_BONES, "bones", 5, 15, SkillId.Prayer, 1, "easy"),
     gather("mist_aris_ashes", ARIS, ITEM_ASHES, "ashes", 5, 12, SkillId.Firemaking, 1, "easy"),
     kill("mist_aris_dark_wizards", ARIS, MistCombat.DarkWizards, "dark wizards", 5, 12, 15, "medium"),
+    kill("mist_aris_zombies", ARIS, MistCombat.Zombies, "zombies in the sewers", 5, 12, 15, "medium"),
+    kill("mist_aris_imps", ARIS, MistCombat.Imps, "imps", 3, 10, 5, "easy"),
     speak("mist_aris_sedridor", ARIS, SEDRIDOR, "Sedridor", 300),
     speak("mist_aris_aubury", ARIS, AUBURY, "Aubury", 40),
     deliver("mist_aris_warning_duke", ARIS, DUKE, "Duke Horacio", 450),
@@ -638,6 +738,8 @@ export const MISTHALIN_FAVOUR_DEFINITIONS: RegionalFavourDefinition[] = [
     gather("mist_roald_iron_arrows", ROALD, ITEM_IRON_ARROW, "iron arrows", 20, 50, SkillId.Fletching, 15, "medium"),
     kill("mist_roald_dark_wizards", ROALD, MistCombat.DarkWizards, "dark wizards", 5, 15, 15, "medium"),
     kill("mist_roald_highwaymen", ROALD, MistCombat.Highwaymen, "highwaymen", 3, 10, 10, "easy"),
+    kill("mist_roald_zombies", ROALD, MistCombat.Zombies, "zombies in the sewers", 5, 15, 15, "medium"),
+    kill("mist_roald_muggers", ROALD, MistCombat.Muggers, "muggers", 3, 10, 5, "easy"),
     visit("mist_roald_sewers", ROALD, ROALD, MistAreas.VarrockSewersEntrance, "the Varrock sewers entrance", 50),
 
     // ——— Reldo ———
@@ -648,6 +750,8 @@ export const MISTHALIN_FAVOUR_DEFINITIONS: RegionalFavourDefinition[] = [
     deliver("mist_reldo_to_duke", RELDO, DUKE, "Duke Horacio", 450),
     visit("mist_reldo_museum", RELDO, RELDO, MistAreas.VarrockMuseum, "the Varrock Museum", 40),
     speak("mist_reldo_minas", RELDO, MINAS, "Historian Minas", 40),
+    kill("mist_reldo_zombies", RELDO, MistCombat.Zombies, "zombies in the sewers", 5, 12, 15, "medium"),
+    kill("mist_reldo_skeletons", RELDO, MistCombat.Skeletons, "skeletons", 5, 12, 10, "medium"),
 
     // ——— Curator / Minas ———
     speak("mist_curator_reldo", CURATOR, RELDO, "Reldo", 40),
@@ -655,16 +759,210 @@ export const MISTHALIN_FAVOUR_DEFINITIONS: RegionalFavourDefinition[] = [
     deliver("mist_curator_to_roald", CURATOR, ROALD, "King Roald", 50),
     visit("mist_curator_museum", CURATOR, CURATOR, MistAreas.VarrockMuseum, "the museum exhibits", 20),
     gather("mist_curator_logs", CURATOR, ITEM_LOGS, "logs for repairs", 5, 12, SkillId.Woodcutting, 1, "easy", false),
+    kill("mist_curator_zombies", CURATOR, MistCombat.Zombies, "zombies in the sewers", 5, 12, 15, "medium"),
     speak("mist_minas_curator", MINAS, CURATOR, "Curator Haig Halen", 20),
     speak("mist_minas_reldo", MINAS, RELDO, "Reldo", 40),
     visit("mist_minas_palace", MINAS, MINAS, MistAreas.VarrockPalace, "Varrock Palace", 60),
     deliver("mist_minas_notes_curator", MINAS, CURATOR, "Curator Haig Halen", 20),
+    kill("mist_minas_zombies", MINAS, MistCombat.Zombies, "zombies in the sewers", 5, 12, 15, "medium"),
+
+    // ——— League task overlaps (skilling / combat) ———
+    // Steal From the Varrock Tea Stall
+    skillAct(
+        "mist_league_tea_stall",
+        ROMEO,
+        ["stall:tea_stall"],
+        MistAreas.VarrockTeaStall,
+        "Steal from the Varrock tea stall",
+        SkillId.Thieving,
+        5,
+        "easy",
+        { objectNames: ["Tea stall"], travelDistance: 40 },
+    ),
+    skillAct(
+        "mist_league_tea_stall_aris",
+        ARIS,
+        ["stall:tea_stall"],
+        MistAreas.VarrockTeaStall,
+        "Steal from the Varrock tea stall",
+        SkillId.Thieving,
+        5,
+        "easy",
+        { objectNames: ["Tea stall"], travelDistance: 80 },
+    ),
+    // Pickpocket a HAM Member
+    skillAct(
+        "mist_league_pickpocket_ham",
+        MORGAN,
+        ["pickpocket:female_ham", "pickpocket:male_ham"],
+        MistAreas.HamHideout,
+        "Pickpocket a H.A.M. member",
+        SkillId.Thieving,
+        15,
+        "medium",
+        { amount: [1, 3], travelDistance: 200 },
+    ),
+    skillAct(
+        "mist_league_pickpocket_ham_ned",
+        NED,
+        ["pickpocket:female_ham", "pickpocket:male_ham"],
+        MistAreas.HamHideout,
+        "Pickpocket a H.A.M. member",
+        SkillId.Thieving,
+        15,
+        "medium",
+        { amount: [1, 3], travelDistance: 180 },
+    ),
+    // Pickpocket a Varrock Guard
+    skillAct(
+        "mist_league_pickpocket_guard",
+        RELDO,
+        ["pickpocket:guard"],
+        MistAreas.Varrock,
+        "Pickpocket a Varrock Guard",
+        SkillId.Thieving,
+        40,
+        "medium",
+        { amount: [1, 3], travelDistance: 40 },
+    ),
+    skillAct(
+        "mist_league_pickpocket_guard_roald",
+        ROALD,
+        ["pickpocket:guard"],
+        MistAreas.Varrock,
+        "Pickpocket a Varrock Guard",
+        SkillId.Thieving,
+        40,
+        "medium",
+        { amount: [1, 3], travelDistance: 30 },
+    ),
+    // Use the Range in Lumbridge Castle
+    skillAct(
+        "mist_league_cook_range",
+        COOK,
+        ["cook:range"],
+        MistAreas.LumbridgeKitchen,
+        "Cook food on the Lumbridge Castle range",
+        SkillId.Cooking,
+        1,
+        "easy",
+        { amount: [1, 5] },
+    ),
+    skillAct(
+        "mist_league_cook_range_hans",
+        H,
+        ["cook:range"],
+        MistAreas.LumbridgeKitchen,
+        "Cook food on the Lumbridge Castle range",
+        SkillId.Cooking,
+        1,
+        "easy",
+        { amount: [1, 5], travelDistance: 40 },
+    ),
+    // Pick a Cabbage in Varrock
+    skillAct(
+        "mist_league_cabbage_varrock",
+        ROMEO,
+        ["pick_plant:cabbage"],
+        MistAreas.VarrockCabbage,
+        "Pick a cabbage south of Varrock",
+        SkillId.Farming,
+        1,
+        "very_easy",
+        { objectNames: ["Cabbage"], amount: [1, 5], travelDistance: 200 },
+    ),
+    skillAct(
+        "mist_league_cabbage_varrock_apo",
+        APO,
+        ["pick_plant:cabbage"],
+        MistAreas.VarrockCabbage,
+        "Pick a cabbage south of Varrock",
+        SkillId.Farming,
+        1,
+        "very_easy",
+        { objectNames: ["Cabbage"], amount: [1, 5], travelDistance: 180 },
+    ),
+    // Enter the Cooks' Guild / Draynor Manor (visit = league enter tasks)
+    visit("mist_league_cooks_guild", COOK, COOK, MistAreas.CooksGuild, "the Cooks' Guild", 400),
+    visit("mist_league_draynor_manor", MORGAN, MORGAN, MistAreas.DraynorManor, "Draynor Manor", 40),
+    visit(
+        "mist_league_draynor_agility",
+        NED,
+        NED,
+        MistAreas.DraynorAgility,
+        "the Draynor rooftop course area",
+        30,
+    ),
+    visit(
+        "mist_league_varrock_agility",
+        ROMEO,
+        ROMEO,
+        MistAreas.VarrockAgility,
+        "the Varrock rooftop course area",
+        40,
+    ),
+    // Mine 25 Pure Essence
+    gather(
+        "mist_league_pure_essence",
+        SEDRIDOR,
+        ITEM_PURE_ESSENCE,
+        "pure essence",
+        15,
+        25,
+        SkillId.Mining,
+        1,
+        "medium",
+        false,
+    ),
+    gather(
+        "mist_league_pure_essence_aubury",
+        AUBURY,
+        ITEM_PURE_ESSENCE,
+        "pure essence",
+        15,
+        25,
+        SkillId.Mining,
+        1,
+        "medium",
+        false,
+    ),
+    // Defeat the Lesser Demon in the Wizards' Tower
+    kill(
+        "mist_league_lesser_demon",
+        SEDRIDOR,
+        MistCombat.LesserDemonTower,
+        "the lesser demon atop the Wizards' Tower",
+        1,
+        1,
+        40,
+        "hard",
+    ),
+    kill(
+        "mist_league_lesser_demon_duke",
+        DUKE,
+        MistCombat.LesserDemonTower,
+        "the lesser demon atop the Wizards' Tower",
+        1,
+        1,
+        40,
+        "hard",
+    ),
+    // Kill a Ram / Mugger / Rat / Frog (explicit league-named combat favours)
+    kill("mist_league_kill_ram", FRED, MistCombat.Rams, "rams", 1, 5, 1, "easy"),
+    kill("mist_league_kill_mugger", ROMEO, MistCombat.Muggers, "a mugger", 1, 3, 5, "easy"),
+    kill("mist_league_kill_rat", COOK, MistCombat.Rats, "a rat", 1, 5, 1, "very_easy"),
+    kill("mist_league_kill_frog", URHNEY, MistCombat.Frogs, "a frog", 1, 5, 1, "easy"),
+    kill("mist_league_kill_goblin", GUIDE, MistCombat.Goblins, "goblins", 1, 5, 3, "easy"),
 ];
 
 /** Tasks excluded: rune altar crafting (altars outside Misthalin), demon kills, vampire kills, guard-kill tasks. */
 export const MISTHALIN_EXCLUDED_NOTES = [
     "Craft air/mind/water/earth/body runes at altars — altars are outside Misthalin overworld",
     "Kill vampires — no suitable Misthalin vampire target in spawns",
-    "Kill demons — not assigned for early Misthalin pool",
+    "Kill demons — not assigned for early Misthalin pool (except Wizards' Tower lesser demon league overlap)",
     "Kill guards — intentionally excluded",
+    "Agility course laps — rooftop courses not skill-wired yet; visit-area proxies only",
+    "Milk a cow — dairy milking skill action not implemented yet (milk gather favours remain)",
+    "Scurrius / Wall beast / Fossil Island tasks — missing spawns or outside early Misthalin pool",
+    "Dorgesh-Kaan diamond chest / cave goblin lantern — underground city content not in pool yet",
 ] as const;
