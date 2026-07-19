@@ -1,4 +1,9 @@
 import { ClientState } from "../../client/ClientState";
+import {
+    pickNearestHintTarget,
+    resolveHintArrowWorldTargets,
+    type HintArrowSceneNpc,
+} from "../../client/HintArrowTargets";
 import type { InputManager } from "../../client/InputManager";
 import { profiler } from "../../client/webgl/PerformanceProfiler";
 import { CacheIndex } from "../../rs/cache/CacheIndex";
@@ -2768,6 +2773,96 @@ export function renderWidgetTreeGL(glr: GLRenderer, root: Widget, opts: GLRender
                                 4,
                                 [1, 1, 0, 1],
                             );
+                        }
+                    }
+
+                    // OSRS hint arrow (quest / favour pointer) — blinks every 20 client cycles.
+                    // Reference: client.java drawHintArrowOnMinimap + worldToMinimap (mapmarker[1] / mapedge).
+                    if (
+                        (ClientState.hintArrowType | 0) !== 0 &&
+                        Math.floor(Date.now() / 20) % 20 < 10
+                    ) {
+                        const npcs: HintArrowSceneNpc[] = [];
+                        const npcEcsHint = osrsClient.npcEcs;
+                        if (npcEcsHint?.getAllActiveIds) {
+                            for (const ecsIdx of npcEcsHint.getAllActiveIds()) {
+                                if (!npcEcsHint.isActive?.(ecsIdx)) continue;
+                                const mapId = npcEcsHint.getMapId(ecsIdx) | 0;
+                                const fineX = npcEcsHint.getX(ecsIdx) | 0;
+                                const fineY = npcEcsHint.getY(ecsIdx) | 0;
+                                npcs.push({
+                                    serverId: npcEcsHint.getServerId?.(ecsIdx) | 0,
+                                    typeId: npcEcsHint.getNpcTypeId?.(ecsIdx) | 0,
+                                    worldX: (mapId >> 8) * 64 + fineX / 128,
+                                    worldY: (mapId & 0xff) * 64 + fineY / 128,
+                                    plane: npcEcsHint.getLevel?.(ecsIdx) | 0,
+                                });
+                            }
+                        }
+                        const locs =
+                            typeof (osrsClient.renderer as any)?.collectHintArrowSceneLocs ===
+                            "function"
+                                ? (osrsClient.renderer as any).collectHintArrowSceneLocs(24)
+                                : [];
+                        const targets = resolveHintArrowWorldTargets({
+                            npcs,
+                            locs,
+                            maxObjectTargets: 8,
+                        });
+                        const nearest = pickNearestHintTarget(targets, worldX, worldY);
+                        if (nearest) {
+                            const hintWorldX = nearest.worldX;
+                            const hintWorldY = nearest.worldY;
+                            const relTileX = hintWorldX - worldX;
+                            const relTileY = worldY - hintWorldY;
+                            const relPixelX = relTileX * 4;
+                            const relPixelY = relTileY * 4;
+                            const hintScreen = minimapRenderer.relativeToScreen(
+                                relPixelX,
+                                relPixelY,
+                            );
+                            const dx = hintScreen.x - centerX;
+                            const dy = hintScreen.y - centerY;
+                            const distSq = dx * dx + dy * dy;
+                            // Outside the circular mask → rotating mapedge; else mapmarker[1].
+                            const edgeThreshold = (radius - 12) * (radius - 12);
+                            if (distSq > edgeThreshold) {
+                                const angle = Math.atan2(dx, -dy);
+                                const edgeR = Math.max(8, radius - 14);
+                                const ex = centerX + Math.sin(angle) * edgeR;
+                                const ey = centerY - Math.cos(angle) * edgeR;
+                                const edgeTex = tc.getByNameToken("mapedge,0");
+                                if (edgeTex) {
+                                    const size = 18 * minimapRenderScale;
+                                    minimapRenderer.drawRotatedOverlay(
+                                        edgeTex,
+                                        ex,
+                                        ey,
+                                        angle,
+                                        size,
+                                        size,
+                                    );
+                                } else {
+                                    minimapRenderer.drawSolidRect(ex, ey, 8, 8, [1, 0, 0, 1]);
+                                }
+                            } else {
+                                const hintTex = tc.getByNameToken("mapmarker,1");
+                                if (hintTex) {
+                                    minimapRenderer.drawOverlay(
+                                        hintTex,
+                                        hintScreen.x,
+                                        hintScreen.y,
+                                    );
+                                } else {
+                                    minimapRenderer.drawSolidRect(
+                                        hintScreen.x,
+                                        hintScreen.y,
+                                        6,
+                                        6,
+                                        [1, 0.2, 0.2, 1],
+                                    );
+                                }
+                            }
                         }
                     }
 

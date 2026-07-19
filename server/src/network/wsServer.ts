@@ -1084,6 +1084,7 @@ interface TickFrame {
     widgetEvents: WidgetEvent[];
     notifications: Array<{ playerId: number; payload: any }>;
     regionalFavourHuds: Array<{ playerId: number; payload: any }>;
+    hintArrows: Array<{ playerId: number; payload: any }>;
     shopMessages: Array<{ playerId: number; payload: ShopServerPayload }>;
     smithingMessages: Array<{ playerId: number; payload: SmithingServerPayload }>;
     tradeMessages: Array<{ playerId: number; payload: TradeServerPayload }>;
@@ -1353,6 +1354,7 @@ export class WSServer {
 
     private pendingWidgetEvents: WidgetEvent[] = [];
     private pendingRegionalFavourHuds: Array<{ playerId: number; payload: any }> = [];
+    private pendingHintArrows: Array<{ playerId: number; payload: any }> = [];
     private pendingShopMessages: Array<{ playerId: number; payload: ShopServerPayload }> = [];
     private pendingSmithingMessages: Array<{ playerId: number; payload: SmithingServerPayload }> =
         [];
@@ -2514,6 +2516,10 @@ export class WSServer {
                             targetPlayerIds: [playerId],
                         }),
                     queueHud: (playerId, payload) => this.queueRegionalFavourHud(playerId, payload),
+                    queueHintArrow: (playerId, payload) =>
+                        this.queueHintArrow(playerId, payload),
+                    findNearestNpcTile: (typeIds, nearX, nearY) =>
+                        this.findNearestNpcTileForFavour(typeIds, nearX, nearY),
                     addItem: (player, itemId, qty) => {
                         try {
                             const result = this.addItemToInventory(player, itemId, qty);
@@ -2946,6 +2952,9 @@ export class WSServer {
                 this.pendingRegionalFavourHuds,
             );
         }
+        if (frame.hintArrows && frame.hintArrows.length > 0) {
+            this.pendingHintArrows = frame.hintArrows.concat(this.pendingHintArrows);
+        }
         if (frame.notifications.length > 0) {
             this.broadcastScheduler.restoreNotifications(frame.notifications);
         }
@@ -3252,6 +3261,7 @@ export class WSServer {
         const npcUpdates = this.pendingNpcUpdates;
         const widgetEvents = this.pendingWidgetEvents;
         const regionalFavourHuds = this.pendingRegionalFavourHuds;
+        const hintArrows = this.pendingHintArrows;
         const notifications = this.broadcastScheduler.drainNotifications();
         const shopMessages = this.pendingShopMessages;
         const smithingMessages = this.pendingSmithingMessages;
@@ -3277,6 +3287,7 @@ export class WSServer {
         const clientScripts = this.broadcastScheduler.drainClientScripts();
         this.pendingWidgetEvents = [];
         this.pendingRegionalFavourHuds = [];
+        this.pendingHintArrows = [];
         this.pendingShopMessages = [];
         this.pendingSmithingMessages = [];
         this.pendingTradeMessages = [];
@@ -3309,6 +3320,7 @@ export class WSServer {
             widgetEvents,
             notifications,
             regionalFavourHuds,
+            hintArrows,
             shopMessages,
             smithingMessages,
             tradeMessages,
@@ -4734,6 +4746,21 @@ export class WSServer {
                     }
                 }
             }
+            if (frame.hintArrows && frame.hintArrows.length > 0 && this.players) {
+                for (const evt of frame.hintArrows) {
+                    const sock = this.players.getSocketByPlayerId(evt.playerId);
+                    if (!sock) continue;
+                    try {
+                        this.sendWithGuard(
+                            sock,
+                            encodeMessage({ type: "hint_arrow", payload: evt.payload }),
+                            "hint_arrow",
+                        );
+                    } catch (err) {
+                        logger.warn("[hint-arrow] failed to send", err);
+                    }
+                }
+            }
             if (frame.notifications.length > 0 && this.players) {
                 for (const evt of frame.notifications) {
                     const sock = this.players.getSocketByPlayerId(evt.playerId);
@@ -5205,6 +5232,55 @@ export class WSServer {
             return;
         }
         this.pendingRegionalFavourHuds.push(event);
+    }
+
+    private queueHintArrow(
+        playerId: number,
+        payload: {
+            typeCode: number;
+            worldX?: number;
+            worldY?: number;
+            height?: number;
+            targetId?: number;
+            npcTypeIds?: number[];
+            objectNames?: string[];
+            rockId?: string;
+        },
+    ): void {
+        const event = { playerId, payload };
+        if (this.activeFrame && !this.isBroadcastPhase) {
+            if (!this.activeFrame.hintArrows) {
+                this.activeFrame.hintArrows = [];
+            }
+            this.activeFrame.hintArrows.push(event);
+            return;
+        }
+        this.pendingHintArrows.push(event);
+    }
+
+    private findNearestNpcTileForFavour(
+        typeIds: readonly number[],
+        nearX: number,
+        nearY: number,
+    ): { x: number; y: number } | undefined {
+        if (!this.npcManager || typeIds.length === 0) return undefined;
+        const wanted = new Set(typeIds.map((id) => id | 0));
+        let best: { x: number; y: number; dist: number } | undefined;
+        this.npcManager.forEach((npc) => {
+            if (!wanted.has(npc.typeId | 0)) return;
+            try {
+                if (typeof (npc as any).isDead === "function" && (npc as any).isDead(0)) {
+                    // Prefer living NPCs; still allow spawn tile if all matching are dead.
+                }
+            } catch {}
+            const dx = (npc.tileX | 0) - (nearX | 0);
+            const dy = (npc.tileY | 0) - (nearY | 0);
+            const dist = dx * dx + dy * dy;
+            if (!best || dist < best.dist) {
+                best = { x: npc.tileX | 0, y: npc.tileY | 0, dist };
+            }
+        });
+        return best ? { x: best.x, y: best.y } : undefined;
     }
 
     private queueWidgetEvent(playerId: number, action: WidgetAction): void {

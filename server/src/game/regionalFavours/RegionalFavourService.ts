@@ -28,6 +28,7 @@ import {
     getRegionalFavourRegionDisplayName,
     getRegionalFavourRegionForTile,
 } from "./regions";
+import { resolveFavourHintTarget } from "./hintTarget";
 import type {
     ActiveRegionalFavour,
     RegionalFavourDefinition,
@@ -42,6 +43,25 @@ export type RegionalFavourBridge = {
     getPlayer(playerId: number): RegionalFavourHostPlayer | undefined;
     queueChat(playerId: number, text: string): void;
     queueHud(playerId: number, payload: RegionalFavourHudPayload): void;
+    /** OSRS hint arrow — cleared with typeCode 0 when HUD is hidden / no target. */
+    queueHintArrow?(
+        playerId: number,
+        payload: {
+            typeCode: number;
+            worldX?: number;
+            worldY?: number;
+            height?: number;
+            targetId?: number;
+            npcTypeIds?: number[];
+            objectNames?: string[];
+            rockId?: string;
+        },
+    ): void;
+    findNearestNpcTile?(
+        typeIds: readonly number[],
+        nearX: number,
+        nearY: number,
+    ): { x: number; y: number } | undefined;
     addItem(player: RegionalFavourHostPlayer, itemId: number, qty: number): { added: number };
     removeItem(player: RegionalFavourHostPlayer, itemId: number, qty: number): number;
     hasItem(player: RegionalFavourHostPlayer, itemId: number, qty?: number): boolean;
@@ -338,6 +358,52 @@ export class RegionalFavourService {
             s.lastHudRegion = region;
         });
         this.bridge.queueHud(player.id, this.buildHudPayload(player));
+        this.syncHintArrow(player);
+    }
+
+    /** Push / clear the OSRS hint arrow for the current favour destination. */
+    syncHintArrow(player: RegionalFavourHostPlayer): void {
+        const queue = this.bridge.queueHintArrow;
+        if (!queue) return;
+        const state = player.getRegionalFavourState();
+        if (!state.hudVisible) {
+            queue(player.id, { typeCode: 0 });
+            return;
+        }
+        const region = this.getPlayerRegion(player);
+        const active = region ? this.getActive(player, region) : undefined;
+        const lookup = this.bridge.findNearestNpcTile
+            ? {
+                  findNearestNpcTile: (
+                      typeIds: readonly number[],
+                      nearX: number,
+                      nearY: number,
+                  ) => this.bridge.findNearestNpcTile!(typeIds, nearX, nearY),
+              }
+            : undefined;
+        const target = resolveFavourHintTarget(
+            active,
+            region,
+            player.tileX | 0,
+            player.tileY | 0,
+            lookup,
+            {
+                getItemCount: (itemId) => this.bridge.getItemCount(player, itemId),
+            },
+        );
+        if (!target) {
+            queue(player.id, { typeCode: 0 });
+            return;
+        }
+        queue(player.id, {
+            typeCode: 2,
+            worldX: target.worldX | 0,
+            worldY: target.worldY | 0,
+            height: target.height ?? 0,
+            npcTypeIds: target.npcTypeIds ? [...target.npcTypeIds] : [],
+            objectNames: target.objectNames ? [...target.objectNames] : [],
+            rockId: target.rockId ?? "",
+        });
     }
 
     /**

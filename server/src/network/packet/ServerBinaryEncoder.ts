@@ -1540,6 +1540,46 @@ export class ServerBinaryEncoder {
         return this.buffer.toPacket(ServerPacketId.REGIONAL_FAVOUR_HUD);
     }
 
+    /**
+     * Hint arrow with optional favour filters.
+     * Core: typeCode(1) + worldX(2) + worldY(2) + height(1) + targetId(2)
+     * Then: npcTypeCount(1) + npcTypes(u16*) + objectNameCount(1) + strings
+     */
+    encodeHintArrow(payload: {
+        typeCode: number;
+        targetId?: number;
+        worldX?: number;
+        worldY?: number;
+        height?: number;
+        npcTypeIds?: number[];
+        objectNames?: string[];
+        rockId?: string;
+    }): Uint8Array {
+        this.buffer.reset();
+        const typeCode = Math.max(0, Math.min(255, payload.typeCode | 0));
+        this.buffer.writeByte(typeCode);
+        this.buffer.writeShort(Math.max(0, Math.min(65535, payload.worldX ?? 0)));
+        this.buffer.writeShort(Math.max(0, Math.min(65535, payload.worldY ?? 0)));
+        this.buffer.writeByte(Math.max(0, Math.min(255, payload.height ?? 0)));
+        this.buffer.writeShort(Math.max(0, Math.min(65535, payload.targetId ?? 0)));
+        const npcTypes = Array.isArray(payload.npcTypeIds)
+            ? payload.npcTypeIds.filter((id) => Number.isFinite(id) && id > 0).slice(0, 32)
+            : [];
+        this.buffer.writeByte(npcTypes.length & 0xff);
+        for (const id of npcTypes) {
+            this.buffer.writeShort(id & 0xffff);
+        }
+        const names = Array.isArray(payload.objectNames)
+            ? payload.objectNames.filter((n) => typeof n === "string" && n.length > 0).slice(0, 16)
+            : [];
+        this.buffer.writeByte(names.length & 0xff);
+        for (const name of names) {
+            this.buffer.writeString(name);
+        }
+        this.buffer.writeString(payload.rockId ?? "");
+        return this.buffer.toPacket(ServerPacketId.HINT_ARROW);
+    }
+
     // ========================================
     // DEBUG
     // ========================================

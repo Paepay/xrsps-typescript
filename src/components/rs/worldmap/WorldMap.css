@@ -65,6 +65,30 @@
     height: 100%;
 }
 
+.worldmap-hint-arrow {
+    position: absolute;
+    width: 0;
+    height: 0;
+    margin-left: -10px;
+    margin-bottom: 4px;
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+    border-top: 18px solid #e01818;
+    pointer-events: none;
+    z-index: 5;
+    filter: drop-shadow(0 0 2px #000);
+}
+
+.worldmap-hint-arrow::after {
+    content: "";
+    position: absolute;
+    left: -4px;
+    top: -22px;
+    width: 8px;
+    height: 10px;
+    background: #e01818;
+}
+
 .osrs-select-container {
     margin: 0 4px 0 4px;
 }

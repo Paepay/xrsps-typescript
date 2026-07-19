@@ -58,10 +58,12 @@ export interface WorldMapProps {
 
     getPosition: () => Position;
     loadMapImageUrl: (mapX: number, mapY: number) => string | undefined;
+    /** Optional favour / quest hint marker in world tile coords. */
+    getHintMarker?: () => Position | null;
 }
 
 export const WorldMap = memo(function WorldMap(props: WorldMapProps) {
-    const { getPosition, loadMapImageUrl } = props;
+    const { getPosition, loadMapImageUrl, getHintMarker } = props;
 
     const [ref, { width = 0, height = 0 }] = useElementSize();
     const dragRef = useRef<HTMLDivElement>(null);
@@ -76,6 +78,8 @@ export const WorldMap = memo(function WorldMap(props: WorldMapProps) {
     const [tileSizeIndex, setTileSizeIndex] = useState(TILE_SIZES.indexOf(DEFAULT_TILE_SIZE));
 
     const [images, setImages] = useState<JSX.Element[]>([]);
+    const [hintMarker, setHintMarker] = useState<Position | null>(null);
+    const [hintBlinkOn, setHintBlinkOn] = useState(true);
 
     const requestRef = useRef<number | undefined>();
 
@@ -131,9 +135,25 @@ export const WorldMap = memo(function WorldMap(props: WorldMapProps) {
         }
 
         setImages(images);
+        const blinkOn = Math.floor(Date.now() / 20) % 20 < 10;
+        setHintBlinkOn((prev) => (prev === blinkOn ? prev : blinkOn));
+        if (getHintMarker) {
+            try {
+                const next = getHintMarker();
+                setHintMarker((prev) => {
+                    if (!next) return prev === null ? prev : null;
+                    if (prev && prev.x === next.x && prev.y === next.y) return prev;
+                    return next;
+                });
+            } catch {
+                setHintMarker((prev) => (prev === null ? prev : null));
+            }
+        } else {
+            setHintMarker((prev) => (prev === null ? prev : null));
+        }
 
         requestRef.current = requestAnimationFrame(animate);
-    }, [cameraX, cameraY, halfHeight, halfWidth, height, loadMapImageUrl, pos.x, pos.y, tileSize, width]);
+    }, [cameraX, cameraY, getHintMarker, halfHeight, halfWidth, height, loadMapImageUrl, pos.x, pos.y, tileSize, width]);
 
     useLayoutEffect(() => {
         requestRef.current = requestAnimationFrame(animate);
@@ -305,21 +325,22 @@ export const WorldMap = memo(function WorldMap(props: WorldMapProps) {
     const borderOffsetX = cameraX * tileSize;
     const borderOffsetY = cameraY * tileSize;
 
+    const hintVisible =
+        hintBlinkOn &&
+        hintMarker != null &&
+        Number.isFinite(hintMarker.x) &&
+        Number.isFinite(hintMarker.y);
+    const hintLeft = hintMarker
+        ? halfWidth + (hintMarker.x - cameraX) * tileSize
+        : 0;
+    const hintBottom = hintMarker
+        ? halfHeight + (hintMarker.y - cameraY) * tileSize
+        : 0;
+
     return (
         <div className="worldmap-container">
             <div className="worldmap" ref={ref}>
                 {images}
-                {/* <div className=""
-                style={{
-                    position: "absolute",
-                    left: halfWidth - 2,
-                    bottom: halfHeight - 2,
-                    width: 4,
-                    height: 4,
-                    backgroundColor: "cyan",
-                    // zIndex: 10,
-                }}
-            ></div> */}
                 <div
                     className="worldmap-border"
                     style={{
@@ -330,6 +351,16 @@ export const WorldMap = memo(function WorldMap(props: WorldMapProps) {
                         height: borderHeight,
                     }}
                 ></div>
+                {hintVisible && hintMarker && (
+                    <div
+                        className="worldmap-hint-arrow"
+                        style={{
+                            left: hintLeft,
+                            bottom: hintBottom,
+                        }}
+                        title="Favour destination"
+                    />
+                )}
                 <div
                     className={`worldmap-drag ${isDragging ? "dragging" : ""}`}
                     onClick={onClick}

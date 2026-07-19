@@ -20,6 +20,7 @@ import { DebugControls } from "./DebugControls";
 import "./GameContainer.css";
 import { GameRenderer } from "./GameRenderer";
 import { OsrsClient } from "./OsrsClient";
+import { ClientState } from "./ClientState";
 import { SidebarShell } from "./sidebar/SidebarShell";
 
 interface OsrsContainerProps {
@@ -245,6 +246,14 @@ export function GameContainer({ osrsClient }: OsrsContainerProps): JSX.Element {
         const y = osrsClient.camera.getPosZ();
         return { x, y };
     }, [osrsClient]);
+
+    const getFavourHintMarker = useCallback(() => {
+        if ((ClientState.hintArrowType | 0) !== 2) return null;
+        const x = ClientState.hintArrowWorldX | 0;
+        const y = ClientState.hintArrowWorldY | 0;
+        if (x === 0 && y === 0) return null;
+        return { x, y };
+    }, []);
 
     const loadMapImageUrl = useCallback(
         (mapX: number, mapY: number) => {
@@ -500,6 +509,7 @@ export function GameContainer({ osrsClient }: OsrsContainerProps): JSX.Element {
                             onRequestClose={closeWorldMap}
                             onDoubleClick={onMapClicked}
                             getPosition={getMapPosition}
+                            getHintMarker={getFavourHintMarker}
                             loadMapImageUrl={loadMapImageUrl}
                         />
                         {/* Bottom-left performance/optimization overlay (F3 toggles) */}

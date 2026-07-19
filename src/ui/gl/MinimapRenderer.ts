@@ -503,6 +503,60 @@ export class MinimapRenderer {
     }
 
     /**
+     * Draw a rotated overlay (OSRS mapedge hint arrow on minimap rim).
+     * Angle is radians — 0 points up (north), matching OSRS atan2 placement.
+     */
+    drawRotatedOverlay(
+        tex: MinimapTexture,
+        screenX: number,
+        screenY: number,
+        angleRad: number,
+        width?: number,
+        height?: number,
+    ) {
+        const gl = this.gl;
+        const w = width ?? tex.w;
+        const h = height ?? tex.h;
+        const hw = w / 2;
+        const hh = h / 2;
+        const cos = Math.cos(angleRad);
+        const sin = Math.sin(angleRad);
+
+        const corners: Array<[number, number, number, number]> = [
+            [-hw, -hh, 0, 0],
+            [hw, -hh, 1, 0],
+            [hw, hh, 1, 1],
+            [-hw, hh, 0, 1],
+        ];
+        const verts = new Float32Array(16);
+        for (let i = 0; i < 4; i++) {
+            const [lx, ly, u, v] = corners[i];
+            const rx = lx * cos - ly * sin;
+            const ry = lx * sin + ly * cos;
+            verts[i * 4] = screenX + rx;
+            verts[i * 4 + 1] = screenY + ry;
+            verts[i * 4 + 2] = u;
+            verts[i * 4 + 3] = v;
+        }
+
+        gl.useProgram(this.progOverlay);
+        gl.uniformMatrix4fv(this.uProj_ov, false, this.proj);
+        gl.uniform2f(this.uCenter_ov, this.centerX, this.centerY);
+        // Edge arrows sit on the rim — disable circular clip so they remain visible.
+        gl.uniform1f(this.uRadius_ov, this.radius + Math.max(w, h));
+        gl.uniform1f(this.uAlpha_ov, 1.0);
+
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, tex.tex);
+        gl.uniform1i(this.uTexture_ov, 0);
+
+        gl.bindVertexArray(this.vao);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo);
+        gl.bufferData(gl.ARRAY_BUFFER, verts, gl.DYNAMIC_DRAW);
+        gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
+    }
+
+    /**
      * Transform a relative position to screen position (applying rotation and zoom)
      * Used for positioning overlay elements like the flag
      */

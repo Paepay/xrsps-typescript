@@ -68,6 +68,11 @@ export type RegionalFavourDefinition = {
     /** Item granted for delivery tasks (reclaimable). */
     deliveryItemId?: number;
     targetObjectId?: number;
+    /**
+     * LocType.name values for favour hint arrows (e.g. "Mithril rocks").
+     * Used with targetArea / gatherHints so local rocks get overhead arrows.
+     */
+    targetObjectNames?: string[];
     targetArea?: TileBounds;
     minAmount: number;
     maxAmount: number;

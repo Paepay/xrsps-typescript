@@ -4,5 +4,7 @@ export * from "./regions";
 export * from "./contacts";
 export * from "./registry";
 export * from "./generator";
+export * from "./gatherHints";
+export * from "./hintTarget";
 export * from "./RegionalFavourService";
 export { MISTHALIN_EXCLUDED_NOTES } from "./definitions/misthalin";

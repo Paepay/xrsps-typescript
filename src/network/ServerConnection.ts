@@ -2067,6 +2067,42 @@ function processServerMessage(msg: any): void {
                 console.warn("regional_favour_hud listener error", err);
             }
         }
+    } else if (msg.type === "hint_arrow") {
+        const payload = msg.payload as {
+            type: number;
+            targetId: number;
+            worldX: number;
+            worldY: number;
+            height: number;
+            subTileX: number;
+            subTileY: number;
+            npcTypeIds?: number[];
+            objectNames?: string[];
+            rockId?: string;
+        };
+        try {
+            if ((payload.type | 0) === 0) {
+                ClientState.clearHintArrow();
+            } else {
+                ClientState.hintArrowType = payload.type | 0;
+                ClientState.hintArrowTargetId = payload.targetId | 0;
+                ClientState.hintArrowWorldX = payload.worldX | 0;
+                ClientState.hintArrowWorldY = payload.worldY | 0;
+                ClientState.hintArrowHeight = payload.height | 0;
+                ClientState.hintArrowSubTileX = payload.subTileX | 0;
+                ClientState.hintArrowSubTileY = payload.subTileY | 0;
+                ClientState.hintArrowNpcTypeIds = Array.isArray(payload.npcTypeIds)
+                    ? payload.npcTypeIds.map((id) => id | 0).filter((id) => id > 0)
+                    : [];
+                ClientState.hintArrowObjectNames = Array.isArray(payload.objectNames)
+                    ? payload.objectNames.filter((n) => typeof n === "string" && n.length > 0)
+                    : [];
+                ClientState.hintArrowRockId =
+                    typeof payload.rockId === "string" ? payload.rockId.trim() : "";
+            }
+        } catch (err) {
+            console.warn("hint_arrow handler error", err);
+        }
     } else if (msg.type === "loc_change") {
         const payload = msg.payload;
         try {

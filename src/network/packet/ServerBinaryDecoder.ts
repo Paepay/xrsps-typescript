@@ -1482,6 +1482,53 @@ export function decodeServerPacket(data: Uint8Array | ArrayBuffer): DecodedServe
             };
         }
 
+        case ServerPacketId.HINT_ARROW: {
+            const typeCode = reader.readByte() & 0xff;
+            // Custom extended layout: always world + targetId, then filters.
+            // typeCode 0 = clear; 1 = npc; 2 = world (OSRS-compatible codes also accepted).
+            let type = 0;
+            if (typeCode === 1 || typeCode === 10) type = typeCode === 10 ? 3 : 1;
+            else if (typeCode >= 2 && typeCode <= 6) type = 2;
+            else if (typeCode === 11) type = 4;
+            else if (typeCode === 0) type = 0;
+            else type = typeCode === 0 ? 0 : 2;
+
+            const worldX = reader.readShort();
+            const worldY = reader.readShort();
+            const height = reader.readByte();
+            const targetId = reader.readShort();
+            const npcTypeCount = reader.readByte() & 0xff;
+            const npcTypeIds: number[] = [];
+            for (let i = 0; i < npcTypeCount; i++) {
+                npcTypeIds.push(reader.readShort());
+            }
+            const objectNameCount = reader.readByte() & 0xff;
+            const objectNames: string[] = [];
+            for (let i = 0; i < objectNameCount; i++) {
+                objectNames.push(reader.readString());
+            }
+            const rockId = reader.remaining > 0 ? reader.readString() : "";
+            if (typeCode === 0) {
+                type = 0;
+            }
+            return {
+                type: "hint_arrow",
+                payload: {
+                    type,
+                    typeCode,
+                    targetId,
+                    worldX,
+                    worldY,
+                    height,
+                    subTileX: 64,
+                    subTileY: 64,
+                    npcTypeIds,
+                    objectNames,
+                    rockId,
+                },
+            };
+        }
+
         // ========================================
         // DEBUG
         // ========================================

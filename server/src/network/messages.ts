@@ -523,6 +523,34 @@ export type ServerToClient =
     | { type: "login_response"; payload: LoginResponsePayload }
     | { type: "logout_response"; payload: LogoutResponsePayload }
     | { type: "notification"; payload: NotificationPayload }
+    | {
+          type: "regional_favour_hud";
+          payload: {
+              visible: boolean;
+              regionName?: string;
+              objective?: string;
+              progress?: number;
+              required?: number;
+              turnInName?: string;
+              instruction?: string;
+              complete?: boolean;
+              hasActiveFavour?: boolean;
+              rewardPreview?: string;
+          };
+      }
+    | {
+          type: "hint_arrow";
+          payload: {
+              typeCode: number;
+              targetId?: number;
+              worldX?: number;
+              worldY?: number;
+              height?: number;
+              npcTypeIds?: number[];
+              objectNames?: string[];
+              rockId?: string;
+          };
+      }
     | { type: "smithing"; payload: SmithingServerPayload }
     | { type: "collection_log"; payload: CollectionLogServerPayload };
 
@@ -937,6 +965,9 @@ function encodeMessageToBinaryDirect(msg: ServerToClient): Uint8Array {
 
         case "regional_favour_hud":
             return serverEncoder.encodeRegionalFavourHud(payload ?? {});
+
+        case "hint_arrow":
+            return serverEncoder.encodeHintArrow(payload ?? { typeCode: 0 });
 
         case "smithing":
             return encodeSmithingToBinary(payload);

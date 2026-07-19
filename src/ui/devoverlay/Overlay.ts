@@ -94,6 +94,14 @@ export interface OverheadPrayerEntry {
     headIconPrayer: number;
 }
 
+/** OSRS hint arrow (headicons_hint) above a world tile / NPC. */
+export interface HintArrowEntry {
+    worldX: number;
+    worldZ: number;
+    plane: number;
+    heightOffsetTiles: number;
+}
+
 export interface OverlayUpdateArgs {
     time: number;
     delta: number;
@@ -139,6 +147,7 @@ export interface OverlayUpdateArgs {
         healthBars?: HealthBarEntry[];
         overheadTexts?: OverheadTextEntry[];
         overheadPrayers?: OverheadPrayerEntry[];
+        hintArrows?: HintArrowEntry[];
         groundItems?: GroundItemOverlayEntry[];
     };
     helpers: {

@@ -65,6 +65,46 @@ export class ClientState {
     static destinationWorldY: number = 0;
 
     // ========================================
+    // HINT ARROW (OSRS decodeHintArrow / quest pointer)
+    // ========================================
+
+    /**
+     * Hint arrow type after decode remap:
+     * 0=none, 1=npc, 2=world position, 3=player, 4=world entity
+     */
+    static hintArrowType: number = 0;
+
+    /** NPC / player / world-entity target index when type is 1, 3, or 4. */
+    static hintArrowTargetId: number = 0;
+
+    /** World tile X when type is 2. */
+    static hintArrowWorldX: number = 0;
+
+    /** World tile Y when type is 2. */
+    static hintArrowWorldY: number = 0;
+
+    /** Sub-tile fine offset within the target tile (0–128). */
+    static hintArrowSubTileX: number = 64;
+
+    /** Sub-tile fine offset within the target tile (0–128). */
+    static hintArrowSubTileY: number = 64;
+
+    /** Height multiplier used for the 3D scene arrow. */
+    static hintArrowHeight: number = 0;
+
+    /**
+     * NPC type ids the in-world arrow may snap to.
+     * Empty = never snap to random NPCs (tile/object hints).
+     */
+    static hintArrowNpcTypeIds: number[] = [];
+
+    /** LocType.name values for local object arrows (rocks, etc.). */
+    static hintArrowObjectNames: string[] = [];
+
+    /** Mining rock id filter (e.g. "mithril") — preferred object match key. */
+    static hintArrowRockId: string = "";
+
+    // ========================================
     // MAP BASE COORDINATES
     // ========================================
 
@@ -342,6 +382,7 @@ export class ClientState {
         this.destinationY = 0;
         this.destinationWorldX = 0;
         this.destinationWorldY = 0;
+        this.clearHintArrow();
         this.clearSpellSelection();
         this.clearItemSelection();
         this.isMenuOpen = false;
@@ -351,6 +392,31 @@ export class ClientState {
         this.npcs = new Array(32768).fill(null);
         this.localPlayerIndex = -1;
         this.combatTargetPlayerIndex = -1;
+    }
+
+    /** Clear the server-driven hint arrow (OSRS type 0). */
+    static clearHintArrow(): void {
+        this.hintArrowType = 0;
+        this.hintArrowTargetId = 0;
+        this.hintArrowWorldX = 0;
+        this.hintArrowWorldY = 0;
+        this.hintArrowSubTileX = 64;
+        this.hintArrowSubTileY = 64;
+        this.hintArrowHeight = 0;
+        this.hintArrowNpcTypeIds = [];
+        this.hintArrowObjectNames = [];
+        this.hintArrowRockId = "";
+    }
+
+    /** Apply a world-tile hint arrow (OSRS type code 2). */
+    static setHintArrowWorld(worldX: number, worldY: number, height: number = 0): void {
+        this.hintArrowType = 2;
+        this.hintArrowTargetId = 0;
+        this.hintArrowWorldX = worldX | 0;
+        this.hintArrowWorldY = worldY | 0;
+        this.hintArrowSubTileX = 64;
+        this.hintArrowSubTileY = 64;
+        this.hintArrowHeight = height | 0;
     }
 
     /**

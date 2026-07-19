@@ -53,10 +53,12 @@ import {
 } from "../../ui/devoverlay/InteractHighlightOverlay";
 import { LoadingMessageOverlay } from "../../ui/devoverlay/LoadingMessageOverlay";
 import { LoginOverlay } from "../../ui/devoverlay/LoginOverlay";
+import { HintArrowOverlay } from "../../ui/devoverlay/HintArrowOverlay";
 import { OverheadPrayerOverlay } from "../../ui/devoverlay/OverheadPrayerOverlay";
 import { OverheadTextOverlay } from "../../ui/devoverlay/OverheadTextOverlay";
 import {
     HealthBarEntry,
+    HintArrowEntry,
     HitsplatEntry,
     OverheadPrayerEntry,
     OverheadTextEntry,
@@ -93,6 +95,12 @@ import {
 import { computeDesktopCssZoom, getUiScale } from "../../ui/UiScale";
 import { clamp } from "../../util/MathUtil";
 import { ClientState } from "../ClientState";
+import {
+    locNameMatchesRockHint,
+    resolveHintArrowWorldTargets,
+    type HintArrowSceneLoc,
+    type HintArrowSceneNpc,
+} from "../HintArrowTargets";
 import { GameRenderer } from "../GameRenderer";
 import type { HitsplatEventPayload } from "../GameRenderer";
 import { OsrsRendererType, WEBGL } from "../GameRenderers";
@@ -766,8 +774,11 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
     private playerDefaultHeightTiles: number = 200 / 128;
     private overheadTextOverlay?: OverheadTextOverlay;
     private overheadPrayerOverlay?: OverheadPrayerOverlay;
+    private hintArrowOverlay?: HintArrowOverlay;
     private overheadTextOutput: OverheadTextEntry[] = [];
     private overheadTextPool: OverheadTextEntry[] = [];
+    private hintArrowPool: HintArrowEntry[] = [];
+    private hintArrowOutput: HintArrowEntry[] = [];
     private mobileLoginInput?: HTMLInputElement;
     private mobileLoginInputFocused: boolean = false;
     private mobileLoginKeyboardOpen: boolean = false;
@@ -1521,6 +1532,17 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         );
     }
 
+    private acquireHintArrowEntry(): HintArrowEntry {
+        return (
+            this.hintArrowPool.pop() ?? {
+                worldX: 0,
+                worldZ: 0,
+                plane: 0,
+                heightOffsetTiles: 0.9,
+            }
+        );
+    }
+
     private acquireOverheadTextEntry(): OverheadTextEntry {
         const entry = this.overheadTextPool.pop() ?? {
             worldX: 0,
@@ -1559,6 +1581,85 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
             this.overheadPrayerPool.push(entry);
         }
         this.overheadPrayerOutput.length = 0;
+    }
+
+    private resetHintArrowOutput(): void {
+        if (this.hintArrowOutput.length === 0) return;
+        for (const entry of this.hintArrowOutput) {
+            entry.heightOffsetTiles = 0.9;
+            this.hintArrowPool.push(entry);
+        }
+        this.hintArrowOutput.length = 0;
+    }
+
+    /**
+     * Scan loaded map squares for locs whose LocType.name matches favour hint object names / rockId.
+     */
+    collectHintArrowSceneLocs(radiusTiles: number = 24): HintArrowSceneLoc[] {
+        const names = ClientState.hintArrowObjectNames;
+        const rockId = ClientState.hintArrowRockId;
+        if ((!names || names.length === 0) && !(rockId && rockId.length > 0)) return [];
+
+        const playerTile = this.getLocalPlayerTile();
+        const hintWx = ClientState.hintArrowWorldX | 0;
+        const hintWy = ClientState.hintArrowWorldY | 0;
+        // Prefer scanning around the hint destination so rocks are found before the
+        // player walks into the mine; fall back to the player tile when close.
+        const playerX = playerTile?.x ?? 0;
+        const playerY = playerTile?.y ?? 0;
+        const useHintCenter =
+            hintWx > 0 &&
+            hintWy > 0 &&
+            (playerX <= 0 ||
+                playerY <= 0 ||
+                Math.abs(playerX - hintWx) > radiusTiles ||
+                Math.abs(playerY - hintWy) > radiusTiles);
+        const centerX = useHintCenter ? hintWx : playerX || hintWx;
+        const centerY = useHintCenter ? hintWy : playerY || hintWy;
+        if (!(centerX > 0) || !(centerY > 0)) return [];
+
+        const radius = Math.max(4, Math.min(48, radiusTiles | 0));
+        const plane = this.getPlayerRawPlane() | 0;
+        const out: HintArrowSceneLoc[] = [];
+        const seen = new Set<string>();
+        const loader = this.osrsClient.locTypeLoader;
+
+        for (let dx = -radius; dx <= radius; dx++) {
+            for (let dy = -radius; dy <= radius; dy++) {
+                const tx = centerX + dx;
+                const ty = centerY + dy;
+                let locs: Array<{ id: number; level: number }> = [];
+                try {
+                    locs = this.getLocIdsAtTileAllLevels(tx, ty);
+                } catch {
+                    continue;
+                }
+                for (const loc of locs) {
+                    if ((loc.level | 0) !== plane && Math.abs((loc.level | 0) - plane) > 1) {
+                        continue;
+                    }
+                    let locType: { name?: string } | undefined;
+                    try {
+                        locType = loader?.load?.(loc.id | 0);
+                    } catch {
+                        continue;
+                    }
+                    const name = (locType?.name ?? "").trim();
+                    if (!locNameMatchesRockHint(name, rockId, names)) continue;
+                    const key = `${tx},${ty},${loc.level | 0},${loc.id | 0}`;
+                    if (seen.has(key)) continue;
+                    seen.add(key);
+                    out.push({
+                        worldX: tx + 0.5,
+                        worldY: ty + 0.5,
+                        plane: loc.level | 0,
+                        name,
+                    });
+                    if (out.length >= 32) return out;
+                }
+            }
+        }
+        return out;
     }
 
     private resetOverheadTextOutput(): void {
@@ -2907,6 +3008,21 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                 // Init may fail if cache not ready - will be reinitialized in initOverlays()
                 try {
                     op.init({ app: this.app, sceneUniforms: this.sceneUniformBuffer });
+                } catch {}
+            }
+        } catch {}
+
+        // OSRS hint arrow (headicons_hint) over NPC / world tile
+        try {
+            if (this.overlayManager && this.hitsplatProgram && this.sceneUniformBuffer) {
+                const ha = new HintArrowOverlay(this.hitsplatProgram, {
+                    getCacheSystem: () => this.osrsClient.cacheSystem,
+                    getLoadedCacheInfo: () => this.osrsClient.loadedCache?.info,
+                });
+                this.hintArrowOverlay = ha;
+                this.overlayManager.add(ha);
+                try {
+                    ha.init({ app: this.app, sceneUniforms: this.sceneUniformBuffer });
                 } catch {}
             }
         } catch {}
@@ -4387,6 +4503,11 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
             this.overheadPrayerOverlay?.init(initArgs);
         } catch (e) {
             console.warn("Failed to init overhead prayer overlay", e);
+        }
+        try {
+            this.hintArrowOverlay?.init(initArgs);
+        } catch (e) {
+            console.warn("Failed to init hint arrow overlay", e);
         }
         try {
             this.clickCrossOverlay?.init(initArgs);
@@ -6169,6 +6290,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
             this.resetHitsplatOutput();
             this.resetOverheadTextOutput();
             this.resetOverheadPrayerOutput();
+            this.resetHintArrowOutput();
             let playerWorldX: number | undefined = undefined;
             let playerWorldZ: number | undefined = undefined;
             let playerLevel = resolveGroundItemStackPlane(this.getPlayerRawPlane() | 0);
@@ -6181,6 +6303,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
             const healthBars = this.healthBarOutput;
             const overheadTexts = this.overheadTextOutput;
             const overheadPrayers = this.overheadPrayerOutput;
+            const hintArrows = this.hintArrowOutput;
             const hitsplatMaxEntries = this.getFrameHitsplatMaxEntries();
             const healthBarMaxEntries = this.getFrameHealthBarMaxEntries();
             const overheadTextMaxEntries = this.getFrameOverheadTextMaxEntries();
@@ -6393,6 +6516,68 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                             playerDefaultHeightTiles,
                         );
                         overheadPrayers.push(entry);
+                    }
+                }
+            } catch {}
+
+            // OSRS hint arrow above NPC / tile / matching locs (headicons_hint[0])
+            try {
+                const hintType = ClientState.hintArrowType | 0;
+                if (hintType !== 0 && Math.floor(Date.now() / 20) % 20 < 10) {
+                    const npcs: HintArrowSceneNpc[] = [];
+                    const ne = this.osrsClient.npcEcs;
+                    if (ne?.getAllActiveIds) {
+                        for (const ecsId of ne.getAllActiveIds()) {
+                            if (!ne.isActive?.(ecsId)) continue;
+                            const mid = ne.getMapId(ecsId) | 0;
+                            const localX = ne.getX(ecsId) | 0;
+                            const localY = ne.getY(ecsId) | 0;
+                            npcs.push({
+                                serverId: ne.getServerId(ecsId) | 0,
+                                typeId: ne.getNpcTypeId(ecsId) | 0,
+                                worldX: ((mid >> 8) & 0xff) * 64 + localX / 128.0,
+                                worldY: (mid & 0xff) * 64 + localY / 128.0,
+                                plane: ne.getLevel(ecsId) | 0,
+                            });
+                        }
+                    }
+                    const locs = this.collectHintArrowSceneLocs(24);
+                    const targets = resolveHintArrowWorldTargets({
+                        npcs,
+                        locs,
+                        maxObjectTargets: 8,
+                    });
+                    for (const target of targets) {
+                        let heightOffsetTiles = 0.45;
+                        if (target.kind === "npc") {
+                            // Approximate — refined below if we can match type height
+                            heightOffsetTiles = 1.1;
+                            for (const npc of npcs) {
+                                if (
+                                    Math.abs(npc.worldX - target.worldX) > 0.01 ||
+                                    Math.abs(npc.worldY - target.worldY) > 0.01
+                                ) {
+                                    continue;
+                                }
+                                const npcHeight =
+                                    npc.typeId > 0
+                                        ? this.getNpcDefaultHeight(npc.typeId)
+                                        : 200;
+                                heightOffsetTiles = Math.max(0.5, (npcHeight + 15) / 128.0);
+                                break;
+                            }
+                        } else if (target.kind === "object") {
+                            heightOffsetTiles = 0.75;
+                        } else {
+                            const fineH = (ClientState.hintArrowHeight | 0) * 2;
+                            heightOffsetTiles = Math.max(0.35, fineH / 128.0 + 0.35);
+                        }
+                        const entry = this.acquireHintArrowEntry();
+                        entry.worldX = target.worldX;
+                        entry.worldZ = target.worldY;
+                        entry.plane = target.plane | 0;
+                        entry.heightOffsetTiles = heightOffsetTiles;
+                        hintArrows.push(entry);
                     }
                 }
             } catch {}
@@ -6688,6 +6873,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
                         healthBars: healthBars.length > 0 ? healthBars : undefined,
                         overheadTexts: overheadTexts.length > 0 ? overheadTexts : undefined,
                         overheadPrayers: overheadPrayers.length > 0 ? overheadPrayers : undefined,
+                        hintArrows: hintArrows.length > 0 ? hintArrows : undefined,
                         groundItems: groundOverlayEntries,
                         // spotAnimations removed
                     },
@@ -7348,6 +7534,7 @@ export class WebGLOsrsRenderer extends GameRenderer<WebGLMapSquare> {
         args.state.healthBars = undefined;
         args.state.overheadTexts = undefined;
         args.state.overheadPrayers = undefined;
+        args.state.hintArrows = undefined;
         args.state.groundItems = undefined;
         this.overlayManager.update(args);
         this.overlayManager.draw(RenderPhase.ToSceneFramebuffer);
