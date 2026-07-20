@@ -1,5 +1,5 @@
 /**
- * Favour gather/process hint destinations.
+ * Favour gather/process hint destinations (per region).
  *
  * Prefer deriving areas from cache loc placements + npc-spawns + skill defs
  * via initGatherHintsFromWorld(). A small manual override table exists only for
@@ -14,6 +14,7 @@ import { getMiningRockById, type MiningLocMap } from "../skills/mining";
 import { getWoodcuttingTreeById, type WoodcuttingLocMap } from "../skills/woodcutting";
 import { SPINNING_WHEEL_LOC_IDS } from "../skills/spinning";
 import {
+    AsgAreas,
     ITEM_AIR_RUNE,
     ITEM_ANCHOVIES,
     ITEM_ASHES,
@@ -31,6 +32,7 @@ import {
     ITEM_CAKE,
     ITEM_COWHIDE,
     ITEM_EGG,
+    ITEM_EYE_OF_NEWT,
     ITEM_FIRE_RUNE,
     ITEM_GARLIC,
     ITEM_IRON_ARROW,
@@ -59,7 +61,7 @@ import {
     NpcIds,
 } from "./constants";
 import type { ResourceHintIndex } from "./resourceHintIndex";
-import type { TileBounds } from "./types";
+import type { RegionalFavourRegion, TileBounds } from "./types";
 
 /** Shop-bought runes / essence — Aubury's Rune Shop in SE Varrock. */
 const AUBURY_SHOP_ITEM_IDS: readonly number[] = [
@@ -71,6 +73,16 @@ const AUBURY_SHOP_ITEM_IDS: readonly number[] = [
 ];
 
 const AUBURY_HINT_NPC_IDS: readonly number[] = [NpcIds.Aubury, 11434, 11435];
+
+/** Betty's Magic Emporium — Port Sarim. */
+const BETTY_SHOP_ITEM_IDS: readonly number[] = [
+    ITEM_AIR_RUNE,
+    ITEM_MIND_RUNE,
+    ITEM_FIRE_RUNE,
+    ITEM_EYE_OF_NEWT,
+];
+
+const BETTY_HINT_NPC_IDS: readonly number[] = [NpcIds.Betty, 3870];
 
 export type GatherHintSpec = {
     area: TileBounds;
@@ -91,43 +103,78 @@ const COOKED_TO_RAW_FISH: ReadonlyMap<number, number> = new Map([
  * Explicit overrides when no single world resource can be derived.
  * Keep this tiny — prefer skill/loc/spawn data.
  */
-const MANUAL_HINT_OVERRIDES: ReadonlyMap<number, GatherHintSpec> = new Map([
-    // Shops / multi-hop crafts with no unique scenery in Misthalin skill data.
-    [ITEM_ROPE, { area: MistAreas.DraynorVillage }],
-    [ITEM_PLANK, { area: MistAreas.DraynorVillage }],
-    [ITEM_GARLIC, { area: MistAreas.DraynorVillage }],
-    [ITEM_RED_DYE, { area: MistAreas.DraynorVillage }],
-    [ITEM_YELLOW_DYE, { area: MistAreas.DraynorVillage }],
-    // Aubury's Rune Shop (SE Varrock) — buy runes / teleport to essence.
+const MANUAL_HINT_OVERRIDES: ReadonlyMap<
+    RegionalFavourRegion,
+    ReadonlyMap<number, GatherHintSpec>
+> = new Map([
     [
-        ITEM_AIR_RUNE,
-        { area: MistAreas.AuburyRuneShop, npcTypeIds: AUBURY_HINT_NPC_IDS },
+        "misthalin",
+        new Map([
+            [ITEM_ROPE, { area: MistAreas.DraynorVillage }],
+            [ITEM_PLANK, { area: MistAreas.DraynorVillage }],
+            [ITEM_GARLIC, { area: MistAreas.DraynorVillage }],
+            [ITEM_RED_DYE, { area: MistAreas.DraynorVillage }],
+            [ITEM_YELLOW_DYE, { area: MistAreas.DraynorVillage }],
+            [
+                ITEM_AIR_RUNE,
+                { area: MistAreas.AuburyRuneShop, npcTypeIds: AUBURY_HINT_NPC_IDS },
+            ],
+            [
+                ITEM_MIND_RUNE,
+                { area: MistAreas.AuburyRuneShop, npcTypeIds: AUBURY_HINT_NPC_IDS },
+            ],
+            [
+                ITEM_FIRE_RUNE,
+                { area: MistAreas.AuburyRuneShop, npcTypeIds: AUBURY_HINT_NPC_IDS },
+            ],
+            [
+                ITEM_RUNE_ESSENCE,
+                { area: MistAreas.AuburyRuneShop, npcTypeIds: AUBURY_HINT_NPC_IDS },
+            ],
+            [
+                ITEM_PURE_ESSENCE,
+                { area: MistAreas.AuburyRuneShop, npcTypeIds: AUBURY_HINT_NPC_IDS },
+            ],
+            [ITEM_VIAL_WATER, { area: MistAreas.VarrockSquare }],
+            [ITEM_ATTACK_POTION3, { area: MistAreas.VarrockSquare }],
+            [ITEM_LEATHER_GLOVES, { area: MistAreas.VarrockSquare }],
+            [ITEM_LEATHER_BOOTS, { area: MistAreas.VarrockSquare }],
+            [ITEM_BONES, { area: MistAreas.LumbridgeSwamp }],
+            [ITEM_SWAMP_TAR, { area: MistAreas.LumbridgeSwamp }],
+        ]),
     ],
     [
-        ITEM_MIND_RUNE,
-        { area: MistAreas.AuburyRuneShop, npcTypeIds: AUBURY_HINT_NPC_IDS },
+        "asgarnia",
+        new Map([
+            [ITEM_ROPE, { area: AsgAreas.PortSarim }],
+            [ITEM_PLANK, { area: AsgAreas.PortSarim }],
+            [
+                ITEM_AIR_RUNE,
+                { area: AsgAreas.BettyShop, npcTypeIds: BETTY_HINT_NPC_IDS },
+            ],
+            [
+                ITEM_MIND_RUNE,
+                { area: AsgAreas.BettyShop, npcTypeIds: BETTY_HINT_NPC_IDS },
+            ],
+            [
+                ITEM_FIRE_RUNE,
+                { area: AsgAreas.BettyShop, npcTypeIds: BETTY_HINT_NPC_IDS },
+            ],
+            [
+                ITEM_EYE_OF_NEWT,
+                { area: AsgAreas.BettyShop, npcTypeIds: BETTY_HINT_NPC_IDS },
+            ],
+            [ITEM_RUNE_ESSENCE, { area: AsgAreas.BettyShop, npcTypeIds: BETTY_HINT_NPC_IDS }],
+            [ITEM_PURE_ESSENCE, { area: AsgAreas.BettyShop, npcTypeIds: BETTY_HINT_NPC_IDS }],
+            [ITEM_VIAL_WATER, { area: AsgAreas.Taverley }],
+            [ITEM_ATTACK_POTION3, { area: AsgAreas.Taverley }],
+            [ITEM_BONES, { area: AsgAreas.TaverleyDungeonEntrance }],
+            [ITEM_GARLIC, { area: AsgAreas.Rimmington }],
+        ]),
     ],
-    [
-        ITEM_FIRE_RUNE,
-        { area: MistAreas.AuburyRuneShop, npcTypeIds: AUBURY_HINT_NPC_IDS },
-    ],
-    [
-        ITEM_RUNE_ESSENCE,
-        { area: MistAreas.AuburyRuneShop, npcTypeIds: AUBURY_HINT_NPC_IDS },
-    ],
-    [
-        ITEM_PURE_ESSENCE,
-        { area: MistAreas.AuburyRuneShop, npcTypeIds: AUBURY_HINT_NPC_IDS },
-    ],
-    [ITEM_VIAL_WATER, { area: MistAreas.VarrockSquare }],
-    [ITEM_ATTACK_POTION3, { area: MistAreas.VarrockSquare }],
-    [ITEM_LEATHER_GLOVES, { area: MistAreas.VarrockSquare }],
-    [ITEM_LEATHER_BOOTS, { area: MistAreas.VarrockSquare }],
-    [ITEM_BONES, { area: MistAreas.LumbridgeSwamp }],
-    [ITEM_SWAMP_TAR, { area: MistAreas.LumbridgeSwamp }],
 ]);
 
-let derivedHints: Map<number, GatherHintSpec> = new Map();
+const derivedHintsByRegion = new Map<RegionalFavourRegion, Map<number, GatherHintSpec>>();
 let initialized = false;
 
 function setHint(target: Map<number, GatherHintSpec>, itemId: number, spec: GatherHintSpec): void {
@@ -137,17 +184,18 @@ function setHint(target: Map<number, GatherHintSpec>, itemId: number, spec: Gath
 }
 
 /**
- * Build item→hint map from world placements + skill definitions.
- * Call once after cache / loc maps are ready (wsServer bootstrap).
+ * Build item→hint map from world placements + skill definitions for one region.
+ * Call once per favour region after cache / loc maps are ready.
  */
 export function initGatherHintsFromWorld(deps: {
+    region: RegionalFavourRegion;
     index: ResourceHintIndex;
     miningLocMap?: MiningLocMap["map"] | Map<number, { rockId: string }>;
     woodcuttingLocMap?: WoodcuttingLocMap["map"] | Map<number, string>;
     fishingSpotMap?: FishingSpotMap["map"] | Map<number, string>;
 }): void {
     const next = new Map<number, GatherHintSpec>();
-    const { index } = deps;
+    const { index, region } = deps;
 
     // ——— Field crops (onion / potato / cabbage / wheat→flour / berry bushes) ———
     for (const crop of FIELD_CROP_DEFINITIONS) {
@@ -345,26 +393,45 @@ export function initGatherHintsFromWorld(deps: {
     }
 
     // Manual overrides win for ambiguous shop/process items.
-    for (const [itemId, spec] of MANUAL_HINT_OVERRIDES) {
-        setHint(next, itemId, spec);
-    }
-
-    // Aubury spawn coords beat the static shop fallback when present.
-    const auburyArea =
-        index.getBoundsForNpcTypeIds(AUBURY_HINT_NPC_IDS, 12) ??
-        index.getBoundsForNpcName("aubury", 12);
-    if (auburyArea) {
-        const fromName = index.getNpcTypeIdsForNames(["aubury"]);
-        const auburyNpcIds = fromName.length > 0 ? fromName : [...AUBURY_HINT_NPC_IDS];
-        for (const itemId of AUBURY_SHOP_ITEM_IDS) {
-            setHint(next, itemId, {
-                area: auburyArea,
-                npcTypeIds: auburyNpcIds,
-            });
+    const manual = MANUAL_HINT_OVERRIDES.get(region);
+    if (manual) {
+        for (const [itemId, spec] of manual) {
+            setHint(next, itemId, spec);
         }
     }
 
-    derivedHints = next;
+    // Region shop NPCs beat static shop fallbacks when present.
+    if (region === "misthalin") {
+        const auburyArea =
+            index.getBoundsForNpcTypeIds(AUBURY_HINT_NPC_IDS, 12) ??
+            index.getBoundsForNpcName("aubury", 12);
+        if (auburyArea) {
+            const fromName = index.getNpcTypeIdsForNames(["aubury"]);
+            const auburyNpcIds = fromName.length > 0 ? fromName : [...AUBURY_HINT_NPC_IDS];
+            for (const itemId of AUBURY_SHOP_ITEM_IDS) {
+                setHint(next, itemId, {
+                    area: auburyArea,
+                    npcTypeIds: auburyNpcIds,
+                });
+            }
+        }
+    } else if (region === "asgarnia") {
+        const bettyArea =
+            index.getBoundsForNpcTypeIds(BETTY_HINT_NPC_IDS, 12) ??
+            index.getBoundsForNpcName("betty", 12);
+        if (bettyArea) {
+            const fromName = index.getNpcTypeIdsForNames(["betty"]);
+            const bettyNpcIds = fromName.length > 0 ? fromName : [...BETTY_HINT_NPC_IDS];
+            for (const itemId of BETTY_SHOP_ITEM_IDS) {
+                setHint(next, itemId, {
+                    area: bettyArea,
+                    npcTypeIds: bettyNpcIds,
+                });
+            }
+        }
+    }
+
+    derivedHintsByRegion.set(region, next);
     initialized = true;
 }
 
@@ -372,14 +439,34 @@ export function isGatherHintsInitialized(): boolean {
     return initialized;
 }
 
-export function getGatherHintForItem(itemId: number | undefined): GatherHintSpec | undefined {
+export function getGatherHintForItem(
+    itemId: number | undefined,
+    region?: RegionalFavourRegion,
+): GatherHintSpec | undefined {
     if (!(itemId && itemId > 0)) return undefined;
     const id = itemId | 0;
-    return derivedHints.get(id) ?? MANUAL_HINT_OVERRIDES.get(id);
+    if (region) {
+        return (
+            derivedHintsByRegion.get(region)?.get(id) ??
+            MANUAL_HINT_OVERRIDES.get(region)?.get(id)
+        );
+    }
+    for (const map of derivedHintsByRegion.values()) {
+        const hit = map.get(id);
+        if (hit) return hit;
+    }
+    for (const manual of MANUAL_HINT_OVERRIDES.values()) {
+        const hit = manual.get(id);
+        if (hit) return hit;
+    }
+    return undefined;
 }
 
-/** Test helper: replace derived map. */
-export function replaceGatherHintsForTests(hints: ReadonlyMap<number, GatherHintSpec>): void {
-    derivedHints = new Map(hints);
+/** Test helper: replace derived map for one region (defaults to misthalin). */
+export function replaceGatherHintsForTests(
+    hints: ReadonlyMap<number, GatherHintSpec>,
+    region: RegionalFavourRegion = "misthalin",
+): void {
+    derivedHintsByRegion.set(region, new Map(hints));
     initialized = true;
 }

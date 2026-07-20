@@ -327,7 +327,9 @@ import { LeagueTaskManager } from "../game/leagues/LeagueTaskManager";
 import {
     RegionalFavourService,
     bindRegionalFavourService,
+    getRegionalFavourRegionForTile,
     initRegionalFavourHints,
+    type RegionalFavourRegion,
 } from "../game/regionalFavours";
 import { LeagueTaskService } from "../game/leagues/LeagueTaskService";
 import {
@@ -2591,8 +2593,8 @@ export class WSServer {
                     queueHud: (playerId, payload) => this.queueRegionalFavourHud(playerId, payload),
                     queueHintArrow: (playerId, payload) =>
                         this.queueHintArrow(playerId, payload),
-                    findNearestNpcTile: (typeIds, nearX, nearY) =>
-                        this.findNearestNpcTileForFavour(typeIds, nearX, nearY),
+                    findNearestNpcTile: (typeIds, nearX, nearY, region) =>
+                        this.findNearestNpcTileForFavour(typeIds, nearX, nearY, region),
                     addItem: (player, itemId, qty) => {
                         try {
                             const result = this.addItemToInventory(player, itemId, qty);
@@ -5335,6 +5337,7 @@ export class WSServer {
         typeIds: readonly number[],
         nearX: number,
         nearY: number,
+        region?: RegionalFavourRegion,
     ): { x: number; y: number } | undefined {
         if (!this.npcManager || typeIds.length === 0) return undefined;
         const wanted = new Set(typeIds.map((id) => id | 0));
@@ -5343,6 +5346,12 @@ export class WSServer {
         let bestAny: { x: number; y: number; dist: number } | undefined;
         this.npcManager.forEach((npc) => {
             if (!wanted.has(npc.typeId | 0)) return;
+            if (
+                region &&
+                getRegionalFavourRegionForTile(npc.tileX | 0, npc.tileY | 0) !== region
+            ) {
+                return;
+            }
             const dx = (npc.tileX | 0) - (nearX | 0);
             const dy = (npc.tileY | 0) - (nearY | 0);
             const dist = dx * dx + dy * dy;

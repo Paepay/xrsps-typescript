@@ -85,6 +85,97 @@ export const MISTHALIN_NPC_RELATIONSHIPS: Readonly<Record<number, readonly numbe
     [NpcIds.HistorianMinas]: [NpcIds.CuratorHaigHalen, NpcIds.Reldo],
 };
 
+export const ASGARNIA_NPC_RELATIONSHIPS: Readonly<Record<number, readonly number[]>> = {
+    [NpcIds.Squire]: [
+        NpcIds.SirAmikVarze,
+        NpcIds.SirVyvin,
+        NpcIds.SirTiffyCashien,
+        NpcIds.Doric,
+        NpcIds.WysonTheGardener,
+        NpcIds.CaptainTobias,
+        NpcIds.Denulth,
+    ],
+    [NpcIds.SirAmikVarze]: [
+        NpcIds.Squire,
+        NpcIds.SirVyvin,
+        NpcIds.SirTiffyCashien,
+        NpcIds.SirRenitee,
+        NpcIds.Denulth,
+        NpcIds.CaptainTobias,
+    ],
+    [NpcIds.SirTiffyCashien]: [
+        NpcIds.SirAmikVarze,
+        NpcIds.Squire,
+        NpcIds.Oracle,
+        NpcIds.Denulth,
+        NpcIds.Sanfew,
+        NpcIds.Achietties,
+    ],
+    [NpcIds.Doric]: [NpcIds.Dunstan, NpcIds.SirAmikVarze, NpcIds.Squire],
+    [NpcIds.Sanfew]: [
+        NpcIds.Kaqemeex,
+        NpcIds.Jatix,
+        NpcIds.LadyOfTheLake,
+        NpcIds.Hetty,
+        NpcIds.Betty,
+    ],
+    [NpcIds.Kaqemeex]: [
+        NpcIds.Sanfew,
+        NpcIds.Jatix,
+        NpcIds.LadyOfTheLake,
+        NpcIds.WysonTheGardener,
+    ],
+    [NpcIds.Denulth]: [
+        NpcIds.Dunstan,
+        NpcIds.Tenzing,
+        NpcIds.Gamfred,
+        NpcIds.SirAmikVarze,
+        NpcIds.Achietties,
+    ],
+    [NpcIds.Dunstan]: [NpcIds.Denulth, NpcIds.Doric],
+    [NpcIds.CaptainTobias]: [
+        NpcIds.RedbeardFrank,
+        NpcIds.Gerrant,
+        NpcIds.Wydin,
+        NpcIds.Veos,
+        NpcIds.SirAmikVarze,
+        NpcIds.Betty,
+    ],
+    [NpcIds.RedbeardFrank]: [
+        NpcIds.CaptainTobias,
+        NpcIds.Wydin,
+        NpcIds.Betty,
+        NpcIds.Hetty,
+        NpcIds.Phials,
+    ],
+    [NpcIds.Betty]: [NpcIds.Hetty, NpcIds.Sanfew, NpcIds.Oracle, NpcIds.CaptainTobias],
+    [NpcIds.Gerrant]: [NpcIds.CaptainTobias, NpcIds.Wydin, NpcIds.RedbeardFrank],
+    [NpcIds.Hetty]: [NpcIds.Betty, NpcIds.Phials, NpcIds.Sanfew],
+    [NpcIds.WysonTheGardener]: [
+        NpcIds.Squire,
+        NpcIds.Cassie,
+        NpcIds.Hairdresser,
+        NpcIds.Kaqemeex,
+    ],
+    [NpcIds.Phials]: [
+        NpcIds.Hetty,
+        NpcIds.BrianPortSarim,
+        NpcIds.Wydin,
+        NpcIds.CaptainTobias,
+        NpcIds.Squire,
+        NpcIds.Betty,
+        NpcIds.Doric,
+        NpcIds.SirAmikVarze,
+        NpcIds.Sanfew,
+        NpcIds.MakeoverMage,
+    ],
+};
+
+const ALL_NPC_RELATIONSHIPS: Readonly<Record<number, readonly number[]>> = {
+    ...MISTHALIN_NPC_RELATIONSHIPS,
+    ...ASGARNIA_NPC_RELATIONSHIPS,
+};
+
 export function getRelatedNpcs(npcId: number): readonly number[] {
-    return MISTHALIN_NPC_RELATIONSHIPS[npcId] ?? [];
+    return ALL_NPC_RELATIONSHIPS[npcId] ?? [];
 }

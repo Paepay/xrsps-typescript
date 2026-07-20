@@ -32,7 +32,7 @@ export function favourNeedsResourceHint(def: RegionalFavourDefinition): boolean 
 export function favourHasResourceHint(def: RegionalFavourDefinition): boolean {
     if (def.targetArea) return true;
     if (def.targetObjectNames && def.targetObjectNames.length > 0) return true;
-    if (def.targetItemId && getGatherHintForItem(def.targetItemId)) return true;
+    if (def.targetItemId && getGatherHintForItem(def.targetItemId, def.region)) return true;
     return false;
 }
 

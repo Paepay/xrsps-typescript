@@ -11,7 +11,8 @@ import {
     getRegionalContactByNpcId,
     getRegionalFavourDefinition,
     getRegionalFavourRegionDisplayName,
-    getRegionalFavoursForGiver,
+    getRegionalFavourRegionForNpc,
+    getRegionalFavourRegionForTile,
     isSeekContactFavourId,
     resolveRegionalNpcId,
 } from "../../regionalFavours";
@@ -255,15 +256,24 @@ export const regionalFavoursModule: ScriptModule = {
                  * force a fresh roll instead of looping the same favour.
                  */
                 excludeFavourIds?: readonly string[];
+                /** Prefer this region when the NPC has no favour defs of their own. */
+                regionHint?: string;
             }): {
                 assigned?: any;
                 reason?: string;
                 blocking?: any;
             } => {
                 const contact = getRegionalContactByNpcId(npcId);
+                const fromNpc = getRegionalFavourRegionForNpc(npcId);
+                const fromTile = getRegionalFavourRegionForTile(
+                    player.tileX | 0,
+                    player.tileY | 0,
+                );
                 const region =
                     contact?.region ??
-                    getRegionalFavoursForGiver(npcId)[0]?.region ??
+                    fromNpc ??
+                    (optsExtra?.regionHint as any) ??
+                    fromTile ??
                     "misthalin";
                 const broker = contact ?? getRegionalContact(region);
                 const useRegionPool = !!contact || !!optsExtra?.wholeRegion;
@@ -278,6 +288,7 @@ export const regionalFavoursModule: ScriptModule = {
                     : {
                           forceGiverNpcId: npcId,
                           preferredGiverNpcId: npcId,
+                          region,
                           replaceExisting: optsExtra?.replaceExisting,
                           skipHudSync: optsExtra?.skipHudSync,
                           excludeFavourIds: optsExtra?.excludeFavourIds,
@@ -343,7 +354,8 @@ export const regionalFavoursModule: ScriptModule = {
                     const region =
                         (prior as any)?.region ??
                         getRegionalContactByNpcId(npcId)?.region ??
-                        getRegionalFavoursForGiver(npcId)[0]?.region ??
+                        getRegionalFavourRegionForNpc(npcId) ??
+                        getRegionalFavourRegionForTile(player.tileX | 0, player.tileY | 0) ??
                         "misthalin";
 
                     let turnedIn = false;
@@ -377,6 +389,7 @@ export const regionalFavoursModule: ScriptModule = {
                         wholeRegion: true,
                         skipHudSync: true,
                         excludeFavourIds: priorFavourId ? [priorFavourId] : undefined,
+                        regionHint: region,
                     });
                     if (!assigned) {
                         console.log("[regional-favours] chain assign failed", reason, blocking);
@@ -562,8 +575,10 @@ export const regionalFavoursModule: ScriptModule = {
 
             // 5) Region already has a real favour (seek-contact is completed via steps 1–2)
             const contactForBusy = getRegionalContactByNpcId(npcId);
-            const giverPool = getRegionalFavoursForGiver(npcId);
-            const npcRegion = contactForBusy?.region ?? giverPool[0]?.region;
+            const npcRegion =
+                contactForBusy?.region ??
+                getRegionalFavourRegionForNpc(npcId) ??
+                getRegionalFavourRegionForTile(player.tileX | 0, player.tileY | 0);
             const regionBusy =
                 npcRegion !== undefined ? api.getActive(player, npcRegion) : undefined;
             if (

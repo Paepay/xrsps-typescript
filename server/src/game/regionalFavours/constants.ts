@@ -101,6 +101,37 @@ export const NpcIds = {
     CuratorHaigHalen: 5214,
     HistorianMinas: 1902,
 
+    /** Asgarnia favour NPCs (from server/data/npc-spawns.json). */
+    SirAmikVarze: 4771,
+    SirTiffyCashien: 4687,
+    SirVyvin: 4736,
+    SirRenitee: 3100,
+    Doric: 3893,
+    WysonTheGardener: 5422,
+    Hairdresser: 1305,
+    Cassie: 3214,
+    MakeoverMage: 1307,
+    Sanfew: 5044,
+    Kaqemeex: 5045,
+    Jatix: 8532,
+    LadyOfTheLake: 3530,
+    Denulth: 4083,
+    Tenzing: 4094,
+    Dunstan: 4105,
+    Gamfred: 2459,
+    CaptainTobias: 3644,
+    Veos: 1063, // Port Sarim pier
+    RedbeardFrank: 3643,
+    Betty: 5905, // Port Sarim magic shop
+    Gerrant: 2891,
+    BrianPortSarim: 2892,
+    BrianRimmington: 8694,
+    Wydin: 2890,
+    Hetty: 4619,
+    Phials: 1614,
+    Oracle: 821,
+    Achietties: 4923,
+
     /** Regional contacts (favour brokers) — ids from npc-spawns / OSRS wiki. */
     Squire: 4737, // Falador White Knights' Castle
     Drezel: 9804,
@@ -185,6 +216,10 @@ export const REGIONAL_NPC_ALIASES: Readonly<Record<number, number>> = {
     11868: 5082,
     11890: 5082,
     11891: 5082,
+    // Sir Amik Varze (RFD / instance variants → Falador)
+    3395: 4771,
+    // Betty (Port Sarim + rare variants)
+    3870: 5905,
 };
 
 /** Resolve a spoken/spawned type id to the id used in task definitions. */
@@ -218,6 +253,35 @@ export const NPC_DISPLAY_NAMES: Readonly<Record<number, string>> = {
     [NpcIds.CuratorHaigHalen]: "Curator Haig Halen",
     [NpcIds.HistorianMinas]: "Historian Minas",
     [NpcIds.Squire]: "Squire",
+    [NpcIds.SirAmikVarze]: "Sir Amik Varze",
+    [NpcIds.SirTiffyCashien]: "Sir Tiffy Cashien",
+    [NpcIds.SirVyvin]: "Sir Vyvin",
+    [NpcIds.SirRenitee]: "Sir Renitee",
+    [NpcIds.Doric]: "Doric",
+    [NpcIds.WysonTheGardener]: "Wyson the Gardener",
+    [NpcIds.Hairdresser]: "the Hairdresser",
+    [NpcIds.Cassie]: "Cassie",
+    [NpcIds.MakeoverMage]: "the Make-over Mage",
+    [NpcIds.Sanfew]: "Sanfew",
+    [NpcIds.Kaqemeex]: "Kaqemeex",
+    [NpcIds.Jatix]: "Jatix",
+    [NpcIds.LadyOfTheLake]: "the Lady of the Lake",
+    [NpcIds.Denulth]: "Commander Denulth",
+    [NpcIds.Tenzing]: "Tenzing",
+    [NpcIds.Dunstan]: "Dunstan",
+    [NpcIds.Gamfred]: "Gamfred",
+    [NpcIds.CaptainTobias]: "Captain Tobias",
+    [NpcIds.Veos]: "Veos",
+    [NpcIds.RedbeardFrank]: "Redbeard Frank",
+    [NpcIds.Betty]: "Betty",
+    [NpcIds.Gerrant]: "Gerrant",
+    [NpcIds.BrianPortSarim]: "Brian",
+    [NpcIds.BrianRimmington]: "Brian",
+    [NpcIds.Wydin]: "Wydin",
+    [NpcIds.Hetty]: "Hetty",
+    [NpcIds.Phials]: "Phials",
+    [NpcIds.Oracle]: "the Oracle",
+    [NpcIds.Achietties]: "Achietties",
     [NpcIds.Drezel]: "Drezel",
     [NpcIds.DrezelUnderground]: "Drezel",
     [NpcIds.Hassan]: "Hassan",
@@ -276,6 +340,50 @@ export const MistCombat = {
     LesserDemonTower: [2005],
     /** Varrock sewers. */
     Zombies: [39, 41, 55, 56, 57, 58],
+    /** Varrock / Edgeville guards (~CB 19–21). */
+    Guards: [1147, 2316, 2317, 3254, 6708, 6709, 11916, 11917],
+    /** Edgeville dungeon / Varrock sewers hill giants (~CB 28). */
+    HillGiants: [2098, 2099, 2100, 2101, 2102, 2103],
+    /** Varrock sewers moss giants (~CB 42). */
+    MossGiants: [2090, 2091, 2092, 2093],
+} as const;
+
+/**
+ * Typical OSRS combat levels for favour tiering (player CB should sit near these).
+ * Used as documentation + recommended band anchors — ids live in MistCombat / AsgCombat.
+ */
+export const CombatMonsterCb = {
+    Duck: 1,
+    Rat: 1,
+    Chicken: 1,
+    Spider: 1,
+    Goblin: 5,
+    Cow: 2,
+    GiantRat: 6,
+    Imp: 7,
+    Frog: 5,
+    GiantFrog: 13,
+    Icefiend: 13,
+    Scorpion: 14,
+    Skeleton: 22,
+    Ghost: 19,
+    Zombie: 24,
+    Guard: 21,
+    Highwayman: 22,
+    Mugger: 6,
+    Pirate: 26,
+    DarkWizard: 20,
+    GiantSpider: 27,
+    HillGiant: 28,
+    Hobgoblin: 28,
+    BlackKnight: 33,
+    MonkOfZamorak: 30,
+    MossGiant: 42,
+    IceGiant: 53,
+    IceWarrior: 57,
+    MountainTroll: 69,
+    LesserDemon: 82,
+    Dwarf: 10,
 } as const;
 
 export const MistAreas = {
@@ -311,6 +419,74 @@ export const MistAreas = {
     /** Varrock rooftop agility course. */
     VarrockAgility: { minX: 3215, maxX: 3245, minY: 3408, maxY: 3425 },
     AirAltar: { minX: 2840, maxX: 2855, minY: 4825, maxY: 4840 }, // excluded — not Misthalin overworld
+} as const;
+
+/** Combat targets inside Asgarnia (ids filtered to Asgarnia league tiles). */
+export const AsgCombat = {
+    Goblins: [655, 656, 657, 658, 659, 660, 3029, 3030, 3031, 3032, 3033, 3034, 3051],
+    GiantRats: [2859, 2860],
+    Rats: [2854, 2855],
+    Chickens: [1173, 1174, 2804, 2805, 2806],
+    Cows: [2790, 2791, 2793],
+    Imps: [5007],
+    /** Falador / Burthorpe / Port Sarim (~CB 19–21). */
+    Guards: [1546, 1547, 1548, 1549, 1550, 1551, 1552, 3254, 3269, 3270, 3271, 3272, 3273, 3274],
+    /** Black Knights' Fortress / Taverley dungeon (~CB 33). */
+    BlackKnights: [516, 517, 4331],
+    Skeletons: [70, 71, 72, 73, 77, 78, 79, 80, 81],
+    Ghosts: [473, 474, 505, 506, 507],
+    Spiders: [3019],
+    /** Asgarnian Ice Dungeon (~CB 57). */
+    IceWarriors: [2841, 2842],
+    /** Asgarnian Ice Dungeon (~CB 53). */
+    IceGiants: [2088, 2089],
+    /** Taverley Dungeon (~CB 28). */
+    HillGiants: [2098, 2099, 2100, 2101, 2103],
+    MountainTrolls: [936, 937, 938, 939, 940, 941, 942, 4143],
+    /** South of Falador (~CB 7–23). */
+    DarkWizards: [2056, 2057, 2058, 2059],
+    Pirates: [523, 1447],
+    Ducks: [1838, 1839, 2003],
+    /** Asgarnian Ice Dungeon / Hobgoblin Peninsula (~CB 28–42). */
+    Hobgoblins: [3049, 3050, 3286, 3287, 3288, 3289],
+    Scorpions: [3024],
+    Dwarves: [290, 294, 295, 296, 1401, 1402, 1403, 1404],
+    Muggers: [513, 1461],
+    Highwaymen: [518, 519],
+    /** Ice Mountain (~CB 13). */
+    Icefiends: [4813],
+    /** Chaos Temple / Heroes' Guild (~CB 17–45). */
+    MonksOfZamorak: [529, 8400, 8401],
+} as const;
+
+export const AsgAreas = {
+    FaladorCastle: { minX: 2955, maxX: 3025, minY: 3325, maxY: 3375 },
+    FaladorSquare: { minX: 2940, maxX: 2970, minY: 3370, maxY: 3400 },
+    FaladorPark: { minX: 2985, maxX: 3025, minY: 3365, maxY: 3395 },
+    FaladorAgility: { minX: 3025, maxX: 3050, minY: 3335, maxY: 3365 },
+    WhiteKnightsCourtyard: { minX: 2968, maxX: 2990, minY: 3335, maxY: 3355 },
+    PortSarim: { minX: 3010, maxX: 3055, minY: 3200, maxY: 3255 },
+    PortSarimDocks: { minX: 3020, maxX: 3050, minY: 3205, maxY: 3225 },
+    Rimmington: { minX: 2945, maxX: 2975, minY: 3200, maxY: 3230 },
+    Taverley: { minX: 2880, maxX: 2935, minY: 3405, maxY: 3490 },
+    DruidCircle: { minX: 2915, maxX: 2935, minY: 3475, maxY: 3495 },
+    Burthorpe: { minX: 2885, maxX: 2935, minY: 3530, maxY: 3580 },
+    WarriorsGuild: { minX: 2835, maxX: 2870, minY: 3535, maxY: 3560 },
+    CraftingGuild: { minX: 2925, maxX: 2945, minY: 3280, maxY: 3300 },
+    TaverleyDungeonEntrance: { minX: 2880, maxX: 2895, minY: 3395, maxY: 3410 },
+    HeroesGuild: { minX: 2895, maxX: 2915, minY: 3505, maxY: 3515 },
+    IceMountain: { minX: 2990, maxX: 3035, minY: 3470, maxY: 3520 },
+    BlackKnightsFortress: { minX: 3005, maxX: 3035, minY: 3500, maxY: 3535 },
+    DoricHut: { minX: 2945, maxX: 2960, minY: 3445, maxY: 3460 },
+    MiningGuildEntrance: { minX: 3015, maxX: 3045, minY: 3330, maxY: 3350 },
+    BettyShop: { minX: 3010, maxX: 3016, minY: 3256, maxY: 3262 },
+    GerrantShop: { minX: 3011, maxX: 3017, minY: 3222, maxY: 3228 },
+    /** Air altar ruins (multi) — Asgarnia league RC. */
+    AirAltarRuins: { minX: 2980, maxX: 2995, minY: 3285, maxY: 3300 },
+    /** Body altar ruins west of Ice Mountain. */
+    BodyAltarRuins: { minX: 3050, maxX: 3065, minY: 3440, maxY: 3455 },
+    /** Mind altar ruins on Ice Mountain. */
+    MindAltarRuins: { minX: 2975, maxX: 2990, minY: 3510, maxY: 3525 },
 } as const;
 
 /** Combat skills selectable on regional combat lamps. */

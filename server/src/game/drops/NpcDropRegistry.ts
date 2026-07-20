@@ -7,6 +7,7 @@ import { loadMonstersCompleteDefinitions } from "./monstersCompleteSource";
 import type { NpcDropTable } from "./types";
 
 type ImportedLookup = {
+    byNpcTypeId: Map<number, NpcDropTable>;
     exact: Map<string, NpcDropTable>;
     byName: Map<string, NpcDropTable[]>;
 };
@@ -16,14 +17,17 @@ function makeCombatKey(name: string, combatLevel: number | undefined): string {
 }
 
 function buildImportedLookup(): ImportedLookup {
+    const byNpcTypeId = new Map<number, NpcDropTable>();
     const exact = new Map<string, NpcDropTable>();
     const byName = new Map<string, NpcDropTable[]>();
     for (const entry of loadMonstersCompleteDefinitions()) {
-        // The bootstrap reference marks many otherwise-usable rows as incomplete.
-        // Keep them available until a manual override replaces them.
-        if (entry.duplicate) continue;
         const table = resolveDropTable(entry.table);
         if (!table) continue;
+        if (entry.npcTypeId !== undefined && entry.npcTypeId > 0) {
+            byNpcTypeId.set(entry.npcTypeId, table);
+        }
+        // Name fallbacks skip wiki duplicate rows so ambiguous names stay unique when possible.
+        if (entry.duplicate) continue;
         const nameKey = normalizeName(entry.name);
         if (!nameKey) continue;
         const combatKey = makeCombatKey(entry.name, entry.combatLevel);
@@ -32,7 +36,7 @@ function buildImportedLookup(): ImportedLookup {
         bucket.push(table);
         byName.set(nameKey, bucket);
     }
-    return { exact, byName };
+    return { byNpcTypeId, exact, byName };
 }
 
 export class NpcDropRegistry {
@@ -61,6 +65,12 @@ export class NpcDropRegistry {
             return manual;
         }
 
+        const byId = this.imported.byNpcTypeId.get(normalized);
+        if (byId) {
+            this.resolvedByNpcTypeId.set(normalized, byId);
+            return byId;
+        }
+
         let npcType: NpcType | undefined;
         try {
             npcType = this.npcTypeLoader.load(normalized);
@@ -69,12 +79,12 @@ export class NpcDropRegistry {
             this.resolvedByNpcTypeId.set(normalized, null);
             return undefined;
         }
-        const resolved = this.resolveImported(npcType);
+        const resolved = this.resolveImportedByName(npcType);
         this.resolvedByNpcTypeId.set(normalized, resolved ?? null);
         return resolved;
     }
 
-    private resolveImported(npcType: NpcType | undefined): NpcDropTable | undefined {
+    private resolveImportedByName(npcType: NpcType | undefined): NpcDropTable | undefined {
         const name = String(npcType?.name ?? "").trim();
         if (!name || name === "null") return undefined;
         const exact = this.imported.exact.get(makeCombatKey(name, npcType?.combatLevel));

@@ -4368,13 +4368,12 @@ export class OsrsClient {
                         (typeof (event.widget as any).id === "number"
                             ? (event.widget as any).id
                             : event.widget.uid ?? 0) | 0;
+                    // OSRS parity (cc_resume_pausebutton): send widget.index.
+                    // Static cache widgets use childIndex=-1; dynamic CC children use >= 0.
                     const childIndex =
-                        (typeof event.widget.childIndex === "number" &&
-                        (event.widget.childIndex | 0) >= 0
-                            ? event.widget.childIndex | 0
-                            : typeof event.widget.fileId === "number" && event.widget.fileId >= 0
-                            ? event.widget.fileId | 0
-                            : widgetUid & 0xffff) | 0;
+                        (typeof event.widget.childIndex === "number"
+                            ? event.widget.childIndex
+                            : -1) | 0;
                     const pkt = createPacket(ClientPacketId.RESUME_PAUSEBUTTON);
                     pkt.packetBuffer.writeShortAddLE(childIndex);
                     pkt.packetBuffer.writeInt(widgetUid);
@@ -6540,12 +6539,10 @@ export class OsrsClient {
                                     (typeof (w as any).id === "number"
                                         ? (w as any).id
                                         : w.uid ?? 0) | 0;
+                                // OSRS parity (cc_resume_pausebutton): send widget.index.
+                                // Static cache widgets use childIndex=-1; dynamic CC children use >= 0.
                                 const childIndex =
-                                    (typeof w.childIndex === "number" && (w.childIndex | 0) >= 0
-                                        ? w.childIndex | 0
-                                        : typeof w.fileId === "number" && w.fileId >= 0
-                                        ? w.fileId | 0
-                                        : widgetUid & 0xffff) | 0;
+                                    (typeof w.childIndex === "number" ? w.childIndex : -1) | 0;
                                 // Send RESUME_PAUSEBUTTON packet to server
                                 const pkt = createPacket(ClientPacketId.RESUME_PAUSEBUTTON);
                                 pkt.packetBuffer.writeShortAddLE(childIndex);

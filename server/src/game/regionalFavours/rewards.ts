@@ -1,4 +1,8 @@
 import { SkillId } from "../../../../src/rs/skill/skills";
+import {
+    combatFavourMonsterCb,
+    combatTierRewardMultiplier,
+} from "./combatTiers";
 import type {
     RegionalDifficulty,
     RegionalRewardFormula,
@@ -25,6 +29,33 @@ export type ComputedRegionalReward = {
 
 function lerp(min: number, max: number, t: number): number {
     return Math.floor(min + (max - min) * Math.max(0, Math.min(1, t)));
+}
+
+/** Effective requirement level used to scale coins / XP (non-combat). */
+export function favourRequirementLevel(def: RegionalFavourDefinition): number {
+    let level = 1;
+    if (def.minCombatLevel && def.minCombatLevel > level) level = def.minCombatLevel;
+    if (def.recommendedLevelMin && def.recommendedLevelMin > level) {
+        level = def.recommendedLevelMin;
+    }
+    if (def.requirements) {
+        for (const req of def.requirements) {
+            if (req.level > level) level = req.level;
+        }
+    }
+    return Math.max(1, Math.min(99, level));
+}
+
+/**
+ * Higher skill / combat requirements pay more.
+ * Combat favours use the CB tier table; other favours scale by requirement level.
+ */
+export function favourRequirementRewardMultiplier(def: RegionalFavourDefinition): number {
+    if (def.category === "KILL_NPC" || def.reward.kind === "combat_lamp") {
+        return combatTierRewardMultiplier(combatFavourMonsterCb(def));
+    }
+    const level = favourRequirementLevel(def);
+    return 1 + (level - 1) / 50;
 }
 
 /**
@@ -54,9 +85,12 @@ export function computeRegionalReward(
     const amountFactor = Math.min(1, Math.max(0.2, amount / Math.max(1, def.maxAmount)));
     const travel = def.reward.travelDistance ?? 0;
     const travelBoost = Math.min(0.35, travel / 2000);
+    const reqMult = favourRequirementRewardMultiplier(def);
 
-    const coins = lerp(band.coinsMin, band.coinsMax, amountFactor * 0.7 + travelBoost + random() * 0.15);
+    let coins = lerp(band.coinsMin, band.coinsMax, amountFactor * 0.7 + travelBoost + random() * 0.15);
     let xp = lerp(band.xpMin, band.xpMax, amountFactor * 0.75 + travelBoost * 0.5 + random() * 0.1);
+    coins = Math.max(1, Math.floor(coins * reqMult));
+    xp = Math.max(1, Math.floor(xp * reqMult));
 
     // Courier / walk tasks: modest Agility XP — never explode with teleports.
     if (
@@ -64,7 +98,8 @@ export function computeRegionalReward(
         def.category === "VISIT_LOCATION" ||
         def.category === "DELIVER_ITEM"
     ) {
-        xp = Math.min(xp, band.xpMax);
+        const courierCap = Math.floor(band.xpMax * reqMult);
+        xp = Math.min(xp, courierCap);
         const skillId = SkillId.Agility;
         return {
             coins,

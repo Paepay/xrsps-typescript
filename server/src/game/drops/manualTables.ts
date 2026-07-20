@@ -43,6 +43,9 @@ const IMP_NPC_TYPE_IDS = [5007, 3134] as const;
 // Scorpion NPC type IDs (level 14 + variants)
 const SCORPION_NPC_TYPE_IDS = [3024, 5242, 2480, 2479] as const;
 
+// Chicken NPC type IDs (combat defs + farm variants)
+const CHICKEN_NPC_TYPE_IDS = [1173, 1174, 2804, 2805, 2806, 2831, 3316] as const;
+
 export const MANUAL_NPC_DROP_OVERRIDES: ManualNpcDropOverride[] = [
     // Imp drops (OSRS wiki)
     {
@@ -270,9 +273,27 @@ export const MANUAL_NPC_DROP_OVERRIDES: ManualNpcDropOverride[] = [
             drop("Dagannoth hide", 1, "Always"),
         ),
     },
+    // Chicken drops (OSRS wiki): always bones + raw chicken; feathers on other table
     {
-        npcTypeIds: [2831],
-        table: alwaysTable(drop("Bones", 1, "Always"), drop("Raw chicken", 1, "Always")),
+        npcTypeIds: [...CHICKEN_NPC_TYPE_IDS],
+        table: {
+            always: [drop("Bones", 1, "Always"), drop("Raw chicken", 1, "Always")],
+            pools: [
+                {
+                    kind: "weighted",
+                    category: "main",
+                    entries: [
+                        drop("Feather", 5, "64/128"),
+                        drop("Feather", 15, "32/128"),
+                    ],
+                },
+                {
+                    kind: "independent",
+                    category: "tertiary",
+                    entries: [{ itemName: "Clue scroll (beginner)", quantity: 1, rarity: "1/300" }],
+                },
+            ],
+        },
     },
     {
         npcTypeIds: [3017],

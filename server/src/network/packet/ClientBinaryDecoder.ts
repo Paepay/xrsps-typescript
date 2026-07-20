@@ -513,7 +513,8 @@ export function decodeClientPacket(data: Uint8Array | ArrayBuffer): DecodedClien
                 type: "resume_pausebutton",
                 payload: {
                     widgetId: reader.readInt(),
-                    childIndex: reader.readShort(),
+                    // Static widgets send childIndex=-1 (unsigned short 65535).
+                    childIndex: reader.readSignedShort(),
                 },
             };
 

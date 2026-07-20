@@ -781,8 +781,10 @@ export function decodePacket(opcode: number, data: Uint8Array): DecodedPacket {
 
         // RESUME_PAUSEBUTTON (62) - Dialog continue
         // Client: writeShortAddLE(childIndex), writeInt(widgetId)
+        // Static widgets send childIndex=-1 (arrives as unsigned 65535).
         case ClientPacketId.RESUME_PAUSEBUTTON: {
-            const childIndex = buf.readShortAddLE();
+            const childRaw = buf.readShortAddLE();
+            const childIndex = childRaw > 32767 ? childRaw - 65536 : childRaw;
             const widgetId = buf.readInt();
             return { type: "resume_pausebutton", widgetId, childIndex };
         }

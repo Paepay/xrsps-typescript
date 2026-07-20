@@ -364,15 +364,18 @@ export class WidgetDialogHandler {
         let resumeWidgetId: number | undefined;
         let resumeChildIndex: number | undefined;
         if (request.kind === "npc" || request.kind === "player") {
+            // Static continue component: OSRS sends widget.index = -1 (not the component id).
+            // Component is already encoded in resumeWidgetId's low 16 bits.
             resumeWidgetId = (groupId << 16) | CHAT_DIALOG_CONTINUE_COMPONENT;
-            resumeChildIndex = CHAT_DIALOG_CONTINUE_COMPONENT;
+            resumeChildIndex = -1;
         } else if (request.kind === "sprite") {
             // Script 2868 creates the continue widget as dynamic child 2 under 193:0.
             resumeWidgetId = DIALOG_GROUP_SPRITE << 16;
             resumeChildIndex = 2;
         } else if (request.kind === "double_sprite") {
+            // Static continue component — same -1 index as NPC/player dialogs.
             resumeWidgetId = (groupId << 16) | DOUBLE_SPRITE_CONTINUE_COMPONENT;
-            resumeChildIndex = DOUBLE_SPRITE_CONTINUE_COMPONENT;
+            resumeChildIndex = -1;
         }
 
         this.activeChatboxDialogs.set(player.id, {
@@ -675,18 +678,20 @@ export class WidgetDialogHandler {
         if (widgetGroup !== active.groupId) {
             return false;
         }
+        // Unsigned short -1 arrives as 65535; normalize to signed for static-widget matches.
+        const normalizedChildIndex = childIndex > 32767 ? childIndex - 65536 : childIndex;
         if (active.resumeWidgetId !== undefined && (active.resumeWidgetId | 0) !== (widgetId | 0)) {
             return false;
         }
         if (
             active.resumeChildIndex !== undefined &&
-            (active.resumeChildIndex | 0) !== (childIndex | 0)
+            (active.resumeChildIndex | 0) !== (normalizedChildIndex | 0)
         ) {
             return false;
         }
 
         if (active.groupId === DIALOG_GROUP_OPTIONS && active.onSelect) {
-            this.handleDialogOptionClick(ws, playerId, childIndex);
+            this.handleDialogOptionClick(ws, playerId, normalizedChildIndex);
             return true;
         }
         if (!active.onContinue) {
@@ -699,7 +704,7 @@ export class WidgetDialogHandler {
 
         this.services.log(
             "info",
-            `[dialog] continue handler firing player=${player.id} dialogId=${active.dialogId} widget=${widgetId} child=${childIndex}`,
+            `[dialog] continue handler firing player=${player.id} dialogId=${active.dialogId} widget=${widgetId} child=${normalizedChildIndex}`,
         );
         this.activeChatboxDialogs.delete(playerId);
         const onContinue = active.onContinue;

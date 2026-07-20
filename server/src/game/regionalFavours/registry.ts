@@ -1,6 +1,11 @@
 import { MISTHALIN_FAVOUR_DEFINITIONS } from "./definitions/misthalin";
-import { buildSeekContactDefinitions } from "./contacts";
-import { NpcIds, REGIONAL_NPC_ALIASES } from "./constants";
+import { ASGARNIA_FAVOUR_DEFINITIONS } from "./definitions/asgarnia";
+import {
+    buildSeekContactDefinitions,
+    getRegionalContactByNpcId,
+    isSeekContactFavourId,
+} from "./contacts";
+import { NpcIds, REGIONAL_NPC_ALIASES, resolveRegionalNpcId } from "./constants";
 import type { RegionalFavourDefinition, RegionalFavourRegion } from "./types";
 
 const byId = new Map<string, RegionalFavourDefinition>();
@@ -33,6 +38,7 @@ function indexSeekOnly(defs: readonly RegionalFavourDefinition[]): void {
 }
 
 index(MISTHALIN_FAVOUR_DEFINITIONS);
+index(ASGARNIA_FAVOUR_DEFINITIONS);
 indexSeekOnly(buildSeekContactDefinitions());
 
 // Hint coverage is asserted after gatherHints are derived from world data
@@ -43,7 +49,32 @@ export function getRegionalFavourDefinition(favourId: string): RegionalFavourDef
 }
 
 export function getRegionalFavoursForGiver(npcId: number): readonly RegionalFavourDefinition[] {
-    return byGiver.get(npcId) ?? [];
+    const resolved = resolveRegionalNpcId(npcId);
+    return byGiver.get(resolved) ?? byGiver.get(npcId) ?? [];
+}
+
+/**
+ * Home favour region for an NPC: contact → giver pool → turn-in / speak target.
+ * Never guesses Misthalin — callers fall back to the player's tile region if needed.
+ */
+export function getRegionalFavourRegionForNpc(
+    npcId: number,
+): RegionalFavourRegion | undefined {
+    const resolved = resolveRegionalNpcId(npcId);
+    const contact = getRegionalContactByNpcId(resolved) ?? getRegionalContactByNpcId(npcId);
+    if (contact) return contact.region;
+
+    const asGiver = getRegionalFavoursForGiver(resolved);
+    if (asGiver.length > 0) return asGiver[0].region;
+
+    for (const def of byId.values()) {
+        if (isSeekContactFavourId(def.id)) continue;
+        if (resolveRegionalNpcId(def.turnInNpcId) === resolved) return def.region;
+        if (def.targetNpcIds?.some((id) => resolveRegionalNpcId(id) === resolved)) {
+            return def.region;
+        }
+    }
+    return undefined;
 }
 
 export function getRegionalFavoursForRegion(

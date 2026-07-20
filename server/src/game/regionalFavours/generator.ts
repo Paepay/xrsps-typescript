@@ -7,10 +7,19 @@ import {
     REGIONAL_FAVOUR_REGION_TO_AREA_ID,
 } from "./regions";
 import { getRelatedNpcs } from "./relationships";
-import { getRegionalFavoursForGiver, getRegionalFavoursForRegion } from "./registry";
+import {
+    getRegionalFavourRegionForNpc,
+    getRegionalFavoursForRegion,
+} from "./registry";
 import { pickWeighted, rollAmount } from "./weightedRandom";
 import { computeRegionalReward } from "./rewards";
 import { formatBonusLootPreviewHint } from "./bonusLoot";
+import {
+    combatFavourMonsterCb,
+    combatTierWeightMultiplier,
+    getPlayerNpcCombatCap,
+    isCombatFavourInPlayerTier,
+} from "./combatTiers";
 import type {
     ActiveRegionalFavour,
     RegionalFavourDefinition,
@@ -37,12 +46,24 @@ export function isCombatFavour(def: RegionalFavourDefinition): boolean {
     return def.category === "KILL_NPC" || def.reward.kind === "combat_lamp";
 }
 
+/** @deprecated Use combatFavourMonsterCb — kept for callers expecting a "ceiling". */
+export function combatFavourCeiling(def: RegionalFavourDefinition): number {
+    return combatFavourMonsterCb(def);
+}
+
 function meetsRequirements(
     def: RegionalFavourDefinition,
     player: RegionalFavourPlayerView,
 ): boolean {
     try {
-        if (def.minCombatLevel && player.getCombatLevel() < def.minCombatLevel) return false;
+        // Combat CB gates are handled by the tier table (filterCombatLevelBand).
+        if (
+            def.minCombatLevel &&
+            !isCombatFavour(def) &&
+            player.getCombatLevel() < def.minCombatLevel
+        ) {
+            return false;
+        }
         if (def.requirements) {
             for (const req of def.requirements) {
                 if (player.getSkillBaseLevel(req.skillId) < req.level) return false;
@@ -59,31 +80,49 @@ function belongsToRegion(def: RegionalFavourDefinition, region: RegionalFavourRe
 }
 
 /**
+ * Keep combat favours inside the player's CB tier table:
+ * monster ≤ tier npcMax, and not more than 2 tiers below the player's band.
+ * If that empties the combat pool, fall back to anything ≤ npcMax (prefer hardest).
+ */
+export function filterCombatLevelBand(
+    defs: readonly RegionalFavourDefinition[],
+    player: RegionalFavourPlayerView,
+): RegionalFavourDefinition[] {
+    const combatLevel = player.getCombatLevel();
+    const cap = getPlayerNpcCombatCap(combatLevel);
+
+    const nonCombat = defs.filter((def) => !isCombatFavour(def));
+    const combat = defs.filter(isCombatFavour);
+
+    if (combat.length === 0) return [...defs];
+
+    const inTier = combat.filter((def) => isCombatFavourInPlayerTier(def, combatLevel));
+    if (inTier.length > 0) {
+        return [...nonCombat, ...inTier];
+    }
+
+    // Region may lack high-tier spawns (e.g. CB 126 in Asgarnia) — keep ≤ cap only.
+    const underCap = combat.filter((def) => combatFavourMonsterCb(def) <= cap);
+    if (underCap.length === 0) return [...nonCombat];
+
+    let hardest = 0;
+    for (const def of underCap) {
+        hardest = Math.max(hardest, combatFavourMonsterCb(def));
+    }
+    const top = underCap.filter((def) => combatFavourMonsterCb(def) >= hardest - 15);
+    return [...nonCombat, ...top];
+}
+
+/**
  * How well this favour matches the player's current levels.
- * Peaks inside the recommended band; drops sharply when underleveled or far overleveled.
+ * Combat uses the explicit CB tier table; skilling keeps the soft recommended band.
  */
 function levelFitMultiplier(
     def: RegionalFavourDefinition,
     player: RegionalFavourPlayerView,
 ): number {
     if (isCombatFavour(def)) {
-        const combatLevel = player.getCombatLevel();
-        const min = def.minCombatLevel ?? def.recommendedLevelMin ?? 1;
-        const max = def.recommendedLevelMax ?? min + 30;
-        if (combatLevel < min) return 0.05;
-        if (combatLevel <= max) {
-            // Prefer mid-to-upper band (slightly challenging for current CB).
-            const span = Math.max(1, max - min);
-            const ideal = min + span * 0.65;
-            const dist = Math.abs(combatLevel - ideal) / span;
-            return 2.2 - dist * 0.9;
-        }
-        // Overleveled: still prefer the hardest eligible targets.
-        const over = combatLevel - max;
-        const harderBias = Math.min(0.55, min / 40);
-        if (over <= 15) return 0.75 + harderBias;
-        if (over <= 35) return 0.35 + harderBias;
-        return 0.12 + harderBias * 0.5;
+        return combatTierWeightMultiplier(def, player.getCombatLevel());
     }
 
     if (def.recommendedSkillId !== undefined && def.recommendedLevelMin !== undefined) {
@@ -172,7 +211,9 @@ function calculateWeight(
         weight *= 0.35;
     }
 
-    weight *= levelFitMultiplier(def, player);
+    const fit = levelFitMultiplier(def, player);
+    if (fit <= 0) return 0;
+    weight *= fit;
 
     // Soft preference for tasks near the player (giver in same general area — use travel distance).
     const travel = def.reward.travelDistance ?? 100;
@@ -311,12 +352,28 @@ export type GenerateOptions = {
     excludeFavourIds?: ReadonlySet<string>;
 };
 
+function resolveGenerateRegion(
+    player: RegionalFavourPlayerView,
+    options: GenerateOptions,
+): RegionalFavourRegion {
+    if (options.region) return options.region;
+    if (options.forceGiverNpcId !== undefined) {
+        const fromForce = getRegionalFavourRegionForNpc(options.forceGiverNpcId);
+        if (fromForce) return fromForce;
+    }
+    if (options.preferredGiverNpcId !== undefined) {
+        const fromPreferred = getRegionalFavourRegionForNpc(options.preferredGiverNpcId);
+        if (fromPreferred) return fromPreferred;
+    }
+    return getRegionalFavourRegionForTile(player.tileX, player.tileY) ?? "misthalin";
+}
+
 export function generateRegionalFavour(
     player: RegionalFavourPlayerView,
     state: RegionalFavourPlayerState,
     options: GenerateOptions = {},
 ): { def: RegionalFavourDefinition; active: ActiveRegionalFavour } | undefined {
-    const region = options.region ?? "misthalin";
+    const region = resolveGenerateRegion(player, options);
     const random = options.random ?? Math.random;
 
     // Remote/command generation may require the league area unlocked.
@@ -352,19 +409,25 @@ export function generateRegionalFavour(
     }
 
     const filterEligible = (defs: RegionalFavourDefinition[]) =>
-        defs.filter(
-            (def) =>
-                belongsToRegion(def, region) &&
-                meetsRequirements(def, player) &&
-                !recentFavourIds.includes(def.id),
+        filterCombatLevelBand(
+            defs.filter(
+                (def) =>
+                    belongsToRegion(def, region) &&
+                    meetsRequirements(def, player) &&
+                    !recentFavourIds.includes(def.id),
+            ),
+            player,
         );
 
     let eligible = filterEligible(pool);
 
     // Fallback: ignore recent task ids (still same region / same forced giver)
     if (eligible.length < 3) {
-        eligible = pool.filter(
-            (def) => belongsToRegion(def, region) && meetsRequirements(def, player),
+        eligible = filterCombatLevelBand(
+            pool.filter(
+                (def) => belongsToRegion(def, region) && meetsRequirements(def, player),
+            ),
+            player,
         );
     }
 
@@ -373,11 +436,28 @@ export function generateRegionalFavour(
         pool = [...getRegionalFavoursForRegion(region)].filter((def) => !excluded?.has(def.id));
         eligible = filterEligible(pool);
         if (eligible.length === 0) {
-            eligible = pool.filter((d) => belongsToRegion(d, region) && meetsRequirements(d, player));
+            eligible = filterCombatLevelBand(
+                pool.filter(
+                    (d) => belongsToRegion(d, region) && meetsRequirements(d, player),
+                ),
+                player,
+            );
         }
     }
 
     if (eligible.length === 0) {
+        eligible = filterCombatLevelBand(
+            [...getRegionalFavoursForRegion(region)].filter(
+                (d) =>
+                    belongsToRegion(d, region) &&
+                    meetsRequirements(d, player) &&
+                    !excluded?.has(d.id),
+            ),
+            player,
+        );
+    }
+    if (eligible.length === 0) {
+        // Last resort: ignore combat band only when the region has no band-fitting tasks.
         eligible = [...getRegionalFavoursForRegion(region)].filter(
             (d) =>
                 belongsToRegion(d, region) &&

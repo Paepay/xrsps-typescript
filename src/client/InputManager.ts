@@ -825,9 +825,21 @@ export class InputManager {
             }
         }
 
-        // OSRS parity: widget onKey receives either an internal key code OR a typed character.
-        // For typed characters: keyTyped = -1, keyPressed = charCode.
-        // For key presses: keyTyped = osrsKeyCode, keyPressed = 0.
+        // OSRS parity (KeyboardHandler + KeyboardState):
+        // keyPressed queues (keyCode, char=0); keyTyped queues (-1, char).
+        // Printable keys therefore produce TWO widget onKey events in the same frame.
+        // Dialogue script 55 listens for space as internal key 83 (not char 32), so both
+        // events are required — an if/else that prefers the char event breaks continue.
+        // Keys with bit 128 set are invalid for keyPressed (FloorDecoration.isKeyCodeInvalid).
+        const keyCodeForEvent =
+            osrsKeyCode !== -1 && (osrsKeyCode & 128) === 0 ? osrsKeyCode : -1;
+        if (keyCodeForEvent !== -1) {
+            this.keyEvents.push({
+                keyTyped: keyCodeForEvent,
+                keyPressed: 0,
+                code: event.code,
+            });
+        }
         if (charCode >= 32) {
             this.keyEvents.push({
                 keyTyped: -1,
@@ -836,12 +848,6 @@ export class InputManager {
             });
             this.charQueue[this.writeIndex] = charCode;
             this.writeIndex = (this.writeIndex + 1) & 0x7f;
-        } else if (osrsKeyCode !== -1) {
-            this.keyEvents.push({
-                keyTyped: osrsKeyCode,
-                keyPressed: 0,
-                code: event.code,
-            });
         }
 
         // Track by code for camera controls

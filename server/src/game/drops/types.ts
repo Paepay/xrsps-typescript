@@ -79,6 +79,7 @@ export type DropContext = {
 export type DropRollResult = PendingNpcDrop[];
 
 export type ImportedMonsterDefinition = {
+    npcTypeId?: number;
     name: string;
     combatLevel?: number;
     duplicate?: boolean;

@@ -24,7 +24,7 @@ import {
     recordFavourInHistory,
 } from "./generator";
 import { rollFavourBonusLoot } from "./bonusLoot";
-import { getRegionalFavourDefinition, getRegionalFavoursForGiver, getRegionalFavoursForRegion } from "./registry";
+import { getRegionalFavourDefinition, getRegionalFavourRegionForNpc, getRegionalFavoursForRegion } from "./registry";
 import {
     getRegionalFavourRegionDisplayName,
     getRegionalFavourRegionForTile,
@@ -77,6 +77,7 @@ export type RegionalFavourBridge = {
         typeIds: readonly number[],
         nearX: number,
         nearY: number,
+        region?: RegionalFavourRegion,
     ): { x: number; y: number } | undefined;
     addItem(player: RegionalFavourHostPlayer, itemId: number, qty: number): { added: number };
     removeItem(player: RegionalFavourHostPlayer, itemId: number, qty: number): number;
@@ -144,10 +145,11 @@ function ensureActiveMap(state: RegionalFavourPlayerState): void {
 }
 
 function regionForNpc(npcId: number): RegionalFavourRegion {
-    const contact = getRegionalContactByNpcId(npcId);
-    if (contact) return contact.region;
-    const tasks = getRegionalFavoursForGiver(npcId);
-    return tasks[0]?.region ?? "misthalin";
+    return (
+        getRegionalFavourRegionForNpc(npcId) ??
+        getRegionalContactByNpcId(npcId)?.region ??
+        "misthalin"
+    );
 }
 
 function buildSeekContactHud(
@@ -400,7 +402,14 @@ export class RegionalFavourService {
                       typeIds: readonly number[],
                       nearX: number,
                       nearY: number,
-                  ) => this.bridge.findNearestNpcTile!(typeIds, nearX, nearY),
+                      favourRegion?: RegionalFavourRegion,
+                  ) =>
+                      this.bridge.findNearestNpcTile!(
+                          typeIds,
+                          nearX,
+                          nearY,
+                          favourRegion,
+                      ),
               }
             : undefined;
         const target = resolveFavourHintTarget(

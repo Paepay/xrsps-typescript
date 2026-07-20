@@ -4,10 +4,13 @@
 import type { CacheEnv } from "../../world/CacheEnv";
 import { assertFavourHintCoverage } from "./hintCoverage";
 import { initGatherHintsFromWorld, isGatherHintsInitialized } from "./gatherHints";
+import { setResourceHintIndexForRegion } from "./killHints";
 import { MISTHALIN_FAVOUR_DEFINITIONS } from "./definitions/misthalin";
+import { ASGARNIA_FAVOUR_DEFINITIONS } from "./definitions/asgarnia";
 import { ResourceHintIndex } from "./resourceHintIndex";
 import type { FishingSpotMap } from "../skills/fishing";
 import type { MiningLocMapping } from "../skills/mining";
+import type { RegionalFavourRegion } from "./types";
 
 export type InitRegionalFavourHintsDeps = {
     cacheEnv: CacheEnv;
@@ -16,6 +19,8 @@ export type InitRegionalFavourHintsDeps = {
     woodcuttingLocMap?: Map<number, string>;
     fishingSpotMap?: FishingSpotMap["map"] | Map<number, string>;
 };
+
+const HINT_REGIONS: readonly RegionalFavourRegion[] = ["misthalin", "asgarnia"];
 
 export function initRegionalFavourHints(deps: InitRegionalFavourHintsDeps): void {
     const resolveLocName = deps.locTypeLoader?.load
@@ -30,18 +35,24 @@ export function initRegionalFavourHints(deps: InitRegionalFavourHintsDeps): void
           }
         : undefined;
 
-    const index = ResourceHintIndex.buildForRegion("misthalin", deps.cacheEnv, {
-        resolveLocName,
-    });
+    for (const region of HINT_REGIONS) {
+        const index = ResourceHintIndex.buildForRegion(region, deps.cacheEnv, {
+            resolveLocName,
+        });
 
-    initGatherHintsFromWorld({
-        index,
-        miningLocMap: deps.miningLocMap,
-        woodcuttingLocMap: deps.woodcuttingLocMap,
-        fishingSpotMap: deps.fishingSpotMap,
-    });
+        setResourceHintIndexForRegion(region, index);
+
+        initGatherHintsFromWorld({
+            region,
+            index,
+            miningLocMap: deps.miningLocMap,
+            woodcuttingLocMap: deps.woodcuttingLocMap,
+            fishingSpotMap: deps.fishingSpotMap,
+        });
+    }
 
     assertFavourHintCoverage(MISTHALIN_FAVOUR_DEFINITIONS);
+    assertFavourHintCoverage(ASGARNIA_FAVOUR_DEFINITIONS);
 }
 
 export function ensureRegionalFavourHintsReady(): void {

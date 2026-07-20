@@ -1,5 +1,6 @@
 import { getRegionalContact, isSeekContactFavourId } from "./contacts";
 import { getGatherHintForItem } from "./gatherHints";
+import { getKillHintForNpcIds } from "./killHints";
 import { getRegionalFavourDefinition } from "./registry";
 import type { ActiveRegionalFavour, RegionalFavourRegion, TileBounds } from "./types";
 
@@ -20,6 +21,8 @@ export type FavourHintNpcLookup = {
         typeIds: readonly number[],
         nearX: number,
         nearY: number,
+        /** When set, only consider NPCs whose tile is in this favour region. */
+        region?: RegionalFavourRegion,
     ): { x: number; y: number } | undefined;
 };
 
@@ -46,9 +49,10 @@ function resolveNpcTile(
     typeIds: readonly number[],
     nearX: number,
     nearY: number,
+    region?: RegionalFavourRegion,
 ): FavourHintTile | undefined {
     if (!lookup || typeIds.length === 0) return undefined;
-    const tile = lookup.findNearestNpcTile(typeIds, nearX, nearY);
+    const tile = lookup.findNearestNpcTile(typeIds, nearX, nearY, region);
     if (!tile) return undefined;
     return {
         worldX: tile.x,
@@ -71,6 +75,7 @@ function isGatherLike(category: string | undefined): boolean {
 /**
  * Resolve where the favour "go next" hint arrow should point.
  * Gather-like tasks point at the resource until the player has enough items.
+ * Kill targets are resolved inside the favour's region only.
  */
 export function resolveFavourHintTarget(
     active: ActiveRegionalFavour | undefined,
@@ -85,14 +90,15 @@ export function resolveFavourHintTarget(
         const contact = getRegionalContact(region);
         if (!contact) return undefined;
         const ids = [contact.npcId, ...(contact.aliasNpcIds ?? [])];
-        return resolveNpcTile(lookup, ids, playerTileX, playerTileY);
+        return resolveNpcTile(lookup, ids, playerTileX, playerTileY, region);
     }
 
+    const favourRegion = active.region;
     const def = getRegionalFavourDefinition(active.favourId);
     const turnInIds = [active.turnInNpcId];
 
     if (active.objectiveComplete) {
-        return resolveNpcTile(lookup, turnInIds, playerTileX, playerTileY);
+        return resolveNpcTile(lookup, turnInIds, playerTileX, playerTileY, favourRegion);
     }
 
     // Gather / produce: resource first, then turn-in once the player has enough.
@@ -105,7 +111,7 @@ export function resolveFavourHintTarget(
             (def.acceptsExistingItems ? have >= need : active.progress >= need);
         if (!resourceDone) {
             const fromDefNames = def.targetObjectNames;
-            const registry = getGatherHintForItem(def.targetItemId);
+            const registry = getGatherHintForItem(def.targetItemId, favourRegion);
             const area = def.targetArea ?? registry?.area;
             const objectNames =
                 fromDefNames && fromDefNames.length > 0
@@ -118,7 +124,13 @@ export function resolveFavourHintTarget(
                 if (npcTypeIds && npcTypeIds.length > 0) {
                     const cx = (area.minX + area.maxX) >> 1;
                     const cy = (area.minY + area.maxY) >> 1;
-                    const npcTile = resolveNpcTile(lookup, npcTypeIds, cx, cy);
+                    const npcTile = resolveNpcTile(
+                        lookup,
+                        npcTypeIds,
+                        cx,
+                        cy,
+                        favourRegion,
+                    );
                     if (npcTile) {
                         return {
                             ...npcTile,
@@ -132,7 +144,13 @@ export function resolveFavourHintTarget(
             if ((objectNames && objectNames.length > 0) || rockId || (npcTypeIds && npcTypeIds.length > 0)) {
                 // Prefer snapping to a nearby NPC of the hint type when we have no area.
                 if (npcTypeIds && npcTypeIds.length > 0) {
-                    const npcTile = resolveNpcTile(lookup, npcTypeIds, playerTileX, playerTileY);
+                    const npcTile = resolveNpcTile(
+                        lookup,
+                        npcTypeIds,
+                        playerTileX,
+                        playerTileY,
+                        favourRegion,
+                    );
                     if (npcTile) {
                         return {
                             ...npcTile,
@@ -152,7 +170,7 @@ export function resolveFavourHintTarget(
             }
             return undefined;
         }
-        return resolveNpcTile(lookup, turnInIds, playerTileX, playerTileY);
+        return resolveNpcTile(lookup, turnInIds, playerTileX, playerTileY, favourRegion);
     }
 
     if (def?.category === "VISIT_LOCATION" && def.targetArea) {
@@ -168,21 +186,53 @@ export function resolveFavourHintTarget(
         });
     }
 
+    // Kill targets: prefer densest spawn cluster inside the favour region.
+    if (def?.category === "KILL_NPC" && def.targetNpcIds && def.targetNpcIds.length > 0) {
+        const killHint = getKillHintForNpcIds(favourRegion, def.targetNpcIds);
+        const area = def.targetArea ?? killHint?.area;
+        if (area) {
+            const cx = (area.minX + area.maxX) >> 1;
+            const cy = (area.minY + area.maxY) >> 1;
+            const npcTile = resolveNpcTile(
+                lookup,
+                def.targetNpcIds,
+                cx,
+                cy,
+                favourRegion,
+            );
+            if (npcTile) return npcTile;
+            return areaCenter(area, { npcTypeIds: def.targetNpcIds });
+        }
+        const nearPlayer = resolveNpcTile(
+            lookup,
+            def.targetNpcIds,
+            playerTileX,
+            playerTileY,
+            favourRegion,
+        );
+        if (nearPlayer) return nearPlayer;
+        return undefined;
+    }
+
     const targetNpcIds =
         def?.targetNpcIds && def.targetNpcIds.length > 0
             ? def.targetNpcIds
             : isSeekContactFavourId(active.favourId)
               ? turnInIds
-              : def?.category === "SPEAK_TO_NPC" ||
-                  def?.category === "KILL_NPC" ||
-                  def?.category === "DELIVER_ITEM"
+              : def?.category === "SPEAK_TO_NPC" || def?.category === "DELIVER_ITEM"
                 ? turnInIds
                 : undefined;
 
     if (targetNpcIds && targetNpcIds.length > 0) {
-        const tile = resolveNpcTile(lookup, targetNpcIds, playerTileX, playerTileY);
+        const tile = resolveNpcTile(
+            lookup,
+            targetNpcIds,
+            playerTileX,
+            playerTileY,
+            favourRegion,
+        );
         if (tile) return tile;
     }
 
-    return resolveNpcTile(lookup, turnInIds, playerTileX, playerTileY);
+    return resolveNpcTile(lookup, turnInIds, playerTileX, playerTileY, favourRegion);
 }
