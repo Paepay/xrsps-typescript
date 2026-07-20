@@ -149,6 +149,11 @@ export class NpcState extends Actor {
     readonly rotationSpeed: number;
     readonly wanderRadius: number;
     /**
+     * OSRS BLOCKED collision strategy: NPC may only traverse FLOOR-flagged tiles (water).
+     * Derived from the spawn tile at creation time (ducks, fishing spots, etc.).
+     */
+    readonly walksOnBlockedFloor: boolean;
+    /**
      * NPC attack speed in ticks. Loaded from cache param 14.
      * OSRS parity: Most NPCs are 4 ticks, dragons are 6, some bosses vary.
      * Default fallback is 4 if not found in cache.
@@ -241,6 +246,11 @@ export class NpcState extends Actor {
             aggressionSearchDelayTicks?: number;
             /** Combat profile with all stats. If not provided, uses DEFAULT_NPC_COMBAT_PROFILE */
             combatProfile?: NpcCombatProfile;
+            /**
+             * When true, NPC uses OSRS BLOCKED collision (water-only movement).
+             * Defaults to false (normal land collision).
+             */
+            walksOnBlockedFloor?: boolean;
         } = {},
     ) {
         super(id, spawn.x, spawn.y, spawn.level, size);
@@ -254,6 +264,7 @@ export class NpcState extends Actor {
         this.rotationSpeed = Math.max(1, rotationSpeed);
         // Allow wanderRadius=0 so spawns can explicitly opt out of roaming
         this.wanderRadius = Math.max(0, options.wanderRadius ?? DEFAULT_NPC_WANDER_RADIUS);
+        this.walksOnBlockedFloor = options.walksOnBlockedFloor === true;
         const maxHp = Math.max(1, options.maxHitpoints ?? 10);
         this.maxHitpoints = maxHp;
         this.hitpoints = maxHp;

@@ -12,4 +12,5 @@ export * from "./hintTarget";
 export * from "./initHints";
 export * from "./resourceHintIndex";
 export * from "./RegionalFavourService";
+export * from "./friendsChatLink";
 export { MISTHALIN_EXCLUDED_NOTES } from "./definitions/misthalin";

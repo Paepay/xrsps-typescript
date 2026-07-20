@@ -30,6 +30,9 @@ import {
     getRegionalFavourRegionForTile,
 } from "./regions";
 import { resolveFavourHintTarget } from "./hintTarget";
+import {
+    resolveFriendsChatFavourLink,
+} from "./friendsChatLink";
 import type {
     ActiveRegionalFavour,
     RegionalFavourDefinition,
@@ -41,8 +44,19 @@ import type {
 import { emptyRegionalFavourPlayerState } from "./types";
 import { FAVOUR_POINTS_PER_TASK } from "../quests/questFavourCosts";
 
+/** Minimum time between abandoning real (non-seek) favours. */
+const ABANDON_COOLDOWN_MS = 5 * 60 * 1000;
+
+/** Friends Chat kill progress only shares when partners are this close (Chebyshev). */
+const FRIENDS_CHAT_SHARE_RADIUS_TILES = 50;
+
 export type RegionalFavourBridge = {
     getPlayer(playerId: number): RegionalFavourHostPlayer | undefined;
+    /**
+     * Online Friends Chat (legacy clan chat) member player ids for this player.
+     * Undefined / omitted when the player is not in a channel.
+     */
+    getFriendsChatMemberIds?(playerId: number): number[] | undefined;
     queueChat(playerId: number, text: string): void;
     queueHud(playerId: number, payload: RegionalFavourHudPayload): void;
     /** OSRS hint arrow — cleared with typeCode 0 when HUD is hidden / no target. */
@@ -540,6 +554,14 @@ export class RegionalFavourService {
             replaceExisting?: boolean;
             /** Skip HUD push — used when a dialog will open immediately after. */
             skipHudSync?: boolean;
+            /**
+             * Favour ids that must not be re-assigned (e.g. the task just turned in).
+             * Used with Friends Chat linking so a partner still holding that task
+             * forces a fresh roll instead of looping the same favour.
+             */
+            excludeFavourIds?: readonly string[];
+            /** Skip Friends Chat adopt/push (tests / explicit solo assign). */
+            skipFriendsChatLink?: boolean;
         } = {},
     ): { active?: ActiveRegionalFavour; reason?: string } {
         try {
@@ -566,6 +588,8 @@ export class RegionalFavourService {
             region?: RegionalFavourRegion;
             replaceExisting?: boolean;
             skipHudSync?: boolean;
+            excludeFavourIds?: readonly string[];
+            skipFriendsChatLink?: boolean;
         },
     ): { active?: ActiveRegionalFavour; reason?: string } {
         // Regional contacts (and their aliases) may only broker favours for their own region.
@@ -621,7 +645,7 @@ export class RegionalFavourService {
 
         const state = player.getRegionalFavourState();
         getRegionHistory(state, region);
-        const excludeFavourIds = new Set<string>();
+        const excludeFavourIds = new Set<string>(opts.excludeFavourIds ?? []);
         const maxAttempts = 12;
         const poolSize = getRegionalFavoursForRegion(region).length;
         if (poolSize <= 0) {
@@ -630,6 +654,19 @@ export class RegionalFavourService {
                 `No ${getRegionalFavourRegionDisplayName(region)} favours are available right now.`,
             );
             return { reason: "empty_pool" };
+        }
+
+        // Friends Chat link: adopt a partner's different favour, or exclude ones they still hold.
+        if (!opts.skipFriendsChatLink) {
+            const link = this.resolveFriendsChatLinkForPlayer(player, region, excludeFavourIds);
+            for (const id of link.excludeFavourIds) excludeFavourIds.add(id);
+            if (link.adopt) {
+                const active = this.applyLinkedFavour(player, link.adopt, {
+                    skipHudSync: opts.skipHudSync,
+                    linkedFromFriendsChat: true,
+                });
+                return { active };
+            }
         }
 
         for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -697,6 +734,7 @@ export class RegionalFavourService {
             } catch (err) {
                 console.log("[regional-favours] post-assign notify failed", err);
             }
+
             return { active };
         }
 
@@ -714,19 +752,46 @@ export class RegionalFavourService {
         const region = regionOverride ?? this.getPlayerRegion(player);
         const active = this.getActive(player, region);
         if (!region || !active || active.rewardClaimed) return false;
-        const def = getRegionalFavourDefinition(active.favourId);
         const wasSeek = isSeekContactFavourId(active.favourId);
+        if (wasSeek) {
+            this.bridge.queueChat(
+                player.id,
+                "Speak to the regional contact to get a favour — nothing to abandon yet.",
+            );
+            return false;
+        }
+
+        const state = player.getRegionalFavourState();
+        const lastAbandon = state.lastAbandonAtMs ?? 0;
+        const remainingMs = lastAbandon + ABANDON_COOLDOWN_MS - Date.now();
+        if (remainingMs > 0) {
+            const remainingSec = Math.ceil(remainingMs / 1000);
+            const mins = Math.floor(remainingSec / 60);
+            const secs = remainingSec % 60;
+            const wait =
+                mins > 0
+                    ? `${mins} minute${mins === 1 ? "" : "s"}${secs > 0 ? ` ${secs} second${secs === 1 ? "" : "s"}` : ""}`
+                    : `${secs} second${secs === 1 ? "" : "s"}`;
+            this.bridge.queueChat(
+                player.id,
+                `You must wait ${wait} before abandoning another favour.`,
+            );
+            return false;
+        }
+
+        const def = getRegionalFavourDefinition(active.favourId);
         if (active.deliveryItemId) {
             this.bridge.removeItem(player, active.deliveryItemId, 1);
             this.bridge.snapshotInventory(player);
         }
         mutateState(player, (s) => {
-            if (def && !wasSeek) recordFavourInHistory(s, def);
+            if (def) recordFavourInHistory(s, def);
             ensureActiveMap(s);
             delete s.activeByRegion[region];
+            s.lastAbandonAtMs = Date.now();
         });
         this.bridge.queueChat(player.id, "Favour abandoned. No reward granted.");
-        // Always fall back to the regional contact seek favour.
+        // Always fall back to the regional contact seek favour — never leave empty.
         this.assignSeekContactFavour(player, region);
         return true;
     }
@@ -820,8 +885,9 @@ export class RegionalFavourService {
         player: RegionalFavourHostPlayer,
         active: ActiveRegionalFavour,
         amount = 1,
+        opts: { skipFriendsChatSync?: boolean } = {},
     ): void {
-        this.setProgressAbsolute(player, active, active.progress + amount);
+        this.setProgressAbsolute(player, active, active.progress + amount, opts);
     }
 
     /**
@@ -832,7 +898,9 @@ export class RegionalFavourService {
         player: RegionalFavourHostPlayer,
         active: ActiveRegionalFavour,
         progress: number,
+        opts: { skipFriendsChatSync?: boolean } = {},
     ): void {
+        let appliedProgress: number | undefined;
         mutateState(player, (s) => {
             ensureActiveMap(s);
             const current = s.activeByRegion[active.region];
@@ -842,6 +910,7 @@ export class RegionalFavourService {
             if (next === current.progress) return;
             const prev = current.progress;
             current.progress = next;
+            appliedProgress = next;
             if (current.progress >= current.requiredAmount) {
                 current.objectiveComplete = true;
                 // Same-NPC turn-in (incl. seek-contact) is claimed in this conversation — no "return to" spam.
@@ -862,6 +931,127 @@ export class RegionalFavourService {
             }
         });
         this.syncHudIfVisible(player);
+        if (
+            appliedProgress !== undefined &&
+            !opts.skipFriendsChatSync
+        ) {
+            this.propagateKillProgressToFriendsChat(player, active, appliedProgress);
+        }
+    }
+
+    /** Online Friends Chat members excluding the source player. */
+    private getFriendsChatPartners(
+        player: RegionalFavourHostPlayer,
+    ): RegionalFavourHostPlayer[] {
+        const ids = this.bridge.getFriendsChatMemberIds?.(player.id);
+        if (!ids?.length) return [];
+        const partners: RegionalFavourHostPlayer[] = [];
+        for (const id of ids) {
+            if (id === player.id) continue;
+            const partner = this.bridge.getPlayer(id);
+            if (partner) partners.push(partner);
+        }
+        return partners;
+    }
+
+    private resolveFriendsChatLinkForPlayer(
+        player: RegionalFavourHostPlayer,
+        region: RegionalFavourRegion,
+        excludeFavourIds: Set<string>,
+    ) {
+        const partners = this.getFriendsChatPartners(player).map((partner) => ({
+            playerId: partner.id,
+            active: this.getActive(partner, region),
+        }));
+        return resolveFriendsChatFavourLink(region, partners, { excludeFavourIds });
+    }
+
+    /**
+     * Clone a partner's active favour onto this player (same required amount + progress).
+     * Each player still turns in / claims rewards individually.
+     */
+    private applyLinkedFavour(
+        player: RegionalFavourHostPlayer,
+        source: ActiveRegionalFavour,
+        opts: { skipHudSync?: boolean; linkedFromFriendsChat?: boolean } = {},
+    ): ActiveRegionalFavour {
+        const active = cloneActive(source);
+        active.assignmentTimestamp = Date.now();
+        active.rewardClaimed = false;
+
+        const def = getRegionalFavourDefinition(active.favourId);
+        if (def?.acceptsExistingItems && def.targetItemId && def.category === "GATHER_ITEM") {
+            try {
+                const have = this.bridge.getItemCount(player, def.targetItemId);
+                active.progress = Math.min(
+                    active.requiredAmount,
+                    Math.max(active.progress, have),
+                );
+                active.objectiveComplete = active.progress >= active.requiredAmount;
+            } catch {}
+        }
+
+        if (def?.category === "DELIVER_ITEM" && (active.deliveryItemId ?? def.deliveryItemId)) {
+            const itemId = active.deliveryItemId ?? def.deliveryItemId!;
+            active.deliveryItemId = itemId;
+            try {
+                if (!this.bridge.hasItem(player, itemId, 1)) {
+                    const added = this.bridge.addItem(player, itemId, 1);
+                    if (added.added > 0) this.bridge.snapshotInventory(player);
+                }
+            } catch (err) {
+                console.log("[regional-favours] linked delivery item add failed", err);
+            }
+        }
+
+        this.setActiveForRegion(player, active.region, active);
+
+        try {
+            if (!opts.skipHudSync) {
+                const prefix = opts.linkedFromFriendsChat
+                    ? `Friends Chat favour shared from ${npcName(active.giverNpcId)}:`
+                    : `New favour from ${npcName(active.giverNpcId)}:`;
+                this.bridge.queueChat(player.id, prefix);
+                for (const line of formatActiveFavourStatus(active, def)) {
+                    this.bridge.queueChat(player.id, line);
+                }
+                this.syncHudIfVisible(player);
+            }
+        } catch (err) {
+            console.log("[regional-favours] linked favour notify failed", err);
+        }
+
+        return active;
+    }
+
+    /**
+     * Kill progress is shared across Friends Chat members on the same favour
+     * when they are within {@link FRIENDS_CHAT_SHARE_RADIUS_TILES} tiles (Chebyshev).
+     * Turn-in / rewards remain per-player.
+     */
+    private propagateKillProgressToFriendsChat(
+        source: RegionalFavourHostPlayer,
+        active: ActiveRegionalFavour,
+        progress: number,
+    ): void {
+        const def = getRegionalFavourDefinition(active.favourId);
+        if (!def || def.category !== "KILL_NPC") return;
+        const srcX = source.tileX | 0;
+        const srcY = source.tileY | 0;
+        for (const partner of this.getFriendsChatPartners(source)) {
+            const dx = Math.abs((partner.tileX | 0) - srcX);
+            const dy = Math.abs((partner.tileY | 0) - srcY);
+            if (Math.max(dx, dy) > FRIENDS_CHAT_SHARE_RADIUS_TILES) continue;
+            const partnerActive = this.getActive(partner, active.region);
+            if (!partnerActive || partnerActive.favourId !== active.favourId) continue;
+            if (partnerActive.rewardClaimed || partnerActive.objectiveComplete) continue;
+            const next = Math.max(partnerActive.progress, progress);
+            if (next <= partnerActive.progress) continue;
+            this.setProgressAbsolute(partner, partnerActive, next, {
+                skipFriendsChatSync: true,
+            });
+            this.syncHintArrow(partner);
+        }
     }
 
     private syncHudIfVisible(player: RegionalFavourHostPlayer): void {
@@ -1304,6 +1494,10 @@ export function cloneRegionalFavourState(
         pendingCombatLampXp: [...(state.pendingCombatLampXp ?? [])],
         hudVisible: !!state.hudVisible,
         lastHudRegion: state.lastHudRegion,
+        lastAbandonAtMs:
+            typeof state.lastAbandonAtMs === "number" && state.lastAbandonAtMs > 0
+                ? state.lastAbandonAtMs
+                : undefined,
     };
 }
 

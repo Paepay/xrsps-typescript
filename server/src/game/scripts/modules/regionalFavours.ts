@@ -34,6 +34,8 @@ type RegionalFavourScriptApi = {
             region?: string;
             replaceExisting?: boolean;
             skipHudSync?: boolean;
+            excludeFavourIds?: readonly string[];
+            skipFriendsChatLink?: boolean;
         },
     ): { active?: any; reason?: string };
     abandonFavour(player: any, regionOverride?: string): boolean;
@@ -248,6 +250,11 @@ export const regionalFavoursModule: ScriptModule = {
                 wholeRegion?: boolean;
                 /** Skip HUD sync during assign — caller opens dialog first, then syncs. */
                 skipHudSync?: boolean;
+                /**
+                 * Favour just turned in — Friends Chat mates still holding this task
+                 * force a fresh roll instead of looping the same favour.
+                 */
+                excludeFavourIds?: readonly string[];
             }): {
                 assigned?: any;
                 reason?: string;
@@ -266,12 +273,14 @@ export const regionalFavoursModule: ScriptModule = {
                           region,
                           replaceExisting: optsExtra?.replaceExisting,
                           skipHudSync: optsExtra?.skipHudSync,
+                          excludeFavourIds: optsExtra?.excludeFavourIds,
                       }
                     : {
                           forceGiverNpcId: npcId,
                           preferredGiverNpcId: npcId,
                           replaceExisting: optsExtra?.replaceExisting,
                           skipHudSync: optsExtra?.skipHudSync,
+                          excludeFavourIds: optsExtra?.excludeFavourIds,
                       };
                 try {
                     if (typeof api.assignFavourWithReason === "function") {
@@ -327,6 +336,10 @@ export const regionalFavoursModule: ScriptModule = {
             const completeThenChainNext = (completionLines: string[], dialogId: string) => {
                 openNpc(dialogId, completionLines, () => {
                     const prior = api.getActiveInvolvingNpc?.(player, npcId);
+                    const priorFavourId =
+                        typeof (prior as any)?.favourId === "string"
+                            ? String((prior as any).favourId)
+                            : undefined;
                     const region =
                         (prior as any)?.region ??
                         getRegionalContactByNpcId(npcId)?.region ??
@@ -357,10 +370,13 @@ export const regionalFavoursModule: ScriptModule = {
                     }
 
                     // Always hand out the next regional favour here (not Speak-to-contact).
+                    // Friends Chat: exclude the favour just completed so channel mates still
+                    // holding it force a new roll; if they hold a different task, adopt that.
                     const { assigned, reason, blocking } = tryAssignNextFavour({
                         replaceExisting: true,
                         wholeRegion: true,
                         skipHudSync: true,
+                        excludeFavourIds: priorFavourId ? [priorFavourId] : undefined,
                     });
                     if (!assigned) {
                         console.log("[regional-favours] chain assign failed", reason, blocking);

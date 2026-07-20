@@ -620,6 +620,7 @@ export function walkToAttackRange(
                 { x: currentX, y: currentY, plane },
                 approachTile,
                 pawnSize,
+                pawn.walksOnBlockedFloor,
             );
             if (!nextStep) {
                 // Blocked - NPC stays put (safespot behavior)

@@ -266,6 +266,16 @@ export class NpcManager {
         const wanderRadius = Math.max(0, spawn.wanderRadius ?? DEFAULT_NPC_WANDER_RADIUS);
         this.maxNpcSize = Math.max(this.maxNpcSize, size);
 
+        const spawnPos = this.resolveSpawnPosition(spawn.x, spawn.y, spawn.level, size);
+        const spawnFlag = this.pathService.getCollisionFlagAt(
+            spawnPos.x,
+            spawnPos.y,
+            spawnPos.level,
+        );
+        // OSRS: NPCs that spawn on FLOOR tiles use the BLOCKED collision strategy (water).
+        const walksOnBlockedFloor =
+            spawnFlag !== undefined && (spawnFlag & CollisionFlag.FLOOR) !== 0;
+
         const id = this.allocateNpcId();
         const maxHitpoints = this.deriveMaxHitpoints(npcType);
         const combatLevel = npcType.combatLevel ?? -1;
@@ -287,7 +297,7 @@ export class NpcManager {
             idleSeqId,
             walkSeqId,
             rotationSpeed,
-            { x: spawn.x, y: spawn.y, level: spawn.level },
+            { x: spawnPos.x, y: spawnPos.y, level: spawnPos.level },
             {
                 name: spawn.name,
                 wanderRadius,
@@ -302,6 +312,7 @@ export class NpcManager {
                 aggressionRadius,
                 aggressionToleranceTicks,
                 aggressionSearchDelayTicks,
+                walksOnBlockedFloor,
             },
         );
         // Use direction from spawn config if provided, otherwise fall back to NPC type config
@@ -514,19 +525,24 @@ export class NpcManager {
         level: number,
         size: number,
         ignoreNpcId?: number,
+        walksOnBlockedFloor: boolean = false,
     ): boolean {
+        if (
+            !this.pathService.canNpcOccupyTile(
+                tileX,
+                tileY,
+                level,
+                size,
+                walksOnBlockedFloor,
+            )
+        ) {
+            return false;
+        }
         const footprint = Math.max(1, size | 0);
         for (let ox = 0; ox < footprint; ox++) {
             for (let oy = 0; oy < footprint; oy++) {
                 const worldX = tileX + ox;
                 const worldY = tileY + oy;
-                const flag = this.pathService.getCollisionFlagAt(worldX, worldY, level);
-                if (flag === undefined) {
-                    return false;
-                }
-                if ((flag & (CollisionFlag.FLOOR_BLOCKED | CollisionFlag.OBJECT)) !== 0) {
-                    return false;
-                }
                 const bucket = this.occupancy.get(tileKey(worldX, worldY, level));
                 if (!bucket || bucket.size === 0) continue;
                 for (const occupantId of bucket) {
@@ -536,6 +552,44 @@ export class NpcManager {
             }
         }
         return true;
+    }
+
+    /**
+     * Keep authored spawn coords when valid for land or water collision.
+     * Only relocate when the tile is unusable under both strategies (e.g. solid object).
+     */
+    private resolveSpawnPosition(
+        x: number,
+        y: number,
+        level: number,
+        size: number,
+    ): { x: number; y: number; level: number } {
+        if (this.pathService.canNpcOccupyTile(x, y, level, size, false)) {
+            return { x, y, level };
+        }
+        if (this.pathService.canNpcOccupyTile(x, y, level, size, true)) {
+            return { x, y, level };
+        }
+        const maxRadius = 8;
+        for (let radius = 1; radius <= maxRadius; radius++) {
+            for (let dx = -radius; dx <= radius; dx++) {
+                for (let dy = -radius; dy <= radius; dy++) {
+                    if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) continue;
+                    const tx = x + dx;
+                    const ty = y + dy;
+                    if (this.pathService.canNpcOccupyTile(tx, ty, level, size, false)) {
+                        logger.warn(
+                            `[NpcManager] relocated blocked spawn (${x},${y},${level}) -> (${tx},${ty},${level})`,
+                        );
+                        return { x: tx, y: ty, level };
+                    }
+                }
+            }
+        }
+        logger.warn(
+            `[NpcManager] spawn tile blocked with no nearby walkable tile (${x},${y},${level})`,
+        );
+        return { x, y, level };
     }
 
     queueRespawn(npcId: number, respawnTick: number): boolean {
@@ -1049,6 +1103,7 @@ export class NpcManager {
                     { x: currentX, y: currentY, plane: npc.level },
                     step,
                     npc.size,
+                    npc.walksOnBlockedFloor,
                 )
             ) {
                 break;
@@ -1213,6 +1268,7 @@ export class NpcManager {
                 { x: currentX, y: currentY, plane },
                 target,
                 npc.size,
+                npc.walksOnBlockedFloor,
             );
             if (!nextStep) {
                 break;
@@ -1430,7 +1486,18 @@ export class NpcManager {
             const tx = clamp(npc.spawnX + dx, npc.spawnX - radius, npc.spawnX + radius);
             const ty = clamp(npc.spawnY + dy, npc.spawnY - radius, npc.spawnY + radius);
             if (tx === npc.tileX && ty === npc.tileY) continue;
-            if (this.hasOccupancyConflict(tx, ty, npc)) continue;
+            if (
+                !this.canOccupyTile(
+                    tx,
+                    ty,
+                    npc.level,
+                    npc.size,
+                    npc.id,
+                    npc.walksOnBlockedFloor,
+                )
+            ) {
+                continue;
+            }
             return { x: tx, y: ty };
         }
         return undefined;

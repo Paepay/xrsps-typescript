@@ -60,12 +60,14 @@ export class PathService {
      * This is CRITICAL for OSRS parity - NPCs will NOT path around obstacles.
      * Reference: docs/npc-behavior.md, docs/pathfinding-details.md
      *
+     * @param walksOnBlockedFloor When true, uses OSRS BLOCKED collision strategy (water NPCs).
      * @returns The next step to take, or null if no movement possible
      */
     findNpcPathStep(
         from: { x: number; y: number; plane: number },
         to: { x: number; y: number },
         size: number = 1,
+        walksOnBlockedFloor: boolean = false,
     ): { x: number; y: number } | null {
         const fx = from.x;
         const fy = from.y;
@@ -90,31 +92,55 @@ export class PathService {
 
         if (dx !== 0 && dy !== 0) {
             // Try diagonal first
-            if (this.canNpcMove(fx, fy, dx, dy, plane, size)) {
+            if (this.canNpcMove(fx, fy, dx, dy, plane, size, walksOnBlockedFloor)) {
                 return { x: fx + dx, y: fy + dy };
             }
             // Try horizontal
-            if (this.canNpcMove(fx, fy, dx, 0, plane, size)) {
+            if (this.canNpcMove(fx, fy, dx, 0, plane, size, walksOnBlockedFloor)) {
                 return { x: fx + dx, y: fy };
             }
             // Try vertical
-            if (this.canNpcMove(fx, fy, 0, dy, plane, size)) {
+            if (this.canNpcMove(fx, fy, 0, dy, plane, size, walksOnBlockedFloor)) {
                 return { x: fx, y: fy + dy };
             }
         } else if (dx !== 0) {
             // Only horizontal needed
-            if (this.canNpcMove(fx, fy, dx, 0, plane, size)) {
+            if (this.canNpcMove(fx, fy, dx, 0, plane, size, walksOnBlockedFloor)) {
                 return { x: fx + dx, y: fy };
             }
         } else if (dy !== 0) {
             // Only vertical needed
-            if (this.canNpcMove(fx, fy, 0, dy, plane, size)) {
+            if (this.canNpcMove(fx, fy, 0, dy, plane, size, walksOnBlockedFloor)) {
                 return { x: fx, y: fy + dy };
             }
         }
 
         // All moves blocked - NPC stays put (safespot behavior)
         return null;
+    }
+
+    /**
+     * Whether an NPC footprint may occupy a tile under its collision strategy.
+     * Land NPCs are blocked by FLOOR (water) / floor-decoration / solid objects.
+     * Water NPCs require FLOOR and are still blocked by solid objects.
+     */
+    canNpcOccupyTile(
+        tileX: number,
+        tileY: number,
+        plane: number,
+        size: number = 1,
+        walksOnBlockedFloor: boolean = false,
+    ): boolean {
+        const footprint = Math.max(1, size | 0);
+        for (let ox = 0; ox < footprint; ox++) {
+            for (let oy = 0; oy < footprint; oy++) {
+                const flag = this.getCollisionFlagAt(tileX + ox, tileY + oy, plane);
+                if (!this.isNpcDestinationFlagAllowed(flag, walksOnBlockedFloor)) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     /**
@@ -128,6 +154,7 @@ export class PathService {
         dy: number,
         plane: number,
         size: number,
+        walksOnBlockedFloor: boolean = false,
     ): boolean {
         const destX = x + dx;
         const destY = y + dy;
@@ -140,34 +167,30 @@ export class PathService {
                 // For diagonal movement, also check cardinal adjacents (corner-cutting prevention)
                 if (dx !== 0 && dy !== 0) {
                     // Check diagonal destination
-                    if (!this.canMoveDirection(checkX, checkY, dx, dy, plane)) {
+                    if (!this.canMoveDirection(checkX, checkY, dx, dy, plane, walksOnBlockedFloor)) {
                         return false;
                     }
                     // Corner-cutting check: also verify cardinal directions are clear
-                    if (!this.canMoveDirection(checkX, checkY, dx, 0, plane)) {
+                    if (!this.canMoveDirection(checkX, checkY, dx, 0, plane, walksOnBlockedFloor)) {
                         return false;
                     }
-                    if (!this.canMoveDirection(checkX, checkY, 0, dy, plane)) {
+                    if (!this.canMoveDirection(checkX, checkY, 0, dy, plane, walksOnBlockedFloor)) {
                         return false;
                     }
                 } else {
                     // Cardinal movement - just check the single direction
-                    if (!this.canMoveDirection(checkX, checkY, dx, dy, plane)) {
+                    if (!this.canMoveDirection(checkX, checkY, dx, dy, plane, walksOnBlockedFloor)) {
                         return false;
                     }
                 }
             }
         }
 
-        // Check the destination tiles aren't blocked
+        // Check the destination tiles match this NPC's collision strategy
         for (let i = 0; i < size; i++) {
             for (let j = 0; j < size; j++) {
                 const flag = this.getCollisionFlagAt(destX + i, destY + j, plane);
-                if (flag === undefined || (flag & CollisionFlag.FLOOR_BLOCKED) !== 0) {
-                    return false;
-                }
-                // Also check for solid objects
-                if ((flag & CollisionFlag.OBJECT) !== 0) {
+                if (!this.isNpcDestinationFlagAllowed(flag, walksOnBlockedFloor)) {
                     return false;
                 }
             }
@@ -176,10 +199,28 @@ export class PathService {
         return true;
     }
 
+    private isNpcDestinationFlagAllowed(
+        flag: number | undefined,
+        walksOnBlockedFloor: boolean,
+    ): boolean {
+        if (flag === undefined) {
+            return false;
+        }
+        if ((flag & CollisionFlag.OBJECT) !== 0) {
+            return false;
+        }
+        if (walksOnBlockedFloor) {
+            // OSRS BLOCKED strategy: movement is constrained to FLOOR-flagged tiles (water).
+            return (flag & CollisionFlag.FLOOR) !== 0;
+        }
+        return (flag & CollisionFlag.FLOOR_BLOCKED) === 0;
+    }
+
     canNpcStep(
         from: { x: number; y: number; plane: number },
         to: { x: number; y: number },
         size: number = 1,
+        walksOnBlockedFloor: boolean = false,
     ): boolean {
         const dx = (to.x | 0) - (from.x | 0);
         const dy = (to.y | 0) - (from.y | 0);
@@ -189,13 +230,28 @@ export class PathService {
         if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
             return false;
         }
-        return this.canNpcMove(from.x | 0, from.y | 0, dx, dy, clampPlane(from.plane), size);
+        return this.canNpcMove(
+            from.x | 0,
+            from.y | 0,
+            dx,
+            dy,
+            clampPlane(from.plane),
+            size,
+            walksOnBlockedFloor,
+        );
     }
 
     /**
      * Check if movement from (x, y) in direction (dx, dy) is blocked by walls.
      */
-    private canMoveDirection(x: number, y: number, dx: number, dy: number, plane: number): boolean {
+    private canMoveDirection(
+        x: number,
+        y: number,
+        dx: number,
+        dy: number,
+        plane: number,
+        walksOnBlockedFloor: boolean = false,
+    ): boolean {
         const srcFlag = this.getCollisionFlagAt(x, y, plane);
         const destFlag = this.getCollisionFlagAt(x + dx, y + dy, plane);
 
@@ -221,6 +277,15 @@ export class PathService {
             blockMask = CollisionFlag.BLOCK_NORTH_WEST;
         } else if (dx === 1 && dy === 1) {
             blockMask = CollisionFlag.BLOCK_NORTH_EAST;
+        }
+
+        // Water NPCs still respect walls/objects, but FLOOR itself is required rather than blocking.
+        if (walksOnBlockedFloor) {
+            blockMask &= ~CollisionFlag.FLOOR_BLOCKED;
+            if ((destFlag & blockMask) !== 0) {
+                return false;
+            }
+            return (destFlag & CollisionFlag.FLOOR) !== 0;
         }
 
         // Check if destination tile blocks entry from our direction

@@ -152,6 +152,11 @@ export type RegionalFavourPlayerState = {
     hudVisible: boolean;
     /** Last region used for HUD (detects region changes while HUD is on). */
     lastHudRegion?: RegionalFavourRegion;
+    /**
+     * Wall-clock ms when the player last abandoned a real (non-seek) favour.
+     * Used for the abandon cooldown.
+     */
+    lastAbandonAtMs?: number;
 };
 
 export const emptyRegionalFavourHistory = (): RegionalFavourHistory => ({

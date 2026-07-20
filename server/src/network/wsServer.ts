@@ -2586,6 +2586,8 @@ export class WSServer {
                             text,
                             targetPlayerIds: [playerId],
                         }),
+                    getFriendsChatMemberIds: (playerId) =>
+                        this.friendsChatService?.getChannelMemberIds(playerId),
                     queueHud: (playerId, payload) => this.queueRegionalFavourHud(playerId, payload),
                     queueHintArrow: (playerId, payload) =>
                         this.queueHintArrow(playerId, payload),
