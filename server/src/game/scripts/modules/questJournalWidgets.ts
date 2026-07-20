@@ -3,7 +3,9 @@ import { BaseComponentUids } from "../../../widgets/viewport/ViewportEnumService
 import {
     findQuestCompletionByDisplayName,
     isQuestCompleteForPlayer,
+    purchaseQuestCompletion,
 } from "../../quests/questCompletions";
+import { getQuestFavourCostForDisplayName } from "../../quests/questFavourCosts";
 import type { PlayerState } from "../../player";
 import type { ScriptModule, ScriptServices } from "../types";
 
@@ -37,6 +39,8 @@ const SCRIPT_QUEST_JOURNAL_RESET = 5240;
 /** CS2 script that sets up quest journal scrollbar */
 const SCRIPT_QUEST_JOURNAL_SCROLL = 2523;
 
+/** OP ID for left-click / "View info" */
+const OP_VIEW_INFO = 1;
 /** OP ID for "Read journal:" right-click option */
 const OP_READ_JOURNAL = 2;
 
@@ -141,12 +145,128 @@ function buildJournalLines(player: PlayerState, quest: QuestEntry): string[] {
         ];
     }
 
-    // Not started (default state)
     return [
         "I should read the quest overview for",
         "more information on how to start",
         "this quest.",
     ];
+}
+
+function favourLabel(amount: number): string {
+    return `${amount} Favour`;
+}
+
+function formatPurchasePrompt(cost: number, questDisplayName: string): string {
+    return `Would you like to pay ${favourLabel(cost)} to complete ${questDisplayName}?`;
+}
+
+function openPlayerMessage(
+    player: PlayerState,
+    services: ScriptServices,
+    id: string,
+    lines: string[],
+): void {
+    services.openDialog?.(player, {
+        kind: "player",
+        id,
+        playerName: player.name ?? "You",
+        lines,
+        clickToContinue: true,
+        closeOnContinue: true,
+    });
+}
+
+function offerQuestPurchase(
+    player: PlayerState,
+    quest: QuestEntry,
+    services: ScriptServices,
+): void {
+    const completionEntry = findQuestCompletionByDisplayName(quest.displayName);
+    if (completionEntry && isQuestCompleteForPlayer(player, completionEntry)) {
+        openQuestJournal(player, quest, services);
+        return;
+    }
+
+    if (!completionEntry) {
+        services.sendGameMessage(player, `"${quest.displayName}" cannot be purchased yet.`);
+        return;
+    }
+
+    const costDef = getQuestFavourCostForDisplayName(completionEntry.name);
+    if (!costDef) {
+        services.sendGameMessage(
+            player,
+            `"${quest.displayName}" has no Favour cost.`,
+        );
+        return;
+    }
+
+    const cost = costDef.favourCost;
+    const favourPoints = player.getRegionalFavourState().favourPoints | 0;
+    const convoId = `quest_buy_${player.id}_${quest.questId}`;
+
+    if (!services.openDialogOptions) {
+        services.sendGameMessage(
+            player,
+            formatPurchasePrompt(cost, quest.displayName) +
+                ` You have ${favourLabel(favourPoints)}.`,
+        );
+        return;
+    }
+
+    services.openDialogOptions(player, {
+        id: `${convoId}_offer`,
+        title: formatPurchasePrompt(cost, quest.displayName),
+        options: ["Yes", "No"],
+        onSelect: (choice) => {
+            if (choice !== 0) {
+                return;
+            }
+
+            const varServices = {
+                queueVarp: (playerId: number, varpId: number, value: number) => {
+                    services.queueVarp?.(playerId, varpId, value);
+                },
+                queueVarbit: (playerId: number, varbitId: number, value: number) => {
+                    services.queueVarbit?.(playerId, varbitId, value);
+                },
+            };
+            const result = purchaseQuestCompletion(player, completionEntry.name, varServices);
+            if (!result.ok) {
+                switch (result.reason) {
+                    case "already_complete":
+                        openPlayerMessage(player, services, `${convoId}_done`, [
+                            `You have already completed ${quest.displayName}.`,
+                        ]);
+                        break;
+                    case "insufficient_favour":
+                        openPlayerMessage(player, services, `${convoId}_poor`, [
+                            `${quest.displayName} costs ${favourLabel(result.cost ?? 0)}.`,
+                            `You only have ${favourLabel(result.favourPoints ?? 0)}.`,
+                        ]);
+                        break;
+                    case "no_cost":
+                        openPlayerMessage(player, services, `${convoId}_nocost`, [
+                            `${quest.displayName} cannot be purchased with Favour.`,
+                        ]);
+                        break;
+                    default:
+                        services.sendGameMessage(player, "Could not purchase that quest.");
+                        break;
+                }
+                return;
+            }
+
+            openPlayerMessage(player, services, `${convoId}_confirm`, [
+                `${quest.displayName} has been completed.`,
+            ]);
+            try {
+                services.regionalFavourService?.syncHud?.(player);
+            } catch {
+                /* HUD refresh is best-effort after Favour spend */
+            }
+        },
+    });
 }
 
 // ============================================================================
@@ -173,8 +293,6 @@ export const questJournalWidgetsModule: ScriptModule = {
         registry.onButton(QUEST_LIST_GROUP_ID, QUEST_LIST_COMPONENT, (event) => {
             const { player, slot, opId } = event;
 
-            if (opId !== OP_READ_JOURNAL) return;
-
             const questId = slot;
             if (questId === undefined || questId <= 0) return;
 
@@ -186,7 +304,25 @@ export const questJournalWidgetsModule: ScriptModule = {
                 return;
             }
 
-            openQuestJournal(player, quest, services);
+            // Incomplete quests: any list click opens the Favour purchase dialogue.
+            // Completed quests: open the journal overlay.
+            const completionEntry = findQuestCompletionByDisplayName(quest.displayName);
+            const complete =
+                !!completionEntry && isQuestCompleteForPlayer(player, completionEntry);
+
+            if (
+                !complete &&
+                (opId === OP_VIEW_INFO ||
+                    opId === OP_READ_JOURNAL ||
+                    opId === undefined)
+            ) {
+                offerQuestPurchase(player, quest, services);
+                return;
+            }
+
+            if (opId === OP_VIEW_INFO || opId === OP_READ_JOURNAL || opId === undefined) {
+                openQuestJournal(player, quest, services);
+            }
         });
 
         // Handle quest journal Close button (119:8)
@@ -202,7 +338,6 @@ export const questJournalWidgetsModule: ScriptModule = {
             const dbrowId = player.getVarpValue(VARP_LATEST_QUEST_JOURNAL);
             if (dbrowId <= 0) return;
 
-            // Look up quest name from the map for the overview title
             const map = getQuestMap();
             let questName = "Quest";
             for (const entry of map.values()) {
@@ -212,7 +347,6 @@ export const questJournalWidgetsModule: ScriptModule = {
                 }
             }
 
-            // Re-open journal with overview text
             const floaterUid = BaseComponentUids.MAINMODAL_BACKGROUNDS;
             services.openSubInterface?.(player, floaterUid, QUEST_JOURNAL_GROUP_ID, 0);
 

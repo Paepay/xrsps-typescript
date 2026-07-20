@@ -1508,6 +1508,7 @@ export function decodeServerPacket(data: Uint8Array | ArrayBuffer): DecodedServe
             const complete = reader.readByte() === 1;
             const hasActiveFavour = reader.readByte() === 1;
             const rewardPreview = reader.readString();
+            const favourPoints = reader.readShort();
             return {
                 type: "regional_favour_hud",
                 payload: {
@@ -1521,6 +1522,7 @@ export function decodeServerPacket(data: Uint8Array | ArrayBuffer): DecodedServe
                     complete,
                     hasActiveFavour,
                     rewardPreview,
+                    favourPoints,
                 },
             };
         }

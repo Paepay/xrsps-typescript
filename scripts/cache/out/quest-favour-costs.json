@@ -1,0 +1,1756 @@
+{
+  "source": "https://oldschool.runescape.wiki/w/Quests/List",
+  "formula": "Math.round(difficultyMult * lengthMult)",
+  "difficultyMult": {
+    "Novice": 1,
+    "Intermediate": 3,
+    "Experienced": 5,
+    "Master": 10,
+    "Grandmaster": 15,
+    "Special": 20
+  },
+  "lengthMult": {
+    "Very Short": 1,
+    "Short": 2,
+    "Medium": 3,
+    "Long": 4,
+    "Very Long": 5
+  },
+  "counts": {
+    "f2p": 24,
+    "members": 167,
+    "miniquests": 19,
+    "total": 210
+  },
+  "difficulties": [
+    [
+      "Novice",
+      49
+    ],
+    [
+      "Intermediate",
+      82
+    ],
+    [
+      "Experienced",
+      41
+    ],
+    [
+      "Master",
+      21
+    ],
+    [
+      "Special",
+      11
+    ],
+    [
+      "Grandmaster",
+      6
+    ]
+  ],
+  "lengths": [
+    [
+      "Short",
+      84
+    ],
+    [
+      "Very Short",
+      31
+    ],
+    [
+      "Medium",
+      73
+    ],
+    [
+      "Long",
+      15
+    ],
+    [
+      "Very Long",
+      7
+    ]
+  ],
+  "unknown": [],
+  "quests": [
+    {
+      "page": "The Ides of Milk",
+      "name": "The Ides of Milk",
+      "difficulty": "Novice",
+      "length": "Short",
+      "source": "f2p",
+      "favourCost": 2
+    },
+    {
+      "page": "Learning the Ropes",
+      "name": "Learning the Ropes",
+      "difficulty": "Novice",
+      "length": "Very Short",
+      "source": "f2p",
+      "favourCost": 1
+    },
+    {
+      "page": "Below Ice Mountain",
+      "name": "Below Ice Mountain",
+      "difficulty": "Novice",
+      "length": "Short",
+      "source": "f2p",
+      "favourCost": 2
+    },
+    {
+      "page": "X Marks the Spot",
+      "name": "X Marks the Spot",
+      "difficulty": "Novice",
+      "length": "Very Short",
+      "source": "f2p",
+      "favourCost": 1
+    },
+    {
+      "page": "The Corsair Curse",
+      "name": "The Corsair Curse",
+      "difficulty": "Intermediate",
+      "length": "Short",
+      "source": "f2p",
+      "favourCost": 6
+    },
+    {
+      "page": "Misthalin Mystery",
+      "name": "Misthalin Mystery",
+      "difficulty": "Novice",
+      "length": "Short",
+      "source": "f2p",
+      "favourCost": 2
+    },
+    {
+      "page": "Rune Mysteries",
+      "name": "Rune Mysteries",
+      "difficulty": "Novice",
+      "length": "Short",
+      "source": "f2p",
+      "favourCost": 2
+    },
+    {
+      "page": "Dragon Slayer I",
+      "name": "Dragon Slayer I",
+      "difficulty": "Experienced",
+      "length": "Medium",
+      "source": "f2p",
+      "favourCost": 15
+    },
+    {
+      "page": "Pirate's Treasure",
+      "name": "Pirate's Treasure",
+      "difficulty": "Novice",
+      "length": "Very Short",
+      "source": "f2p",
+      "favourCost": 1
+    },
+    {
+      "page": "Goblin Diplomacy",
+      "name": "Goblin Diplomacy",
+      "difficulty": "Novice",
+      "length": "Very Short",
+      "source": "f2p",
+      "favourCost": 1
+    },
+    {
+      "page": "The Knight's Sword",
+      "name": "The Knight's Sword",
+      "difficulty": "Intermediate",
+      "length": "Short",
+      "source": "f2p",
+      "favourCost": 6
+    },
+    {
+      "page": "Witch's Potion",
+      "name": "Witch's Potion",
+      "difficulty": "Novice",
+      "length": "Very Short",
+      "source": "f2p",
+      "favourCost": 1
+    },
+    {
+      "page": "Black Knights' Fortress",
+      "name": "Black Knights' Fortress",
+      "difficulty": "Intermediate",
+      "length": "Very Short",
+      "source": "f2p",
+      "favourCost": 3
+    },
+    {
+      "page": "Doric's Quest",
+      "name": "Doric's Quest",
+      "difficulty": "Novice",
+      "length": "Very Short",
+      "source": "f2p",
+      "favourCost": 1
+    },
+    {
+      "page": "Prince Ali Rescue",
+      "name": "Prince Ali Rescue",
+      "difficulty": "Novice",
+      "length": "Short",
+      "source": "f2p",
+      "favourCost": 2
+    },
+    {
+      "page": "Imp Catcher",
+      "name": "Imp Catcher",
+      "difficulty": "Novice",
+      "length": "Short",
+      "source": "f2p",
+      "favourCost": 2
+    },
+    {
+      "page": "Vampyre Slayer",
+      "name": "Vampyre Slayer",
+      "difficulty": "Intermediate",
+      "length": "Very Short",
+      "source": "f2p",
+      "favourCost": 3
+    },
+    {
+      "page": "Ernest the Chicken",
+      "name": "Ernest the Chicken",
+      "difficulty": "Novice",
+      "length": "Very Short",
+      "source": "f2p",
+      "favourCost": 1
+    },
+    {
+      "page": "The Restless Ghost",
+      "name": "The Restless Ghost",
+      "difficulty": "Novice",
+      "length": "Short",
+      "source": "f2p",
+      "favourCost": 2
+    },
+    {
+      "page": "Sheep Shearer",
+      "name": "Sheep Shearer",
+      "difficulty": "Novice",
+      "length": "Very Short",
+      "source": "f2p",
+      "favourCost": 1
+    },
+    {
+      "page": "Shield of Arrav",
+      "name": "Shield of Arrav",
+      "difficulty": "Novice",
+      "length": "Short",
+      "source": "f2p",
+      "favourCost": 2
+    },
+    {
+      "page": "Demon Slayer",
+      "name": "Demon Slayer",
+      "difficulty": "Novice",
+      "length": "Short",
+      "source": "f2p",
+      "favourCost": 2
+    },
+    {
+      "page": "Romeo & Juliet",
+      "name": "Romeo & Juliet",
+      "difficulty": "Novice",
+      "length": "Short",
+      "source": "f2p",
+      "favourCost": 2
+    },
+    {
+      "page": "Cook's Assistant",
+      "name": "Cook's Assistant",
+      "difficulty": "Novice",
+      "length": "Very Short",
+      "source": "f2p",
+      "favourCost": 1
+    },
+    {
+      "page": "Druidic Ritual",
+      "name": "Druidic Ritual",
+      "difficulty": "Novice",
+      "length": "Very Short",
+      "source": "members",
+      "favourCost": 1
+    },
+    {
+      "page": "Lost City",
+      "name": "Lost City",
+      "difficulty": "Intermediate",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 6
+    },
+    {
+      "page": "Witch's House",
+      "name": "Witch's House",
+      "difficulty": "Intermediate",
+      "length": "Very Short",
+      "source": "members",
+      "favourCost": 3
+    },
+    {
+      "page": "Merlin's Crystal",
+      "name": "Merlin's Crystal",
+      "difficulty": "Intermediate",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 6
+    },
+    {
+      "page": "Heroes' Quest",
+      "name": "Heroes' Quest",
+      "difficulty": "Experienced",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 15
+    },
+    {
+      "page": "Scorpion Catcher",
+      "name": "Scorpion Catcher",
+      "difficulty": "Intermediate",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 6
+    },
+    {
+      "page": "Family Crest",
+      "name": "Family Crest",
+      "difficulty": "Experienced",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 15
+    },
+    {
+      "page": "Fishing Contest",
+      "name": "Fishing Contest",
+      "difficulty": "Novice",
+      "length": "Very Short",
+      "source": "members",
+      "favourCost": 1
+    },
+    {
+      "page": "Tribal Totem",
+      "name": "Tribal Totem",
+      "difficulty": "Intermediate",
+      "length": "Very Short",
+      "source": "members",
+      "favourCost": 3
+    },
+    {
+      "page": "Monk's Friend",
+      "name": "Monk's Friend",
+      "difficulty": "Novice",
+      "length": "Very Short",
+      "source": "members",
+      "favourCost": 1
+    },
+    {
+      "page": "Temple of Ikov",
+      "name": "Temple of Ikov",
+      "difficulty": "Intermediate",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 9
+    },
+    {
+      "page": "Clock Tower",
+      "name": "Clock Tower",
+      "difficulty": "Novice",
+      "length": "Very Short",
+      "source": "members",
+      "favourCost": 1
+    },
+    {
+      "page": "Holy Grail",
+      "name": "Holy Grail",
+      "difficulty": "Intermediate",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 6
+    },
+    {
+      "page": "Tree Gnome Village",
+      "name": "Tree Gnome Village",
+      "difficulty": "Intermediate",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 6
+    },
+    {
+      "page": "Fight Arena",
+      "name": "Fight Arena",
+      "difficulty": "Intermediate",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 6
+    },
+    {
+      "page": "Hazeel Cult",
+      "name": "Hazeel Cult",
+      "difficulty": "Novice",
+      "length": "Very Short",
+      "source": "members",
+      "favourCost": 1
+    },
+    {
+      "page": "Sheep Herder",
+      "name": "Sheep Herder",
+      "difficulty": "Novice",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 2
+    },
+    {
+      "page": "Plague City",
+      "name": "Plague City",
+      "difficulty": "Novice",
+      "length": "Very Short",
+      "source": "members",
+      "favourCost": 1
+    },
+    {
+      "page": "Sea Slug",
+      "name": "Sea Slug",
+      "difficulty": "Intermediate",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 6
+    },
+    {
+      "page": "Waterfall Quest",
+      "name": "Waterfall Quest",
+      "difficulty": "Intermediate",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 6
+    },
+    {
+      "page": "Jungle Potion",
+      "name": "Jungle Potion",
+      "difficulty": "Novice",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 2
+    },
+    {
+      "page": "The Grand Tree",
+      "name": "The Grand Tree",
+      "difficulty": "Intermediate",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 9
+    },
+    {
+      "page": "Underground Pass",
+      "name": "Underground Pass",
+      "difficulty": "Experienced",
+      "length": "Long",
+      "source": "members",
+      "favourCost": 20
+    },
+    {
+      "page": "Observatory Quest",
+      "name": "Observatory Quest",
+      "difficulty": "Intermediate",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 6
+    },
+    {
+      "page": "The Tourist Trap",
+      "name": "The Tourist Trap",
+      "difficulty": "Intermediate",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 9
+    },
+    {
+      "page": "Watchtower",
+      "name": "Watchtower",
+      "difficulty": "Intermediate",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 9
+    },
+    {
+      "page": "Dwarf Cannon",
+      "name": "Dwarf Cannon",
+      "difficulty": "Novice",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 2
+    },
+    {
+      "page": "Murder Mystery",
+      "name": "Murder Mystery",
+      "difficulty": "Novice",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 2
+    },
+    {
+      "page": "The Dig Site",
+      "name": "The Dig Site",
+      "difficulty": "Intermediate",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 9
+    },
+    {
+      "page": "Gertrude's Cat",
+      "name": "Gertrude's Cat",
+      "difficulty": "Novice",
+      "length": "Very Short",
+      "source": "members",
+      "favourCost": 1
+    },
+    {
+      "page": "Legends' Quest",
+      "name": "Legends' Quest",
+      "difficulty": "Master",
+      "length": "Long",
+      "source": "members",
+      "favourCost": 40
+    },
+    {
+      "page": "Death Plateau",
+      "name": "Death Plateau",
+      "difficulty": "Novice",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 2
+    },
+    {
+      "page": "Eadgar's Ruse",
+      "name": "Eadgar's Ruse",
+      "difficulty": "Intermediate",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 9
+    },
+    {
+      "page": "Big Chompy Bird Hunting",
+      "name": "Big Chompy Bird Hunting",
+      "difficulty": "Intermediate",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 6
+    },
+    {
+      "page": "Elemental Workshop I",
+      "name": "Elemental Workshop I",
+      "difficulty": "Novice",
+      "length": "Very Short",
+      "source": "members",
+      "favourCost": 1
+    },
+    {
+      "page": "Nature Spirit",
+      "name": "Nature Spirit",
+      "difficulty": "Intermediate",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 6
+    },
+    {
+      "page": "Priest in Peril",
+      "name": "Priest in Peril",
+      "difficulty": "Novice",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 2
+    },
+    {
+      "page": "Regicide",
+      "name": "Regicide",
+      "difficulty": "Experienced",
+      "length": "Long",
+      "source": "members",
+      "favourCost": 20
+    },
+    {
+      "page": "Tai Bwo Wannai Trio",
+      "name": "Tai Bwo Wannai Trio",
+      "difficulty": "Intermediate",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 9
+    },
+    {
+      "page": "Troll Stronghold",
+      "name": "Troll Stronghold",
+      "difficulty": "Intermediate",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 6
+    },
+    {
+      "page": "Shades of Mort'ton",
+      "name": "Shades of Mort'ton",
+      "difficulty": "Intermediate",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 6
+    },
+    {
+      "page": "The Fremennik Trials",
+      "name": "The Fremennik Trials",
+      "difficulty": "Intermediate",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 9
+    },
+    {
+      "page": "Horror from the Deep",
+      "name": "Horror from the Deep",
+      "difficulty": "Intermediate",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 6
+    },
+    {
+      "page": "Throne of Miscellania",
+      "name": "Throne of Miscellania",
+      "difficulty": "Experienced",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 15
+    },
+    {
+      "page": "Monkey Madness I",
+      "name": "Monkey Madness I",
+      "difficulty": "Master",
+      "length": "Long",
+      "source": "members",
+      "favourCost": 40
+    },
+    {
+      "page": "Haunted Mine",
+      "name": "Haunted Mine",
+      "difficulty": "Experienced",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 10
+    },
+    {
+      "page": "Troll Romance",
+      "name": "Troll Romance",
+      "difficulty": "Intermediate",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 6
+    },
+    {
+      "page": "In Search of the Myreque",
+      "name": "In Search of the Myreque",
+      "difficulty": "Intermediate",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 6
+    },
+    {
+      "page": "Creature of Fenkenstrain",
+      "name": "Creature of Fenkenstrain",
+      "difficulty": "Intermediate",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 9
+    },
+    {
+      "page": "Roving Elves",
+      "name": "Roving Elves",
+      "difficulty": "Experienced",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 10
+    },
+    {
+      "page": "Ghosts Ahoy",
+      "name": "Ghosts Ahoy",
+      "difficulty": "Intermediate",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 9
+    },
+    {
+      "page": "One Small Favour",
+      "name": "One Small Favour",
+      "difficulty": "Experienced",
+      "length": "Long",
+      "source": "members",
+      "favourCost": 20
+    },
+    {
+      "page": "Mountain Daughter",
+      "name": "Mountain Daughter",
+      "difficulty": "Intermediate",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 9
+    },
+    {
+      "page": "Between a Rock...",
+      "name": "Between a Rock...",
+      "difficulty": "Experienced",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 15
+    },
+    {
+      "page": "The Feud",
+      "name": "The Feud",
+      "difficulty": "Intermediate",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 9
+    },
+    {
+      "page": "The Golem",
+      "name": "The Golem",
+      "difficulty": "Intermediate",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 6
+    },
+    {
+      "page": "Desert Treasure I",
+      "name": "Desert Treasure I",
+      "difficulty": "Master",
+      "length": "Long",
+      "source": "members",
+      "favourCost": 40
+    },
+    {
+      "page": "Icthlarin's Little Helper",
+      "name": "Icthlarin's Little Helper",
+      "difficulty": "Intermediate",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 9
+    },
+    {
+      "page": "Tears of Guthix",
+      "name": "Tears of Guthix",
+      "difficulty": "Intermediate",
+      "length": "Very Short",
+      "source": "members",
+      "favourCost": 3
+    },
+    {
+      "page": "The Lost Tribe",
+      "name": "The Lost Tribe",
+      "difficulty": "Intermediate",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 6
+    },
+    {
+      "page": "The Giant Dwarf",
+      "name": "The Giant Dwarf",
+      "difficulty": "Intermediate",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 9
+    },
+    {
+      "page": "Recruitment Drive",
+      "name": "Recruitment Drive",
+      "difficulty": "Novice",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 2
+    },
+    {
+      "page": "Mourning's End Part I",
+      "name": "Mourning's End Part I",
+      "difficulty": "Master",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 30
+    },
+    {
+      "page": "Forgettable Tale...",
+      "name": "Forgettable Tale...",
+      "difficulty": "Intermediate",
+      "length": "Long",
+      "source": "members",
+      "favourCost": 12
+    },
+    {
+      "page": "Garden of Tranquillity",
+      "name": "Garden of Tranquillity",
+      "difficulty": "Intermediate",
+      "length": "Long",
+      "source": "members",
+      "favourCost": 12
+    },
+    {
+      "page": "A Tail of Two Cats",
+      "name": "A Tail of Two Cats",
+      "difficulty": "Intermediate",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 9
+    },
+    {
+      "page": "Wanted!",
+      "name": "Wanted!",
+      "difficulty": "Intermediate",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 9
+    },
+    {
+      "page": "Mourning's End Part II",
+      "name": "Mourning's End Part II",
+      "difficulty": "Master",
+      "length": "Long",
+      "source": "members",
+      "favourCost": 40
+    },
+    {
+      "page": "Rum Deal",
+      "name": "Rum Deal",
+      "difficulty": "Experienced",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 15
+    },
+    {
+      "page": "Shadow of the Storm",
+      "name": "Shadow of the Storm",
+      "difficulty": "Intermediate",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 9
+    },
+    {
+      "page": "Making History",
+      "name": "Making History",
+      "difficulty": "Intermediate",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 6
+    },
+    {
+      "page": "Ratcatchers",
+      "name": "Ratcatchers",
+      "difficulty": "Intermediate",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 9
+    },
+    {
+      "page": "Spirits of the Elid",
+      "name": "Spirits of the Elid",
+      "difficulty": "Intermediate",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 6
+    },
+    {
+      "page": "Devious Minds",
+      "name": "Devious Minds",
+      "difficulty": "Experienced",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 10
+    },
+    {
+      "page": "The Hand in the Sand",
+      "name": "The Hand in the Sand",
+      "difficulty": "Intermediate",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 6
+    },
+    {
+      "page": "Enakhra's Lament",
+      "name": "Enakhra's Lament",
+      "difficulty": "Experienced",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 15
+    },
+    {
+      "page": "Cabin Fever",
+      "name": "Cabin Fever",
+      "difficulty": "Experienced",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 10
+    },
+    {
+      "page": "Fairytale I - Growing Pains",
+      "name": "Fairytale I - Growing Pains",
+      "difficulty": "Intermediate",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 9
+    },
+    {
+      "page": "Recipe for Disaster",
+      "name": "Recipe for Disaster",
+      "difficulty": "Special",
+      "length": "Very Long",
+      "source": "members",
+      "favourCost": 100
+    },
+    {
+      "page": "In Aid of the Myreque",
+      "name": "In Aid of the Myreque",
+      "difficulty": "Intermediate",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 9
+    },
+    {
+      "page": "A Soul's Bane",
+      "name": "A Soul's Bane",
+      "difficulty": "Intermediate",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 6
+    },
+    {
+      "page": "Rag and Bone Man I",
+      "name": "Rag and Bone Man I",
+      "difficulty": "Novice",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 2
+    },
+    {
+      "page": "Swan Song",
+      "name": "Swan Song",
+      "difficulty": "Master",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 30
+    },
+    {
+      "page": "Royal Trouble",
+      "name": "Royal Trouble",
+      "difficulty": "Experienced",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 15
+    },
+    {
+      "page": "Death to the Dorgeshuun",
+      "name": "Death to the Dorgeshuun",
+      "difficulty": "Intermediate",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 9
+    },
+    {
+      "page": "Fairytale II - Cure a Queen",
+      "name": "Fairytale II - Cure a Queen",
+      "difficulty": "Experienced",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 15
+    },
+    {
+      "page": "Lunar Diplomacy",
+      "name": "Lunar Diplomacy",
+      "difficulty": "Experienced",
+      "length": "Long",
+      "source": "members",
+      "favourCost": 20
+    },
+    {
+      "page": "The Eyes of Glouphrie",
+      "name": "The Eyes of Glouphrie",
+      "difficulty": "Intermediate",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 9
+    },
+    {
+      "page": "Darkness of Hallowvale",
+      "name": "Darkness of Hallowvale",
+      "difficulty": "Experienced",
+      "length": "Long",
+      "source": "members",
+      "favourCost": 20
+    },
+    {
+      "page": "The Slug Menace",
+      "name": "The Slug Menace",
+      "difficulty": "Intermediate",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 9
+    },
+    {
+      "page": "Elemental Workshop II",
+      "name": "Elemental Workshop II",
+      "difficulty": "Intermediate",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 6
+    },
+    {
+      "page": "My Arm's Big Adventure",
+      "name": "My Arm's Big Adventure",
+      "difficulty": "Experienced",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 15
+    },
+    {
+      "page": "Enlightened Journey",
+      "name": "Enlightened Journey",
+      "difficulty": "Intermediate",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 6
+    },
+    {
+      "page": "Eagles' Peak",
+      "name": "Eagles' Peak",
+      "difficulty": "Novice",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 2
+    },
+    {
+      "page": "Animal Magnetism",
+      "name": "Animal Magnetism",
+      "difficulty": "Intermediate",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 9
+    },
+    {
+      "page": "Contact!",
+      "name": "Contact!",
+      "difficulty": "Experienced",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 10
+    },
+    {
+      "page": "Cold War",
+      "name": "Cold War",
+      "difficulty": "Intermediate",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 9
+    },
+    {
+      "page": "The Fremennik Isles",
+      "name": "The Fremennik Isles",
+      "difficulty": "Experienced",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 15
+    },
+    {
+      "page": "The Great Brain Robbery",
+      "name": "The Great Brain Robbery",
+      "difficulty": "Experienced",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 15
+    },
+    {
+      "page": "What Lies Below",
+      "name": "What Lies Below",
+      "difficulty": "Intermediate",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 6
+    },
+    {
+      "page": "Olaf's Quest",
+      "name": "Olaf's Quest",
+      "difficulty": "Intermediate",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 6
+    },
+    {
+      "page": "Another Slice of H.A.M.",
+      "name": "Another Slice of H.A.M.",
+      "difficulty": "Intermediate",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 6
+    },
+    {
+      "page": "Dream Mentor",
+      "name": "Dream Mentor",
+      "difficulty": "Master",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 30
+    },
+    {
+      "page": "Grim Tales",
+      "name": "Grim Tales",
+      "difficulty": "Master",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 30
+    },
+    {
+      "page": "King's Ransom",
+      "name": "King's Ransom",
+      "difficulty": "Experienced",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 15
+    },
+    {
+      "page": "Shilo Village",
+      "name": "Shilo Village",
+      "difficulty": "Intermediate",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 9
+    },
+    {
+      "page": "Biohazard",
+      "name": "Biohazard",
+      "difficulty": "Novice",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 2
+    },
+    {
+      "page": "Tower of Life",
+      "name": "Tower of Life",
+      "difficulty": "Novice",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 3
+    },
+    {
+      "page": "Rag and Bone Man II",
+      "name": "Rag and Bone Man II",
+      "difficulty": "Experienced",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 15
+    },
+    {
+      "page": "Land of the Goblins",
+      "name": "Land of the Goblins",
+      "difficulty": "Experienced",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 15
+    },
+    {
+      "page": "While Guthix Sleeps",
+      "name": "While Guthix Sleeps",
+      "difficulty": "Grandmaster",
+      "length": "Very Long",
+      "source": "members",
+      "favourCost": 75
+    },
+    {
+      "page": "Zogre Flesh Eaters",
+      "name": "Zogre Flesh Eaters",
+      "difficulty": "Intermediate",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 6
+    },
+    {
+      "page": "Monkey Madness II",
+      "name": "Monkey Madness II",
+      "difficulty": "Grandmaster",
+      "length": "Very Long",
+      "source": "members",
+      "favourCost": 75
+    },
+    {
+      "page": "Client of Kourend",
+      "name": "Client of Kourend",
+      "difficulty": "Novice",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 2
+    },
+    {
+      "page": "The Queen of Thieves",
+      "name": "The Queen of Thieves",
+      "difficulty": "Intermediate",
+      "length": "Very Short",
+      "source": "members",
+      "favourCost": 3
+    },
+    {
+      "page": "Bone Voyage",
+      "name": "Bone Voyage",
+      "difficulty": "Intermediate",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 6
+    },
+    {
+      "page": "Dragon Slayer II",
+      "name": "Dragon Slayer II",
+      "difficulty": "Grandmaster",
+      "length": "Very Long",
+      "source": "members",
+      "favourCost": 75
+    },
+    {
+      "page": "The Depths of Despair",
+      "name": "The Depths of Despair",
+      "difficulty": "Intermediate",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 6
+    },
+    {
+      "page": "Recipe for Disaster/Another Cook's Quest",
+      "name": "Recipe for Disaster/Another Cook's Quest",
+      "difficulty": "Special",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 40
+    },
+    {
+      "page": "Recipe for Disaster/Freeing the Goblin generals",
+      "name": "Recipe for Disaster/Freeing the Goblin generals",
+      "difficulty": "Special",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 40
+    },
+    {
+      "page": "Recipe for Disaster/Freeing the Mountain Dwarf",
+      "name": "Recipe for Disaster/Freeing the Mountain Dwarf",
+      "difficulty": "Special",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 40
+    },
+    {
+      "page": "Recipe for Disaster/Freeing Evil Dave",
+      "name": "Recipe for Disaster/Freeing Evil Dave",
+      "difficulty": "Special",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 60
+    },
+    {
+      "page": "Recipe for Disaster/Freeing Pirate Pete",
+      "name": "Recipe for Disaster/Freeing Pirate Pete",
+      "difficulty": "Special",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 60
+    },
+    {
+      "page": "Recipe for Disaster/Freeing the Lumbridge Guide",
+      "name": "Recipe for Disaster/Freeing the Lumbridge Guide",
+      "difficulty": "Special",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 40
+    },
+    {
+      "page": "Recipe for Disaster/Freeing Sir Amik Varze",
+      "name": "Recipe for Disaster/Freeing Sir Amik Varze",
+      "difficulty": "Special",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 60
+    },
+    {
+      "page": "Recipe for Disaster/Freeing King Awowogei",
+      "name": "Recipe for Disaster/Freeing King Awowogei",
+      "difficulty": "Special",
+      "length": "Long",
+      "source": "members",
+      "favourCost": 80
+    },
+    {
+      "page": "Recipe for Disaster/Freeing Skrach Uglogwee",
+      "name": "Recipe for Disaster/Freeing Skrach Uglogwee",
+      "difficulty": "Special",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 60
+    },
+    {
+      "page": "A Taste of Hope",
+      "name": "A Taste of Hope",
+      "difficulty": "Experienced",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 15
+    },
+    {
+      "page": "Tale of the Righteous",
+      "name": "Tale of the Righteous",
+      "difficulty": "Intermediate",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 6
+    },
+    {
+      "page": "Making Friends with My Arm",
+      "name": "Making Friends with My Arm",
+      "difficulty": "Master",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 30
+    },
+    {
+      "page": "Recipe for Disaster/Defeating the Culinaromancer",
+      "name": "Recipe for Disaster/Defeating the Culinaromancer",
+      "difficulty": "Special",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 40
+    },
+    {
+      "page": "Song of the Elves",
+      "name": "Song of the Elves",
+      "difficulty": "Grandmaster",
+      "length": "Very Long",
+      "source": "members",
+      "favourCost": 75
+    },
+    {
+      "page": "The Ascent of Arceuus",
+      "name": "The Ascent of Arceuus",
+      "difficulty": "Intermediate",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 6
+    },
+    {
+      "page": "The Forsaken Tower",
+      "name": "The Forsaken Tower",
+      "difficulty": "Intermediate",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 6
+    },
+    {
+      "page": "The Fremennik Exiles",
+      "name": "The Fremennik Exiles",
+      "difficulty": "Master",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 30
+    },
+    {
+      "page": "The Curse of Arrav",
+      "name": "The Curse of Arrav",
+      "difficulty": "Master",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 30
+    },
+    {
+      "page": "Defender of Varrock",
+      "name": "Defender of Varrock",
+      "difficulty": "Experienced",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 15
+    },
+    {
+      "page": "Sins of the Father",
+      "name": "Sins of the Father",
+      "difficulty": "Master",
+      "length": "Long",
+      "source": "members",
+      "favourCost": 40
+    },
+    {
+      "page": "A Kingdom Divided",
+      "name": "A Kingdom Divided",
+      "difficulty": "Experienced",
+      "length": "Long",
+      "source": "members",
+      "favourCost": 20
+    },
+    {
+      "page": "A Porcine of Interest",
+      "name": "A Porcine of Interest",
+      "difficulty": "Novice",
+      "length": "Very Short",
+      "source": "members",
+      "favourCost": 1
+    },
+    {
+      "page": "Getting Ahead",
+      "name": "Getting Ahead",
+      "difficulty": "Intermediate",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 6
+    },
+    {
+      "page": "A Night at the Theatre",
+      "name": "A Night at the Theatre",
+      "difficulty": "Master",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 30
+    },
+    {
+      "page": "Beneath Cursed Sands",
+      "name": "Beneath Cursed Sands",
+      "difficulty": "Master",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 30
+    },
+    {
+      "page": "Temple of the Eye",
+      "name": "Temple of the Eye",
+      "difficulty": "Intermediate",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 6
+    },
+    {
+      "page": "The Path of Glouphrie",
+      "name": "The Path of Glouphrie",
+      "difficulty": "Experienced",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 15
+    },
+    {
+      "page": "Sleeping Giants",
+      "name": "Sleeping Giants",
+      "difficulty": "Intermediate",
+      "length": "Very Short",
+      "source": "members",
+      "favourCost": 3
+    },
+    {
+      "page": "The Garden of Death",
+      "name": "The Garden of Death",
+      "difficulty": "Intermediate",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 6
+    },
+    {
+      "page": "Desert Treasure II - The Fallen Empire",
+      "name": "Desert Treasure II - The Fallen Empire",
+      "difficulty": "Grandmaster",
+      "length": "Very Long",
+      "source": "members",
+      "favourCost": 75
+    },
+    {
+      "page": "Secrets of the North",
+      "name": "Secrets of the North",
+      "difficulty": "Master",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 30
+    },
+    {
+      "page": "Children of the Sun",
+      "name": "Children of the Sun",
+      "difficulty": "Novice",
+      "length": "Very Short",
+      "source": "members",
+      "favourCost": 1
+    },
+    {
+      "page": "Perilous Moons",
+      "name": "Perilous Moons",
+      "difficulty": "Master",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 30
+    },
+    {
+      "page": "The Ribbiting Tale of a Lily Pad Labour Dispute",
+      "name": "The Ribbiting Tale of a Lily Pad Labour Dispute",
+      "difficulty": "Novice",
+      "length": "Very Short",
+      "source": "members",
+      "favourCost": 1
+    },
+    {
+      "page": "Twilight's Promise",
+      "name": "Twilight's Promise",
+      "difficulty": "Intermediate",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 6
+    },
+    {
+      "page": "At First Light",
+      "name": "At First Light",
+      "difficulty": "Intermediate",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 6
+    },
+    {
+      "page": "The Heart of Darkness",
+      "name": "The Heart of Darkness",
+      "difficulty": "Experienced",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 15
+    },
+    {
+      "page": "Death on the Isle",
+      "name": "Death on the Isle",
+      "difficulty": "Intermediate",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 9
+    },
+    {
+      "page": "Meat and Greet",
+      "name": "Meat and Greet",
+      "difficulty": "Experienced",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 10
+    },
+    {
+      "page": "Ethically Acquired Antiquities",
+      "name": "Ethically Acquired Antiquities",
+      "difficulty": "Novice",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 2
+    },
+    {
+      "page": "The Blood Moon Rises",
+      "name": "The Blood Moon Rises",
+      "difficulty": "Grandmaster",
+      "length": "Very Long",
+      "source": "members",
+      "favourCost": 75
+    },
+    {
+      "page": "The Final Dawn",
+      "name": "The Final Dawn",
+      "difficulty": "Master",
+      "length": "Long",
+      "source": "members",
+      "favourCost": 40
+    },
+    {
+      "page": "Pandemonium",
+      "name": "Pandemonium",
+      "difficulty": "Novice",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 2
+    },
+    {
+      "page": "Prying Times",
+      "name": "Prying Times",
+      "difficulty": "Intermediate",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 6
+    },
+    {
+      "page": "Current Affairs",
+      "name": "Current Affairs",
+      "difficulty": "Novice",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 2
+    },
+    {
+      "page": "Troubled Tortugans",
+      "name": "Troubled Tortugans",
+      "difficulty": "Experienced",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 15
+    },
+    {
+      "page": "The Red Reef",
+      "name": "The Red Reef",
+      "difficulty": "Experienced",
+      "length": "Medium",
+      "source": "members",
+      "favourCost": 15
+    },
+    {
+      "page": "Shadows of Custodia",
+      "name": "Shadows of Custodia",
+      "difficulty": "Experienced",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 10
+    },
+    {
+      "page": "Scrambled!",
+      "name": "Scrambled!",
+      "difficulty": "Intermediate",
+      "length": "Short",
+      "source": "members",
+      "favourCost": 6
+    },
+    {
+      "page": "Alfred Grimhand's Barcrawl",
+      "name": "Alfred Grimhand's Barcrawl",
+      "difficulty": "Novice",
+      "length": "Medium",
+      "source": "miniquest",
+      "favourCost": 3
+    },
+    {
+      "page": "Enter the Abyss",
+      "name": "Enter the Abyss",
+      "difficulty": "Intermediate",
+      "length": "Very Short",
+      "source": "miniquest",
+      "favourCost": 3
+    },
+    {
+      "page": "The General's Shadow",
+      "name": "The General's Shadow",
+      "difficulty": "Experienced",
+      "length": "Medium",
+      "source": "miniquest",
+      "favourCost": 15
+    },
+    {
+      "page": "Barbarian Training",
+      "name": "Barbarian Training",
+      "difficulty": "Experienced",
+      "length": "Medium",
+      "source": "miniquest",
+      "favourCost": 15
+    },
+    {
+      "page": "Skippy and the Mogres",
+      "name": "Skippy and the Mogres",
+      "difficulty": "Novice",
+      "length": "Very Short",
+      "source": "miniquest",
+      "favourCost": 1
+    },
+    {
+      "page": "Curse of the Empty Lord",
+      "name": "Curse of the Empty Lord",
+      "difficulty": "Experienced",
+      "length": "Medium",
+      "source": "miniquest",
+      "favourCost": 15
+    },
+    {
+      "page": "Lair of Tarn Razorlor",
+      "name": "Lair of Tarn Razorlor",
+      "difficulty": "Experienced",
+      "length": "Medium",
+      "source": "miniquest",
+      "favourCost": 15
+    },
+    {
+      "page": "Bear Your Soul",
+      "name": "Bear Your Soul",
+      "difficulty": "Intermediate",
+      "length": "Short",
+      "source": "miniquest",
+      "favourCost": 6
+    },
+    {
+      "page": "The Enchanted Key",
+      "name": "The Enchanted Key",
+      "difficulty": "Intermediate",
+      "length": "Medium",
+      "source": "miniquest",
+      "favourCost": 9
+    },
+    {
+      "page": "Mage Arena I",
+      "name": "Mage Arena I",
+      "difficulty": "Experienced",
+      "length": "Short",
+      "source": "miniquest",
+      "favourCost": 10
+    },
+    {
+      "page": "Family Pest",
+      "name": "Family Pest",
+      "difficulty": "Intermediate",
+      "length": "Short",
+      "source": "miniquest",
+      "favourCost": 6
+    },
+    {
+      "page": "Mage Arena II",
+      "name": "Mage Arena II",
+      "difficulty": "Master",
+      "length": "Medium",
+      "source": "miniquest",
+      "favourCost": 30
+    },
+    {
+      "page": "In Search of Knowledge",
+      "name": "In Search of Knowledge",
+      "difficulty": "Experienced",
+      "length": "Medium",
+      "source": "miniquest",
+      "favourCost": 15
+    },
+    {
+      "page": "Daddy's Home",
+      "name": "Daddy's Home",
+      "difficulty": "Novice",
+      "length": "Short",
+      "source": "miniquest",
+      "favourCost": 2
+    },
+    {
+      "page": "The Frozen Door",
+      "name": "The Frozen Door",
+      "difficulty": "Master",
+      "length": "Short",
+      "source": "miniquest",
+      "favourCost": 20
+    },
+    {
+      "page": "Hopespear's Will",
+      "name": "Hopespear's Will",
+      "difficulty": "Master",
+      "length": "Short",
+      "source": "miniquest",
+      "favourCost": 20
+    },
+    {
+      "page": "Into the Tombs",
+      "name": "Into the Tombs",
+      "difficulty": "Master",
+      "length": "Medium",
+      "source": "miniquest",
+      "favourCost": 30
+    },
+    {
+      "page": "His Faithful Servants",
+      "name": "His Faithful Servants",
+      "difficulty": "Experienced",
+      "length": "Very Short",
+      "source": "miniquest",
+      "favourCost": 5
+    },
+    {
+      "page": "Vale Totems",
+      "name": "Vale Totems",
+      "difficulty": "Novice",
+      "length": "Very Short",
+      "source": "miniquest",
+      "favourCost": 1
+    }
+  ]
+}

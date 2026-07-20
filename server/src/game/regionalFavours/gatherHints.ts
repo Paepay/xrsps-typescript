@@ -32,7 +32,6 @@ import {
     ITEM_COWHIDE,
     ITEM_EGG,
     ITEM_FIRE_RUNE,
-    ITEM_FLOWERS,
     ITEM_GARLIC,
     ITEM_IRON_ARROW,
     ITEM_IRON_BAR,
@@ -150,8 +149,9 @@ export function initGatherHintsFromWorld(deps: {
     const next = new Map<number, GatherHintSpec>();
     const { index } = deps;
 
-    // ——— Field crops (onion / potato / cabbage / wheat→flour) ———
+    // ——— Field crops (onion / potato / cabbage / wheat→flour / berry bushes) ———
     for (const crop of FIELD_CROP_DEFINITIONS) {
+        if (crop.itemId === undefined) continue;
         const area = index.getBoundsForLocIds(crop.locIds, 32);
         if (!area) continue;
         // Flour favours use pot of flour; point at wheat fields.
@@ -161,16 +161,19 @@ export function initGatherHintsFromWorld(deps: {
                 objectNames: ["Wheat"],
             });
         }
+        const cropObjectNames: Record<string, readonly string[]> = {
+            onion: ["Onion"],
+            potato: ["Potato"],
+            cabbage: ["Cabbage"],
+            wheat: ["Wheat"],
+            redberry_full: ["Redberry bush"],
+            redberry_one: ["Redberry bush"],
+            cadava_full: ["Cadava bush"],
+            cadava_one: ["Cadava bush"],
+        };
         setHint(next, crop.itemId, {
             area,
-            objectNames:
-                crop.id === "onion"
-                    ? ["Onion"]
-                    : crop.id === "potato"
-                      ? ["Potato"]
-                      : crop.id === "cabbage"
-                        ? ["Cabbage"]
-                        : ["Wheat"],
+            objectNames: cropObjectNames[crop.id] ?? [crop.id],
         });
     }
 
@@ -331,7 +334,7 @@ export function initGatherHintsFromWorld(deps: {
         });
     }
 
-    // ——— Berry bushes / flowers by scenery name ———
+    // ——— Berry bushes by scenery name ———
     const redberry = index.getBoundsForLocNames(["Redberry bush"], 24);
     if (redberry) {
         setHint(next, 1951, { area: redberry, objectNames: ["Redberry bush"] });
@@ -339,13 +342,6 @@ export function initGatherHintsFromWorld(deps: {
     const cadava = index.getBoundsForLocNames(["Cadava bush"], 24);
     if (cadava) {
         setHint(next, 753, { area: cadava, objectNames: ["Cadava bush"] });
-    }
-    const flowers = index.getBoundsForLocNames(["Orange flowers", "Flowers"], 24);
-    if (flowers) {
-        setHint(next, ITEM_FLOWERS, {
-            area: flowers,
-            objectNames: ["Orange flowers", "Flowers"],
-        });
     }
 
     // Manual overrides win for ambiguous shop/process items.

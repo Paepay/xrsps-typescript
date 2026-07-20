@@ -1340,7 +1340,8 @@ export class SkillActionHandler {
     }
 
     /**
-     * Pick wild field crops (onion, potato, cabbage, wheat). No Farming XP.
+     * Pick wild field crops / berry bushes (onion, potato, cabbage, wheat, etc.).
+     * No Farming XP.
      */
     executeSkillPickPlantAction(
         player: PlayerState,
@@ -1356,6 +1357,20 @@ export class SkillActionHandler {
             return this.failGatheringPrecheck(player, "", "invalid_plant");
         }
 
+        // Empty bushes stay clickable (Pick-from) and must speak before the
+        // respawn-depletion gate — the tile is tracked while berries regrow.
+        if (def.emptyMessage) {
+            const effects: ActionEffect[] = [
+                this.services.buildSkillMessageEffect(player, def.emptyMessage),
+            ];
+            return {
+                ok: true,
+                cooldownTicks: FIELD_CROP_PICK_DELAY_TICKS,
+                groups: ["skill.pick_plant"],
+                effects,
+            };
+        }
+
         if (this.services.isFieldCropDepleted(tile, plane)) {
             return this.failGatheringPrecheck(player, "", "plant_depleted");
         }
@@ -1369,6 +1384,9 @@ export class SkillActionHandler {
         }
 
         const loot = rollFieldCropLoot(def);
+        if (!loot) {
+            return this.failGatheringPrecheck(player, "", "invalid_plant");
+        }
         const effects: ActionEffect[] = [];
 
         this.services.faceGatheringTarget(player, tile);
@@ -1381,17 +1399,20 @@ export class SkillActionHandler {
             plane,
         );
 
-        const respawnTicks = resolveFieldCropRespawnTicks(def.respawn);
-        this.services.markFieldCropDepleted(
-            {
-                tile,
-                level: plane,
-                locId,
-                respawnTicks,
-            },
-            tick,
-        );
         this.services.emitLocChange(locId, def.depletedLocId ?? 0, tile, plane);
+
+        if (def.scheduleRespawn !== false) {
+            const respawnTicks = resolveFieldCropRespawnTicks(def.respawn);
+            this.services.markFieldCropDepleted(
+                {
+                    tile,
+                    level: plane,
+                    locId: def.respawnLocId ?? locId,
+                    respawnTicks,
+                },
+                tick,
+            );
+        }
 
         const result = this.services.addItemToInventory(player, loot.itemId, 1);
         if (result.added > 0) {

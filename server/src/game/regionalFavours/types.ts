@@ -141,6 +141,11 @@ export type RegionalFavourPlayerState = {
     completedCount: number;
     skipsAvailable: number;
     completedSinceLastSkip: number;
+    /**
+     * Favour points earned from completing regional favours (not seek-contact).
+     * Spent to purchase quest completions (wiki Difficulty × Length).
+     */
+    favourPoints: number;
     /** Queue of combat lamp XP amounts awaiting rub/claim. */
     pendingCombatLampXp: number[];
     /** Whether the on-screen favour HUD is visible. */
@@ -162,6 +167,7 @@ export const emptyRegionalFavourPlayerState = (): RegionalFavourPlayerState => (
     completedCount: 0,
     skipsAvailable: 1,
     completedSinceLastSkip: 0,
+    favourPoints: 0,
     pendingCombatLampXp: [],
     hudVisible: false,
 });
@@ -180,4 +186,6 @@ export type RegionalFavourHudPayload = {
     hasActiveFavour: boolean;
     /** Human-readable reward summary for the $ HUD button. */
     rewardPreview: string;
+    /** Favour points available to spend on quest completions. */
+    favourPoints: number;
 };

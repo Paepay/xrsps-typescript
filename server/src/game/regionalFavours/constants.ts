@@ -74,8 +74,6 @@ export const ITEM_SWAMP_TAR = 1939;
 export const ITEM_ASHES = 592;
 export const ITEM_CHARCOAL = 973;
 export const ITEM_ATTACK_POTION3 = 121;
-export const ITEM_FLOWERS = 2460;
-
 /** Misthalin NPC type ids (from server/data/npc-spawns.json). */
 export const NpcIds = {
     Hans: 3105,

@@ -294,6 +294,7 @@ export type RegionalFavourHudEvent = {
     complete: boolean;
     hasActiveFavour: boolean;
     rewardPreview: string;
+    favourPoints: number;
 };
 
 export type PlayerAnimPayload = {

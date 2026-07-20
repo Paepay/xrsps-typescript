@@ -562,6 +562,7 @@ export type ServerToClient =
               complete?: boolean;
               hasActiveFavour?: boolean;
               rewardPreview?: string;
+              favourPoints?: number;
           };
       }
     | {

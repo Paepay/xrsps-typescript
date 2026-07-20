@@ -4,6 +4,8 @@ import {
     type QuestCompletionDef,
     type QuestProgressKind,
 } from "./questCompletions.data";
+import { findQuestFavourCost } from "./questFavourCosts";
+import type { RegionalFavourPlayerState } from "../regionalFavours/types";
 
 /** Varp: total quest points (drop tables / UI). */
 export const VARP_QUEST_POINTS = 101;
@@ -125,6 +127,73 @@ export function applyQuestCompletionDef(
         services,
         false,
     );
+}
+
+export type PurchaseQuestResult =
+    | { ok: true; quest: QuestCompletionDef; cost: number; favourRemaining: number }
+    | {
+          ok: false;
+          reason:
+              | "unknown_quest"
+              | "no_cost"
+              | "already_complete"
+              | "insufficient_favour";
+          quest?: QuestCompletionDef;
+          cost?: number;
+          favourPoints?: number;
+      };
+
+type FavourPointPlayer = PlayerState & {
+    getRegionalFavourState(): RegionalFavourPlayerState;
+    setRegionalFavourState(state: RegionalFavourPlayerState): void;
+};
+
+/**
+ * Spend Favour points (Difficulty × Length from wiki) to mark a quest complete.
+ */
+export function purchaseQuestCompletion(
+    player: FavourPointPlayer,
+    search: string,
+    services: QuestVarServices,
+): PurchaseQuestResult {
+    const quest = findQuestCompletion(search);
+    if (!quest) {
+        return { ok: false, reason: "unknown_quest" };
+    }
+    if (isQuestCompleteForPlayer(player, quest)) {
+        return { ok: false, reason: "already_complete", quest };
+    }
+
+    const costDef = findQuestFavourCost(quest.name);
+    if (!costDef) {
+        return { ok: false, reason: "no_cost", quest };
+    }
+    const cost = costDef.favourCost;
+
+    const favourState = player.getRegionalFavourState();
+    const favourPoints = favourState.favourPoints | 0;
+    if (favourPoints < cost) {
+        return {
+            ok: false,
+            reason: "insufficient_favour",
+            quest,
+            cost,
+            favourPoints,
+        };
+    }
+
+    const nextFavour = favourPoints - cost;
+    const favourStateNext = player.getRegionalFavourState();
+    favourStateNext.favourPoints = nextFavour;
+    player.setRegionalFavourState(favourStateNext);
+    applyQuestCompletionDef(player, quest, services);
+
+    return {
+        ok: true,
+        quest,
+        cost,
+        favourRemaining: nextFavour,
+    };
 }
 
 export function applyAllQuestCompletions(

@@ -10,6 +10,13 @@ import { initCacheEnv } from "../../world/CacheEnv";
 import { computeRegionalReward } from "./rewards";
 import { generateRegionalFavour, isCombatFavour } from "./generator";
 import {
+    formatBonusLootPreviewHint,
+    playerMeetsItemRequirements,
+    rollFavourBonusLoot,
+    toNotedItemId,
+} from "./bonusLoot";
+import { ITEM_PURE_ESSENCE, REGION_TALISMANS } from "./bonusLootTables";
+import {
     getAllRegionalFavourDefinitions,
     getAllRegionalFavourNpcTypeIdsForScripts,
     getRegionalFavourDefinition,
@@ -282,6 +289,122 @@ assert(
     "seek objective text",
 );
 
+// ——— Bonus loot on favour completion ———
+{
+    const combatDef = mistDefs.find((d) => isCombatFavour(d));
+    assert(!!combatDef, "need a combat favour for bonus loot tests");
+    assert(
+        formatBonusLootPreviewHint(combatDef!).includes("armour"),
+        "combat preview hints armour",
+    );
+
+    const miner = {
+        getCombatLevel: () => 40,
+        getSkillBaseLevel: (skillId: number) => {
+            if (skillId === SkillId.Mining) return 60;
+            if (skillId === SkillId.Defence) return 40;
+            if (skillId === SkillId.Ranged) return 50;
+            if (skillId === SkillId.Magic) return 45;
+            return 30;
+        },
+    };
+
+    // Forced hit: random() first call is chance gate (< 0.22 for very_easy … use 0).
+    const forced = rollFavourBonusLoot(combatDef!, miner, () => 0);
+    assert(!!forced, "combat favour bonus loot rolls when chance hits");
+    assert(forced!.quantity === 1, "armour bonus is a single piece");
+    assert(forced!.itemId > 0, "armour has item id");
+
+    // Forced miss
+    assert(
+        rollFavourBonusLoot(combatDef!, miner, () => 0.99) === undefined,
+        "bonus loot can miss",
+    );
+
+    const speakDef = mistDefs.find((d) => d.category === "SPEAK_TO_NPC");
+    assert(!!speakDef, "need speak favour");
+    assert(
+        rollFavourBonusLoot(speakDef!, miner, () => 0) === undefined,
+        "courier favours never roll bonus loot",
+    );
+    assert(formatBonusLootPreviewHint(speakDef!) === "", "no bonus hint on speak");
+
+    const miningDef = mistDefs.find(
+        (d) => !isCombatFavour(d) && d.recommendedSkillId === SkillId.Mining,
+    );
+    assert(!!miningDef, "need mining favour");
+    const miningLoot = rollFavourBonusLoot(miningDef!, miner, () => 0);
+    assert(!!miningLoot, "mining favour rolls material bonus");
+    assert(miningLoot!.quantity >= 5, "mining materials come in quantity");
+    // Noted ores use noteId linkage (e.g. iron ore 440 → 441).
+    assert(toNotedItemId(440) === 441, "iron ore notes to 441");
+    assert(toNotedItemId(ITEM_PURE_ESSENCE) === 7937, "pure essence notes");
+
+    // Low-level players must never receive gear they cannot wear.
+    const newbie = {
+        getCombatLevel: () => 3,
+        getSkillBaseLevel: () => 1,
+    };
+    for (let i = 0; i < 40; i++) {
+        const loot = rollFavourBonusLoot(combatDef!, newbie, () => 0);
+        if (!loot) continue;
+        assert(
+            playerMeetsItemRequirements(loot.itemId, newbie),
+            `newbie must meet wear reqs for ${loot.displayName} (${loot.itemId})`,
+        );
+        // Rune / mystic / d'hide are gated by requirements arrays.
+        assert(loot.itemId !== 1127, "CB1 must not receive rune platebody");
+        assert(loot.itemId !== 4089, "lvl1 magic must not receive mystic hat");
+    }
+
+    // Mining: only ores at or below the player's mining level.
+    const lowMiner = {
+        getCombatLevel: () => 10,
+        getSkillBaseLevel: (skillId: number) => (skillId === SkillId.Mining ? 14 : 1),
+    };
+    for (let i = 0; i < 30; i++) {
+        const loot = rollFavourBonusLoot(miningDef!, lowMiner, () => 0);
+        assert(!!loot, "low miner still gets some ore bonus");
+        // Unnoted base of noted iron/mithril/etc must not appear below their mine level.
+        const base =
+            loot!.itemId === 441
+                ? 440
+                : loot!.itemId === 448
+                  ? 447
+                  : loot!.itemId === 450
+                    ? 449
+                    : loot!.itemId === 452
+                      ? 451
+                      : loot!.itemId === 437 || loot!.itemId === 439
+                        ? loot!.itemId - 1
+                        : loot!.itemId;
+        assert(
+            base === 436 || base === 438,
+            `mining 14 must only get copper/tin (got ${loot!.displayName})`,
+        );
+    }
+
+    const rcDef = mistDefs.find((d) => d.recommendedSkillId === SkillId.Runecraft);
+    if (rcDef) {
+        assert(
+            formatBonusLootPreviewHint(rcDef).includes("essence"),
+            "RC preview mentions essence/talisman",
+        );
+        // Force essence path: chance hit (0), then talisman roll fails (>= 0.35).
+        let calls = 0;
+        const rcLoot = rollFavourBonusLoot(rcDef, miner, () => {
+            calls++;
+            return calls === 1 ? 0 : 0.9;
+        });
+        assert(!!rcLoot, "RC favour rolls bonus");
+        assert(
+            rcLoot!.itemId === toNotedItemId(ITEM_PURE_ESSENCE) ||
+                (REGION_TALISMANS.misthalin ?? []).includes(rcLoot!.itemId),
+            "RC bonus is essence or Misthalin talisman",
+        );
+    }
+}
+
 console.log(
     JSON.stringify(
         {
@@ -291,6 +414,7 @@ console.log(
             excluded: MISTHALIN_EXCLUDED_NOTES.length,
             hintCoverageOk: true,
             onionHintArea: onionHint?.area,
+            bonusLootOk: true,
         },
         null,
         2,

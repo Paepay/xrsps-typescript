@@ -1564,6 +1564,7 @@ export class ServerBinaryEncoder {
         complete?: boolean;
         hasActiveFavour?: boolean;
         rewardPreview?: string;
+        favourPoints?: number;
     }): Uint8Array {
         this.buffer.reset();
         this.buffer.writeByte(payload.visible ? 1 : 0);
@@ -1576,6 +1577,7 @@ export class ServerBinaryEncoder {
         this.buffer.writeByte(payload.complete ? 1 : 0);
         this.buffer.writeByte(payload.hasActiveFavour ? 1 : 0);
         this.buffer.writeString(payload.rewardPreview ?? "");
+        this.buffer.writeShort(Math.max(0, Math.min(65535, payload.favourPoints ?? 0)));
         return this.buffer.toPacket(ServerPacketId.REGIONAL_FAVOUR_HUD);
     }
 

@@ -4,6 +4,8 @@ export * from "./regions";
 export * from "./contacts";
 export * from "./registry";
 export * from "./generator";
+export * from "./bonusLoot";
+export * from "./bonusLootTables";
 export * from "./gatherHints";
 export * from "./hintCoverage";
 export * from "./hintTarget";

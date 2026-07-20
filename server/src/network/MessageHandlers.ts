@@ -20,6 +20,7 @@ import {
     findQuestCompletion,
     getAllQuestCompletions,
 } from "../game/quests/questCompletions";
+import { findQuestFavourCost } from "../game/quests/questFavourCosts";
 import type { NpcState } from "../game/npc";
 import type { PlayerState } from "../game/player";
 import {
@@ -1155,11 +1156,32 @@ function handleQuestCommand(
         reply(
             key
                 ? `${matches.length} quest(s) matching "${args.slice(1).join(" ")}": ${matches.map((q) => q.name).join(", ") || "(none)"}`
-                : `${quests.length} quests loaded from cache. Usage: ::quest <name> | ::quest list <filter> | ::allquests`,
+                : `${quests.length} quests loaded. Click a quest in the Quest List to buy with Favour. Usage: ::quest list <filter> | ::quest cost <name> | ::allquests`,
         );
         return;
     }
 
+    // ::quest cost <name> — preview only
+    if (args[0] === "cost" || args[0] === "price") {
+        const search = args.slice(1).join(" ");
+        const quest = findQuestCompletion(search);
+        if (!quest) {
+            reply(`Unknown quest "${search}". Try ::quest list <filter>.`);
+            return;
+        }
+        const costDef = findQuestFavourCost(quest.name);
+        if (!costDef) {
+            reply(`"${quest.name}" has no Favour cost (missing wiki Difficulty/Length).`);
+            return;
+        }
+        const favourPoints = sender.getRegionalFavourState().favourPoints | 0;
+        reply(
+            `"${quest.name}" costs ${costDef.favourCost} Favour (${costDef.difficulty} × ${costDef.length}). You have ${favourPoints}.`,
+        );
+        return;
+    }
+
+    // Free debug complete (admin/testing). Players purchase via the Quest List dialogue.
     const quest = findQuestCompletion(args.join(" "));
     if (!quest) {
         reply(`Unknown quest "${args.join(" ")}". Try ::quest list <filter>.`);
@@ -1301,7 +1323,7 @@ function createChatHandler(services: MessageHandlerServices): MessageHandler<"ch
                     } else {
                         services.queueChatMessage({
                             messageType: "game",
-                            text: "Usage: ::favour [status|show|hide|abandon|skip|reclaim] — status toggles the HUD",
+                            text: "Usage: ::favour [status|show|hide|abandon|skip|reclaim] — status shows Favour points + HUD",
                             targetPlayerIds: [sender.id],
                         });
                     }

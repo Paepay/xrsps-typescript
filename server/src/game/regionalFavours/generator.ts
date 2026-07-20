@@ -10,6 +10,7 @@ import { getRelatedNpcs } from "./relationships";
 import { getRegionalFavoursForGiver, getRegionalFavoursForRegion } from "./registry";
 import { pickWeighted, rollAmount } from "./weightedRandom";
 import { computeRegionalReward } from "./rewards";
+import { formatBonusLootPreviewHint } from "./bonusLoot";
 import type {
     ActiveRegionalFavour,
     RegionalFavourDefinition,
@@ -410,19 +411,24 @@ export function generateRegionalFavour(
     return { def: selected, active };
 }
 
-export function formatRewardPreview(active: ActiveRegionalFavour): string {
+export function formatRewardPreview(
+    active: ActiveRegionalFavour,
+    def?: RegionalFavourDefinition,
+): string {
+    const favourSuffix = " + 1 Favour";
+    const bonusHint = def ? formatBonusLootPreviewHint(def) : "";
     if (active.rewardKind === "combat_lamp") {
-        return `${active.coinReward} coins + combat XP lamp (${active.xpReward} XP)`;
+        return `${active.coinReward} coins + combat XP lamp (${active.xpReward} XP)${favourSuffix}${bonusHint}`;
     }
     if (active.rewardKind === "split_xp" && active.splitSkills?.length) {
         const share = Math.floor(active.xpReward / active.splitSkills.length);
         const skills = active.splitSkills.map((s) => getSkillName(s)).join(", ");
-        return `${active.coinReward} coins + ${share} XP in ${skills}`;
+        return `${active.coinReward} coins + ${share} XP in ${skills}${favourSuffix}${bonusHint}`;
     }
     if (active.rewardSkillId !== undefined && active.xpReward > 0) {
-        return `${active.coinReward} coins + ${active.xpReward} ${getSkillName(active.rewardSkillId)} XP`;
+        return `${active.coinReward} coins + ${active.xpReward} ${getSkillName(active.rewardSkillId)} XP${favourSuffix}${bonusHint}`;
     }
-    return `${active.coinReward} coins`;
+    return `${active.coinReward} coins${favourSuffix}${bonusHint}`;
 }
 
 export function formatActiveFavourStatus(active: ActiveRegionalFavour, def?: RegionalFavourDefinition): string[] {
@@ -438,9 +444,9 @@ export function formatActiveFavourStatus(active: ActiveRegionalFavour, def?: Reg
     }
     if (active.objectiveComplete) {
         lines.push("Favour complete — return to turn in for your reward.");
-        lines.push(`Reward: ${formatRewardPreview(active)}`);
+        lines.push(`Reward: ${formatRewardPreview(active, def)}`);
     } else {
-        lines.push(`Reward preview: ${formatRewardPreview(active)}`);
+        lines.push(`Reward preview: ${formatRewardPreview(active, def)}`);
     }
     return lines;
 }

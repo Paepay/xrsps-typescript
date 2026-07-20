@@ -1,11 +1,11 @@
 import {
     ALL_FIELD_CROP_LOC_IDS,
     FIELD_CROP_PICK_DELAY_TICKS,
+    getFieldCropActions,
     isFieldCropLocId,
 } from "../../../skills/fieldCrops";
 import { type ScriptModule } from "../../types";
 
-const PICK_ACTIONS = ["pick"];
 const PICK_PLANT_GROUP = "skill.pick_plant";
 
 export const fieldCropsModule: ScriptModule = {
@@ -46,7 +46,7 @@ export const fieldCropsModule: ScriptModule = {
         };
 
         for (const locId of ALL_FIELD_CROP_LOC_IDS) {
-            for (const action of PICK_ACTIONS) {
+            for (const action of getFieldCropActions(locId)) {
                 registerLoc(locId, action);
             }
         }

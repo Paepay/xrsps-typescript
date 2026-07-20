@@ -394,6 +394,12 @@ export function GameContainer({ osrsClient }: OsrsContainerProps): JSX.Element {
                                                 Favour: {regionalFavourHud.regionName}
                                             </div>
                                             <div className="regional-favour-hud-actions">
+                                                <div
+                                                    className="regional-favour-hud-fp"
+                                                    title="Favour points"
+                                                >
+                                                    FP: {regionalFavourHud.favourPoints ?? 0}
+                                                </div>
                                                 <button
                                                     type="button"
                                                     className="regional-favour-hud-btn"

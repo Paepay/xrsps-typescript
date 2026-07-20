@@ -23,6 +23,7 @@ import {
     isPlayerInArea,
     recordFavourInHistory,
 } from "./generator";
+import { rollFavourBonusLoot } from "./bonusLoot";
 import { getRegionalFavourDefinition, getRegionalFavoursForGiver, getRegionalFavoursForRegion } from "./registry";
 import {
     getRegionalFavourRegionDisplayName,
@@ -38,6 +39,7 @@ import type {
     RegionalFavourRegion,
 } from "./types";
 import { emptyRegionalFavourPlayerState } from "./types";
+import { FAVOUR_POINTS_PER_TASK } from "../quests/questFavourCosts";
 
 export type RegionalFavourBridge = {
     getPlayer(playerId: number): RegionalFavourHostPlayer | undefined;
@@ -137,6 +139,7 @@ function regionForNpc(npcId: number): RegionalFavourRegion {
 function buildSeekContactHud(
     region: RegionalFavourRegion,
     regionName: string,
+    favourPoints: number,
 ): RegionalFavourHudPayload {
     const contact = getRegionalContact(region);
     if (!contact) {
@@ -151,6 +154,7 @@ function buildSeekContactHud(
             complete: false,
             hasActiveFavour: false,
             rewardPreview: "",
+            favourPoints,
         };
     }
     return {
@@ -164,6 +168,7 @@ function buildSeekContactHud(
         complete: false,
         hasActiveFavour: false,
         rewardPreview: "",
+        favourPoints,
     };
 }
 
@@ -235,6 +240,9 @@ export class RegionalFavourService {
     }
 
     sendStatus(player: RegionalFavourHostPlayer): void {
+        const favourPoints = player.getRegionalFavourState().favourPoints | 0;
+        this.bridge.queueChat(player.id, `Favour points: ${favourPoints}`);
+
         const region = this.getPlayerRegion(player);
         const active = this.getActive(player, region);
         if (!region) {
@@ -451,6 +459,7 @@ export class RegionalFavourService {
 
     buildHudPayload(player: RegionalFavourHostPlayer): RegionalFavourHudPayload {
         const state = player.getRegionalFavourState();
+        const favourPoints = Math.max(0, state.favourPoints ?? 0) | 0;
         if (!state.hudVisible) {
             return {
                 visible: false,
@@ -463,6 +472,7 @@ export class RegionalFavourService {
                 complete: false,
                 hasActiveFavour: false,
                 rewardPreview: "",
+                favourPoints,
             };
         }
         const region = this.getPlayerRegion(player);
@@ -478,20 +488,21 @@ export class RegionalFavourService {
                 complete: false,
                 hasActiveFavour: false,
                 rewardPreview: "",
+                favourPoints,
             };
         }
         const regionName = getRegionalFavourRegionDisplayName(region);
         const active = this.getActive(player, region);
         if (!active) {
             // Fallback if ensure couldn't run (no contact defined).
-            return buildSeekContactHud(region, regionName);
+            return buildSeekContactHud(region, regionName, favourPoints);
         }
         const def = getRegionalFavourDefinition(active.favourId);
         const seek = isSeekContactFavourId(active.favourId);
         return {
             visible: true,
             regionName,
-            objective: active.objectiveText,
+            objective: def?.objectiveText ?? active.objectiveText,
             progress: Math.min(active.progress, active.requiredAmount),
             required: active.requiredAmount,
             turnInName: npcName(active.turnInNpcId),
@@ -500,7 +511,8 @@ export class RegionalFavourService {
             hasActiveFavour: true,
             rewardPreview: seek
                 ? "Speak to them for a favour (no reward for finding them)"
-                : formatRewardPreview(active),
+                : formatRewardPreview(active, def),
+            favourPoints,
         };
     }
 
@@ -1078,6 +1090,32 @@ export class RegionalFavourService {
         return this.grantRewards(player, refreshed, def);
     }
 
+    /**
+     * Optional bonus item on top of coins/XP. Inventory-full does not block turn-in —
+     * the player already received the guaranteed reward.
+     */
+    private tryGrantBonusLoot(
+        player: RegionalFavourHostPlayer,
+        def: RegionalFavourDefinition,
+    ): void {
+        const bonus = rollFavourBonusLoot(def, playerView(player));
+        if (!bonus) return;
+
+        const added = this.bridge.addItem(player, bonus.itemId, bonus.quantity);
+        if (added.added <= 0) {
+            this.bridge.queueChat(
+                player.id,
+                `You found a bonus reward (${bonus.displayName}) but your inventory is full.`,
+            );
+            return;
+        }
+        const qtyLabel = added.added > 1 ? `${added.added} x ` : "";
+        this.bridge.queueChat(
+            player.id,
+            `Bonus reward: ${qtyLabel}${bonus.displayName}.`,
+        );
+    }
+
     /** @returns false if rewards could not be granted (inventory full, etc.). */
     private grantRewards(
         player: RegionalFavourHostPlayer,
@@ -1143,12 +1181,18 @@ export class RegionalFavourService {
             this.bridge.queueChat(player.id, `Reward: ${active.coinReward} coins.`);
         }
 
+        this.tryGrantBonusLoot(player, def);
+
         this.bridge.snapshotInventory(player);
 
+        let favourPointsAfter = 0;
         mutateState(player, (s) => {
             recordFavourInHistory(s, def);
             s.completedCount += 1;
             s.completedSinceLastSkip += 1;
+            // Seek-contact finding never reaches here; all other favours grant Favour points.
+            s.favourPoints = (s.favourPoints | 0) + FAVOUR_POINTS_PER_TASK;
+            favourPointsAfter = s.favourPoints;
             if (s.completedSinceLastSkip >= 5) {
                 s.skipsAvailable += 1;
                 s.completedSinceLastSkip = 0;
@@ -1157,6 +1201,10 @@ export class RegionalFavourService {
             ensureActiveMap(s);
             delete s.activeByRegion[region];
         });
+        this.bridge.queueChat(
+            player.id,
+            `You earned ${FAVOUR_POINTS_PER_TASK} Favour (total: ${favourPointsAfter}). Spend Favour from the Quest List to complete quests.`,
+        );
         // Do NOT assign Speak-to-contact here — the talk handler chains the next real favour.
         // Seek is only for abandon/skip / empty region (ensureSeekContactFavour).
         // Do NOT sync HUD here either — mid-chain HUD pushes can leave the client on "Please wait...".
@@ -1252,6 +1300,7 @@ export function cloneRegionalFavourState(
         completedCount: state.completedCount ?? 0,
         skipsAvailable: state.skipsAvailable ?? 1,
         completedSinceLastSkip: state.completedSinceLastSkip ?? 0,
+        favourPoints: Math.max(0, state.favourPoints ?? 0) | 0,
         pendingCombatLampXp: [...(state.pendingCombatLampXp ?? [])],
         hudVisible: !!state.hudVisible,
         lastHudRegion: state.lastHudRegion,
